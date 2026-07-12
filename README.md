@@ -23,11 +23,11 @@ netlify.toml            Netlify config (build command, publish dir, functions di
 ## Development
 
 ```sh
-npm install
+pnpm install
 cp .env.example .env    # then fill in VITE_MAPBOX_TOKEN
-npm run dev             # dev server with HMR
-npm run build           # typecheck (tsc) + production build to dist/
-npm run preview         # serve the production build locally
+pnpm dev                # dev server with HMR
+pnpm build              # typecheck (tsc) + production build to dist/
+pnpm preview            # serve the production build locally
 ```
 
 `VITE_MAPBOX_TOKEN` is a Mapbox public (`pk.`) token used by the map section.
@@ -37,7 +37,7 @@ the map section shows a fallback message.
 
 ## Deploys
 
-- **Push to `main`** → Netlify runs `npm run build` and deploys `dist/` to production at https://concerti.gabrifila.me
+- **Push to `main`** → Netlify runs `pnpm build` and deploys `dist/` to production at https://concerti.gabrifila.me
 - **Open a PR** → Netlify builds a deploy preview and links it on the PR
 
 ## Testing the function
