@@ -108,7 +108,8 @@ const queryInputSchema = z.object({
   cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them)" }),
   years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
   gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
-  groupBy: z.enum(["person", "artist", "year", "city", "venue", "type", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group counts over the matching concerts (person = one entry per companion)" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "type", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group stats (count, avg voto, costs) over the matching concerts (person = one entry per companion)" }),
+  sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
 });
 
 export type ConcertQuery = z.infer<typeof queryInputSchema>;
@@ -129,7 +130,13 @@ export const queryConcertsDef = toolDefinition({
     costKnownCount: z.number().meta({ description: "How many matching concerts have a known cost" }),
     avgCost: z.number().nullable(),
     avgVoto: z.number().nullable(),
-    groups: z.array(z.object({ key: z.string(), count: z.number() })).optional(),
+    groups: z.array(z.object({
+      key: z.string(),
+      count: z.number(),
+      totalCost: z.number(),
+      avgCost: z.number().nullable(),
+      avgVoto: z.number().nullable(),
+    })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking" }),
     concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · voto N][ · in programma]'" }),
     concertsTruncated: z.boolean(),
   }),
@@ -151,11 +158,20 @@ export function runConcertQuery(q: ConcertQuery) {
     return true;
   });
 
-  const withCost = matches.filter(d => typeof d.cost === "number");
-  const withVoto = matches.filter(d => typeof d.voto === "number");
-  const totalCost = withCost.reduce((s, d) => s + (d.cost as number), 0);
+  const costVotoStats = (list: Concert[]) => {
+    const withCost = list.filter(d => typeof d.cost === "number");
+    const withVoto = list.filter(d => typeof d.voto === "number");
+    const totalCost = withCost.reduce((s, d) => s + (d.cost as number), 0);
+    return {
+      totalCost: round2(totalCost),
+      costKnownCount: withCost.length,
+      avgCost: withCost.length ? round2(totalCost / withCost.length) : null,
+      avgVoto: withVoto.length ? round2(withVoto.reduce((s, d) => s + (d.voto as number), 0) / withVoto.length) : null,
+    };
+  };
 
-  let groups: { key: string; count: number }[] | undefined;
+  type Group = { key: string; count: number; totalCost: number; avgCost: number | null; avgVoto: number | null };
+  let groups: Group[] | undefined;
   if (q.groupBy) {
     const keysOf = (d: Concert): string[] =>
       q.groupBy === "person" ? (d.with || [])
@@ -166,19 +182,23 @@ export function runConcertQuery(q: ConcertQuery) {
       : q.groupBy === "posto" ? [d.posto]
       : q.groupBy === "vicinanza" ? [String(d.vicinanza ?? "non impostata")]
       : [d.type];
-    const counts = new Map<string, number>();
-    for (const d of matches) for (const k of keysOf(d)) counts.set(k, (counts.get(k) || 0) + 1);
-    groups = [...counts.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+    const byKey = new Map<string, Concert[]>();
+    for (const d of matches) for (const k of keysOf(d)) byKey.set(k, [...(byKey.get(k) || []), d]);
+    const sortBy = q.sortGroupsBy || "count";
+    groups = [...byKey.entries()]
+      .map(([key, list]) => {
+        const { costKnownCount: _ignored, ...stats } = costVotoStats(list);
+        return { key, count: list.length, ...stats };
+      })
+      .sort((a, b) =>
+        ((b[sortBy] ?? -Infinity) - (a[sortBy] ?? -Infinity)) || (b.count - a.count) || a.key.localeCompare(b.key));
   }
 
   return {
     count: matches.length,
     attendedCount: matches.filter(d => !isPlanned(d)).length,
     plannedCount: matches.filter(isPlanned).length,
-    totalCost: round2(totalCost),
-    costKnownCount: withCost.length,
-    avgCost: withCost.length ? round2(totalCost / withCost.length) : null,
-    avgVoto: withVoto.length ? round2(withVoto.reduce((s, d) => s + (d.voto as number), 0) / withVoto.length) : null,
+    ...costVotoStats(matches),
     ...(groups ? { groups } : {}),
     concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(d =>
       `${d.date} · ${d.artist} · ${d.venue} (${d.city})` +
