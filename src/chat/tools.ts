@@ -142,6 +142,21 @@ export const queryConcertsDef = toolDefinition({
   }),
 });
 
+/* Called by the model when a data question cannot be computed with
+   query_concerts. Server-side execute (in chat.mts) logs it, so the
+   function logs double as a wishlist of missing chat capabilities. */
+export const reportUnsupportedDef = toolDefinition({
+  name: "report_unsupported_query",
+  description:
+    "Report a data question that query_concerts cannot compute (missing filter, aggregation or capability). " +
+    "Call this INSTEAD of guessing, then tell the user you cannot compute it and that they can ask Gabri to extend the chat.",
+  inputSchema: z.object({
+    question: z.string().meta({ description: "The user's question, as asked" }),
+    missing: z.string().meta({ description: "Short description of the missing capability, e.g. 'median cost', 'filter by weekday'" }),
+  }),
+  outputSchema: z.object({ ok: z.boolean() }),
+});
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function runConcertQuery(q: ConcertQuery) {

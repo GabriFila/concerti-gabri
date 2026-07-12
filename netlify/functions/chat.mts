@@ -16,7 +16,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { ALLDATA } from "../../src/data.ts";
-import { chatToolDefs, COMPANIONS, queryConcertsDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
+import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
 // query_concerts runs here on the server: exact numbers computed by
 // code. The concert data is NOT in the prompt, so this tool is the
@@ -25,6 +25,13 @@ const queryConcertsTool = queryConcertsDef.server(input => {
   const result = runConcertQuery(input);
   console.log("query_concerts", JSON.stringify(input), "->", `count=${result.count} attended=${result.attendedCount} planned=${result.plannedCount}`);
   return result;
+});
+
+// The log line makes unanswerable questions searchable in the Netlify
+// function logs: grep "unsupported_query" to see what the chat is missing.
+const reportUnsupportedTool = reportUnsupportedDef.server(input => {
+  console.warn("unsupported_query", JSON.stringify(input));
+  return { ok: true };
 });
 
 /* Agent loop: capped rounds, but also stop as soon as the model has
@@ -138,7 +145,7 @@ STRICT SCOPE — read carefully:
 DATA ACCESS — the most important rule:
 - The concert list is NOT in this prompt. Your ONLY source of concert facts is the query_concerts tool; everything it returns is computed by code and is always right.
 - For EVERY question about the data — counts, totals, averages, rankings, dates, prices, ratings, "which/who/where/when" — first call query_concerts with the right filters, then answer using ONLY its results. Call it more than once if needed (e.g. to compare two people).
-- Never answer a data question from memory or by guessing. If the tool results do not contain the answer, say you cannot answer.
+- Never answer a data question from memory or by guessing. If a question is about the data but query_concerts cannot compute it (no matching filter, aggregation or groupBy), call report_unsupported_query, then tell the user — in their language — that this calculation isn't supported yet and they can ask Gabri to extend the chat. Do NOT attempt a partial or approximate answer instead.
 - Call tools BEFORE writing your answer, then answer exactly once. Never call a tool together with or after your answer, and never repeat a call you already made.
 - Each concert in the result reads: date · artist · venue (city) · companions ("da solo" = alone) · cost in € · "regalo" if it was a present · voto 1..5 (Gabri's rating, only after attending) · "in programma" if upcoming. The list is chronological, so the next upcoming concert is the first "in programma" line.
 
@@ -194,7 +201,7 @@ export default async (req: Request, context: { ip?: string }) => {
       adapter: geminiText(MODEL),
       messages: parsed.messages as any,
       systemPrompts: [systemPrompt()],
-      tools: [...chatToolDefs, queryConcertsTool],
+      tools: [...chatToolDefs, queryConcertsTool, reportUnsupportedTool],
       agentLoopStrategy: untilAnswered,
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
