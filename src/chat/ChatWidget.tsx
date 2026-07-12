@@ -4,8 +4,11 @@
    TanStack AI SSE connection; filter/navigation tool calls from
    the model run here in the browser through the `ctx` callbacks
    that App provides (they own the real filter state).
-   Conversations are ephemeral: no persistence, "Nuova chat" just
-   clears the in-memory messages.
+   Each conversation gets its own thread id (the server keys the
+   Redis transcript log on it, see netlify/functions/chat.mts);
+   "Nuova chat" rotates the id so a fresh conversation never
+   overwrites the previous one's log. In the browser chats stay
+   ephemeral: nothing is restored on reload.
    ────────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -38,6 +41,13 @@ const SUGGESTIONS = [
 ];
 
 const SECTION_LABEL = Object.fromEntries(SECTIONS.map(s => [s.id, s.label]));
+
+// randomUUID needs a secure context (https/localhost); fall back to the
+// same shape TanStack generates so the server-side key stays valid.
+const newChatId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 function friendlyError(err: Error | undefined): string | null {
   if (!err) return null;
@@ -87,11 +97,16 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // id + threadId together: useChat only rebuilds its client when `id`
+  // changes, so rotating both is what actually starts a new thread.
+  const [chatId, setChatId] = useState(newChatId);
   const chatOptions = useMemo(() => createChatClientOptions({
     connection: fetchServerSentEvents("/api/chat"),
     tools: [setFiltersTool, clearFiltersTool, goToSectionTool],
     context: ctx,
-  }), [ctx]);
+    id: chatId,
+    threadId: chatId,
+  }), [ctx, chatId]);
   const { messages, sendMessage, isLoading, error, clear } = useChat(chatOptions);
   const uiError = friendlyError(error);
 
@@ -130,7 +145,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
               </span>
               <div className="fp-headactions">
                 <button type="button" className={"fp-clear" + (messages.length ? "" : " dis")} disabled={!messages.length}
-                  onClick={() => clear()}>Nuova chat</button>
+                  onClick={() => { clear(); setChatId(newChatId()); }}>Nuova chat</button>
                 <button type="button" className="fp-close" onClick={() => setOpen(false)} aria-label="Chiudi">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>

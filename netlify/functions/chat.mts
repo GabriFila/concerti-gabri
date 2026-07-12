@@ -5,13 +5,21 @@
    response as SSE via TanStack AI. Filter/navigation tools have
    no `execute` here, so they run in the browser (client tools).
 
+   Conversations are persisted to Upstash Redis (same instance as
+   the rate limiter): a middleware overwrites the transcript under
+   `concerti:chat:log:<threadId>` after every completed response,
+   plus a sorted-set index (`concerti:chat:log:index`) for listing.
+   TTL-bounded, best-effort: a Redis failure never breaks the chat.
+
    Env (set in Netlify): GEMINI_API_KEY (required), GEMINI_MODEL,
-   UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (rate limit;
-   falls back to a best-effort in-memory limiter when missing),
-   CHAT_RPM_PER_IP / CHAT_RPD_PER_IP / CHAT_RPD_GLOBAL.
+   UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (rate limit +
+   chat log; falls back to a best-effort in-memory limiter and no
+   persistence when missing), CHAT_RPM_PER_IP / CHAT_RPD_PER_IP /
+   CHAT_RPD_GLOBAL, CHAT_LOG_TTL_DAYS.
    ────────────────────────────────────────────────────────────── */
 
-import { chat, toServerSentEventsResponse, type AgentLoopStrategy, type ModelMessage } from "@tanstack/ai";
+import { randomUUID } from "node:crypto";
+import { chat, toServerSentEventsResponse, type AgentLoopStrategy, type ChatMiddleware, type ModelMessage } from "@tanstack/ai";
 import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
@@ -108,16 +116,58 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; reason?: 
   return { allowed: true };
 }
 
+/* ── Chat persistence ──────────────────────────────────────────
+   Each conversation is stored as one JSON blob keyed by the client's
+   threadId. The client resends the full history on every turn, so
+   overwriting the key always converges to the complete transcript
+   (including tool calls/results); onFinish adds the assistant's final
+   text, which TanStack keeps out of ctx.messages. Runs that pause for
+   a client-side tool aren't persisted at that instant — the follow-up
+   request (with the tool result) is, so nothing is lost unless the
+   visitor closes the tab mid-tool-call. */
+const LOG_TTL_S = (Number(process.env.CHAT_LOG_TTL_DAYS) || 90) * 86_400;
+const LOG_INDEX_KEY = "concerti:chat:log:index";
+const logKey = (threadId: string) => `concerti:chat:log:${threadId}`;
+// TanStack ids look like "thread-<ts>-<rand>", ours are UUIDs; anything
+// else from a hand-rolled client gets a fresh server-side id instead of
+// becoming an arbitrary Redis key.
+const THREAD_ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
+
+function chatLogMiddleware(r: Redis, threadId: string, ip: string): ChatMiddleware {
+  return {
+    name: "redis-chat-log",
+    async onFinish(ctx, info) {
+      try {
+        const messages: ModelMessage[] = info.content.trim()
+          ? [...ctx.messages, { role: "assistant", content: info.content }]
+          : [...ctx.messages];
+        const now = Date.now();
+        const record = { threadId, ip, updatedAt: new Date(now).toISOString(), messages };
+        await Promise.all([
+          r.set(logKey(threadId), record, { ex: LOG_TTL_S }),
+          r.zadd(LOG_INDEX_KEY, { score: now, member: threadId }),
+          // keep the index in step with the expiring transcripts
+          r.zremrangebyscore(LOG_INDEX_KEY, 0, now - LOG_TTL_S * 1000),
+        ]);
+      } catch (err) {
+        console.error("chat log persist failed", err);
+      }
+    },
+  };
+}
+
 /* ── Request sanity checks ──────────────────────────────────── */
 const ALLOWED_ORIGINS = /^https?:\/\/(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|concerti\.gabrifila\.me|[a-z0-9-]+\.netlify\.app)$/i;
 const MAX_BODY_CHARS = 80_000;
 const MAX_MESSAGES = 40;
 const MAX_USER_TEXT = 1_500;
 
-function validate(raw: string): { messages: unknown[] } | { error: string } {
+function validate(raw: string): { messages: unknown[]; threadId: string } | { error: string } {
   if (raw.length > MAX_BODY_CHARS) return { error: "Conversazione troppo lunga: apri una nuova chat." };
   let body: any;
   try { body = JSON.parse(raw); } catch { return { error: "Richiesta non valida." }; }
+  const threadId: string =
+    typeof body?.threadId === "string" && THREAD_ID_RE.test(body.threadId) ? body.threadId : randomUUID();
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0) return { error: "Richiesta non valida." };
   if (messages.length > MAX_MESSAGES) return { error: "Conversazione troppo lunga: apri una nuova chat." };
@@ -126,7 +176,7 @@ function validate(raw: string): { messages: unknown[] } | { error: string } {
     if (m.role === "user" && typeof m.content === "string" && m.content.length > MAX_USER_TEXT)
       return { error: `Messaggio troppo lungo (max ${MAX_USER_TEXT} caratteri).` };
   }
-  return { messages };
+  return { messages, threadId };
 }
 
 /* ── System prompt ──────────────────────────────────────────── */
@@ -200,9 +250,11 @@ export default async (req: Request, context: { ip?: string }) => {
     const stream = chat({
       adapter: geminiText(MODEL),
       messages: parsed.messages as any,
+      threadId: parsed.threadId,
       systemPrompts: [systemPrompt()],
       tools: [...chatToolDefs, queryConcertsTool, reportUnsupportedTool],
       agentLoopStrategy: untilAnswered,
+      middleware: redis ? [chatLogMiddleware(redis, parsed.threadId, ip)] : [],
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
     return toServerSentEventsResponse(stream);
