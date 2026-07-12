@@ -28,7 +28,7 @@ const queryConcertsTool = queryConcertsDef.server(input => {
 });
 
 // geminiText types `model` as a union of known ids; the env override is a plain string.
-const MODEL = (process.env.GEMINI_MODEL || "gemini-2.5-flash") as Parameters<typeof geminiText>[0];
+const MODEL = (process.env.GEMINI_MODEL || "gemini-2.5-flash-lite") as Parameters<typeof geminiText>[0];
 const RPM_PER_IP = Number(process.env.CHAT_RPM_PER_IP) || 8;
 const RPD_PER_IP = Number(process.env.CHAT_RPD_PER_IP) || 40;
 const RPD_GLOBAL = Number(process.env.CHAT_RPD_GLOBAL) || 200;
