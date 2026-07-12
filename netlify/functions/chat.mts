@@ -11,7 +11,7 @@
    CHAT_RPM_PER_IP / CHAT_RPD_PER_IP / CHAT_RPD_GLOBAL.
    ────────────────────────────────────────────────────────────── */
 
-import { chat, maxIterations, toServerSentEventsResponse } from "@tanstack/ai";
+import { chat, toServerSentEventsResponse, type AgentLoopStrategy, type ModelMessage } from "@tanstack/ai";
 import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
@@ -26,6 +26,29 @@ const queryConcertsTool = queryConcertsDef.server(input => {
   console.log("query_concerts", JSON.stringify(input), "->", `count=${result.count} attended=${result.attendedCount} planned=${result.plannedCount}`);
   return result;
 });
+
+/* Agent loop: capped rounds, but also stop as soon as the model has
+   written answer text after seeing at least one tool result. Flash-lite
+   sometimes tacks a redundant tool call onto its final answer; without
+   this check the loop runs another round and the user gets the same
+   answer twice (and we pay an extra Gemini request). Text emitted
+   BEFORE the first tool result (a preamble next to the first tool
+   call) doesn't count as an answer. */
+const hasAnswerText = (m: ModelMessage) =>
+  m.role === "assistant" &&
+  (typeof m.content === "string"
+    ? m.content.trim().length > 0
+    : Array.isArray(m.content) && m.content.some(p => p.type === "text" && p.content.trim().length > 0));
+
+const untilAnswered: AgentLoopStrategy = ({ iterationCount, messages }) => {
+  if (iterationCount >= 5) return false;
+  // Only the current turn counts: previous turns already contain
+  // tool results followed by answers, which would stop the loop at once.
+  const turn = messages.slice(messages.map(m => m.role).lastIndexOf("user") + 1);
+  const firstToolResult = turn.findIndex(m => m.role === "tool");
+  if (firstToolResult === -1) return true;
+  return !turn.some((m, i) => i > firstToolResult && hasAnswerText(m));
+};
 
 // geminiText types `model` as a union of known ids; the env override is a plain string.
 const MODEL = (process.env.GEMINI_MODEL || "gemini-3.1-flash-lite") as Parameters<typeof geminiText>[0];
@@ -116,6 +139,7 @@ DATA ACCESS — the most important rule:
 - The concert list is NOT in this prompt. Your ONLY source of concert facts is the query_concerts tool; everything it returns is computed by code and is always right.
 - For EVERY question about the data — counts, totals, averages, rankings, dates, prices, ratings, "which/who/where/when" — first call query_concerts with the right filters, then answer using ONLY its results. Call it more than once if needed (e.g. to compare two people).
 - Never answer a data question from memory or by guessing. If the tool results do not contain the answer, say you cannot answer.
+- Call tools BEFORE writing your answer, then answer exactly once. Never call a tool together with or after your answer, and never repeat a call you already made.
 - Each concert in the result reads: date · artist · venue (city) · companions ("da solo" = alone) · cost in € · "regalo" if it was a present · voto 1..5 (Gabri's rating, only after attending) · "in programma" if upcoming. The list is chronological, so the next upcoming concert is the first "in programma" line.
 
 LANGUAGE & STYLE:
@@ -170,7 +194,7 @@ export default async (req: Request, context: { ip?: string }) => {
       messages: parsed.messages as any,
       systemPrompts: [systemPrompt()],
       tools: [...chatToolDefs, queryConcertsTool],
-      agentLoopStrategy: maxIterations(5),
+      agentLoopStrategy: untilAnswered,
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
     return toServerSentEventsResponse(stream);
