@@ -1,0 +1,7 @@
+# pnpm 11 refuses to run dependency postinstall scripts unless listed here.
+# esbuild (vite's own dep) needs its script; the two below don't — the chat
+# function works with them skipped — so they stay disabled.
+allowBuilds:
+  '@google/genai': false
+  esbuild: true
+  protobufjs: false
