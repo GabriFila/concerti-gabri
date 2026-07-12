@@ -957,9 +957,9 @@ function MapCard(){
       // two fingers on touch; a plain swipe/scroll over the map scrolls the page.
       cooperativeGestures:true,
       locale:{
-        "CooperativeGesturesHandler.WindowsHelpText":"Usa Ctrl + scroll per zoomare la mappa",
-        "CooperativeGesturesHandler.MacHelpText":"Usa ⌘ + scroll per zoomare la mappa",
-        "CooperativeGesturesHandler.MobileHelpText":"Usa due dita per muovere la mappa",
+        "ScrollZoomBlocker.CtrlMessage":"Usa Ctrl + scroll per zoomare la mappa",
+        "ScrollZoomBlocker.CmdMessage":"Usa ⌘ + scroll per zoomare la mappa",
+        "TouchPanBlocker.Message":"Usa due dita per muovere la mappa",
       },
     });
     mapRef.current=map;
@@ -1638,7 +1638,7 @@ function App(){
         <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
       </main>
       <footer className="sitefooter">
-        <p>{"con il fondamentale supporto di Cami <3"}</p>
+        <p>con il fondamentale supporto di Cami</p>
       </footer>
       <div className="bottombar">
         <TocButton/>

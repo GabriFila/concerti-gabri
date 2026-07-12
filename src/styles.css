@@ -637,7 +637,7 @@
 
   /* ── Footer: piccolo ringraziamento in fondo alla pagina, sopra la barra fissa ── */
   .sitefooter{position:relative;z-index:1;text-align:center;padding:clamp(28px,4vw,44px) 20px calc(92px + env(safe-area-inset-bottom,0px))}
-  .sitefooter p{margin:0;font-family:'Fraunces',Georgia,serif;font-style:italic;font-size:.98rem;color:var(--muted);letter-spacing:.01em}
+  .sitefooter p{margin:0;font-size:.9rem;color:var(--muted);letter-spacing:.01em}
   .grid2{display:grid;gap:clamp(18px,2.6vw,30px);grid-template-columns:1fr}
   @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
   .tocsec{min-width:0;scroll-margin-top:24px}
