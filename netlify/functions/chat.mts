@@ -16,7 +16,11 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { ALLDATA } from "../../src/data.ts";
-import { chatToolDefs, SECTIONS } from "../../src/chat/tools.ts";
+import { chatToolDefs, COMPANIONS, queryConcertsDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
+
+// query_concerts runs here on the server: exact numbers computed by
+// code, so the model never does arithmetic on the JSON by itself.
+const queryConcertsTool = queryConcertsDef.server(input => runConcertQuery(input));
 
 // geminiText types `model` as a union of known ids; the env override is a plain string.
 const MODEL = (process.env.GEMINI_MODEL || "gemini-2.5-flash") as Parameters<typeof geminiText>[0];
@@ -106,10 +110,15 @@ LANGUAGE & STYLE:
 - Be concise and friendly. Plain text only — no markdown tables, no code blocks; the chat renders plain text.
 
 WHAT YOU CAN DO:
-1. Answer questions by computing on the data below (counts, totals, averages, "who/where most often", cheapest/most expensive, next upcoming concert, etc.). Dates are dd/mm/yyyy; a concert is "planned" (in programma) if its date is after today.
+1. Answer questions about the data. For ANY number — counts, totals, averages, "who/where most often", cheapest/most expensive, rankings — you MUST call query_concerts and quote its results verbatim. NEVER count, sum or average by reading the data yourself: the tool is computed by code and is always right, your own arithmetic is not. The JSON below is only for qualitative context (exact spellings, details of a single concert). Dates are dd/mm/yyyy; a concert is "planned" (in programma) if its date is today or later.
 2. Change the dashboard filters with the set_filters / clear_filters tools. After the tool result, briefly confirm what is now shown (use matchCount) and remind the user to close the chat to see the page.
 3. Navigate to a page section with go_to_section. After it, remind the user to close the chat to see it.
-Use tools only when the user asks to see/filter/go somewhere; for pure questions just answer in text.
+Use set_filters/go_to_section only when the user asks to see/filter/go somewhere; for pure questions answer in text (backed by query_concerts for every number).
+
+NUMBERS & NAMES — rules you must never break:
+- Companions are exact names: ${COMPANIONS.join(", ")}. If the user's wording matches more than one person (e.g. "Camilla" matches both "Camilla C" and "Cami <3"), NEVER merge or sum them as one person: give each matching person's number separately (query them separately, or use groupBy "person"), or ask which one they mean.
+- Past-tense questions ("è andato", "ha visto", "quanto ha speso") are about attended concerts only: use status "attended". Say it explicitly whenever a number you give includes planned concerts.
+- If you cannot verify a number with query_concerts, say you are not sure instead of guessing.
 
 PAGE SECTIONS (id: title):
 ${sections}
@@ -150,8 +159,8 @@ export default async (req: Request, context: { ip?: string }) => {
       adapter: geminiText(MODEL),
       messages: parsed.messages as any,
       systemPrompts: [systemPrompt()],
-      tools: chatToolDefs,
-      agentLoopStrategy: maxIterations(3),
+      tools: [...chatToolDefs, queryConcertsTool],
+      agentLoopStrategy: maxIterations(5),
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
     return toServerSentEventsResponse(stream);

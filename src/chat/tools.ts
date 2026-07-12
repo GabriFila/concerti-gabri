@@ -10,7 +10,7 @@
 
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { ALLDATA } from "../data.ts";
+import { ALLDATA, type Concert } from "../data.ts";
 
 // Single source of truth for the page sections (the TOC adds icons on top).
 export const SECTIONS = [
@@ -36,7 +36,7 @@ const SECTION_IDS = SECTIONS.map(s => s.id) as [string, ...string[]];
 
 // Vocabularies derived from the data, so the model can only pick real values.
 const CITIES = [...new Set(ALLDATA.map(d => d.city))].sort() as [string, ...string[]];
-const COMPANIONS = [...new Set(ALLDATA.flatMap(d => d.with || []))].sort() as [string, ...string[]];
+export const COMPANIONS = [...new Set(ALLDATA.flatMap(d => d.with || []))].sort() as [string, ...string[]];
 const POSTI = ["Pit/Gold", "Prato/Parterre", "Platea", "Gradinata"] as const;
 
 export const setFiltersDef = toolDefinition({
@@ -83,5 +83,102 @@ export const goToSectionDef = toolDefinition({
   }),
   outputSchema: z.object({ ok: z.boolean(), label: z.string() }),
 });
+
+/* ── query_concerts ────────────────────────────────────────────
+   Server tool (execute attached in netlify/functions/chat.mts):
+   deterministic counts/sums over ALLDATA, so the model quotes
+   computed numbers instead of eyeballing the JSON in its prompt. */
+
+// Same date semantics as App.tsx: first day of a multi-day range,
+// and a concert happening today still counts as "planned".
+const sortKey = (d: Concert) => {
+  const m = d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);
+  return m ? +m[3] * 10000 + +m[2] * 100 + +m[1] : 0;
+};
+const todayKey = () => { const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
+const isPlanned = (d: Concert) => sortKey(d) >= todayKey();
+
+const MAX_LISTED_CONCERTS = 30;
+
+const queryInputSchema = z.object({
+  status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = date before today, planned = today or later. Omitted = all. Past-tense questions ('è andato', 'ha visto') want attended." }),
+  people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Exact companion names; matches concerts with at least one of them (OR). One person = that person's concerts." }),
+  solo: z.boolean().optional().meta({ description: "true = only concerts attended alone (no companions)" }),
+  artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name" }),
+  cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them)" }),
+  years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "type"]).optional().meta({ description: "Also return per-group counts over the matching concerts (person = one entry per companion)" }),
+});
+
+export type ConcertQuery = z.infer<typeof queryInputSchema>;
+
+export const queryConcertsDef = toolDefinition({
+  name: "query_concerts",
+  description:
+    "Compute exact numbers over the full concert dataset: count, attended/planned split, total and average cost, " +
+    "average rating, optional per-person/artist/year/city/venue/type breakdown, and the list of matching concerts. " +
+    "Filters combine with AND. Results are computed by code, never estimated: use this for EVERY number you state.",
+  inputSchema: queryInputSchema,
+  outputSchema: z.object({
+    count: z.number().meta({ description: "Concerts matching all filters" }),
+    attendedCount: z.number(),
+    plannedCount: z.number(),
+    totalCost: z.number().meta({ description: "Sum of the known costs, euros" }),
+    costKnownCount: z.number().meta({ description: "How many matching concerts have a known cost" }),
+    avgCost: z.number().nullable(),
+    avgVoto: z.number().nullable(),
+    groups: z.array(z.object({ key: z.string(), count: z.number() })).optional(),
+    concerts: z.array(z.string()).meta({ description: "Matching concerts as 'date · artist · city (con …)'" }),
+    concertsTruncated: z.boolean(),
+  }),
+});
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export function runConcertQuery(q: ConcertQuery) {
+  const artist = q.artist?.trim().toLowerCase();
+  const matches = ALLDATA.filter(d => {
+    if (q.status === "attended" && isPlanned(d)) return false;
+    if (q.status === "planned" && !isPlanned(d)) return false;
+    if (q.people?.length && !q.people.some(p => (d.with || []).includes(p as Concert["with"][number]))) return false;
+    if (q.solo && (d.with || []).length > 0) return false;
+    if (artist && !d.artist.toLowerCase().includes(artist)) return false;
+    if (q.cities?.length && !q.cities.includes(d.city)) return false;
+    if (q.years?.length && !q.years.includes(d.y)) return false;
+    return true;
+  });
+
+  const withCost = matches.filter(d => typeof d.cost === "number");
+  const withVoto = matches.filter(d => typeof d.voto === "number");
+  const totalCost = withCost.reduce((s, d) => s + (d.cost as number), 0);
+
+  let groups: { key: string; count: number }[] | undefined;
+  if (q.groupBy) {
+    const keysOf = (d: Concert): string[] =>
+      q.groupBy === "person" ? (d.with || [])
+      : q.groupBy === "artist" ? [d.artist]
+      : q.groupBy === "year" ? [String(d.y)]
+      : q.groupBy === "city" ? [d.city]
+      : q.groupBy === "venue" ? [d.venue]
+      : [d.type];
+    const counts = new Map<string, number>();
+    for (const d of matches) for (const k of keysOf(d)) counts.set(k, (counts.get(k) || 0) + 1);
+    groups = [...counts.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+  }
+
+  return {
+    count: matches.length,
+    attendedCount: matches.filter(d => !isPlanned(d)).length,
+    plannedCount: matches.filter(isPlanned).length,
+    totalCost: round2(totalCost),
+    costKnownCount: withCost.length,
+    avgCost: withCost.length ? round2(totalCost / withCost.length) : null,
+    avgVoto: withVoto.length ? round2(withVoto.reduce((s, d) => s + (d.voto as number), 0) / withVoto.length) : null,
+    ...(groups ? { groups } : {}),
+    concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(d =>
+      `${d.date} · ${d.artist} · ${d.city}${d.with?.length ? ` (con ${d.with.join(", ")})` : ""}`),
+    concertsTruncated: matches.length > MAX_LISTED_CONCERTS,
+  };
+}
 
 export const chatToolDefs = [setFiltersDef, clearFiltersDef, goToSectionDef];
