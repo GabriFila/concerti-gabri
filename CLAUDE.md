@@ -7,4 +7,5 @@ Concert dashboard at concerti.gabrifila.me. Vite 8 + React 19 + TypeScript 7, pn
 - Deploys are git-driven: push to `main` → production; PRs → deploy previews. Never deploy manually.
 - A new venue/city needs coordinates in `VENUE_COORDS`/`CITY_COORDS` (in `src/data.ts`), otherwise the map silently skips it — the types can't catch this.
 - `VITE_MAPBOX_TOKEN` (Mapbox pk. token) is set in Netlify env vars — never commit tokens.
+- AI chat: UI in `src/chat/`, endpoint in `netlify/functions/chat.mts` (TanStack AI + Gemini; server env vars listed in `.env.example`). Page sections live in `SECTIONS` (`src/chat/tools.ts`) — the TOC and the chat's navigation tool both derive from it, so add new sections there.
 - TS in `App.tsx` is deliberately loose (converted from untyped JSX): tighten types opportunistically, no blanket refactors.

@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef } from "react";
 import Fuse from "fuse.js";
 import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS } from "./data.ts";
+import { SECTIONS } from "./chat/tools.ts";
+import ChatWidget from "./chat/ChatWidget.tsx";
 
 const MESI=["GEN","FEB","MAR","APR","MAG","GIU","LUG","AGO","SET","OTT","NOV","DIC"];
 /* ── Compagni: enum delle persone con cui vado ai concerti.
@@ -115,6 +117,45 @@ const isDefaultDate=f=>!f.dateFrom&&!f.dateTo;
 const isDefaultCost=f=>f.costMin===COST_MIN&&f.costMax===COST_MAX;
 const isEmptyFilters=f=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.posti.length===0&&f.vicinanze.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f);
 const countActive=f=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.posti.length+f.vicinanze.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1);
+
+/* Recap testuale dei filtri attivi — usato dalla chat AI per confermare cosa mostra la pagina. */
+function describeFilters(f){
+  const parts=[];
+  if(f.status==="attended") parts.push("solo già visti");
+  if(f.status==="planned") parts.push("solo in programma");
+  if(f.dateFrom) parts.push("dal "+f.dateFrom);
+  if(f.dateTo) parts.push("fino al "+f.dateTo);
+  if(f.cities.length) parts.push("città: "+f.cities.join(", "));
+  if(f.people.length) parts.push("con: "+f.people.join(", "));
+  if(f.solo) parts.push("da solo");
+  if(f.posti.length) parts.push("posto: "+f.posti.join(", "));
+  if(f.vicinanze.length) parts.push("vicinanza: "+f.vicinanze.map(v=>VIC_LABELS[v]||v).join(", "));
+  if(f.price==="paid") parts.push("solo con prezzo");
+  if(f.price==="gift") parts.push("solo regalati");
+  if(f.price==="unknown") parts.push("solo senza prezzo");
+  if(!isDefaultCost(f)) parts.push("costo €"+f.costMin+"–€"+f.costMax);
+  return parts.length?parts.join("; "):"nessun filtro attivo";
+}
+
+/* Applica l'input del tool AI `set_filters` (già validato dallo schema) allo stato filtri. */
+function mergeToolFilters(cur,input){
+  const next={...(input.replace?EMPTY_FILTERS:cur)};
+  const iso=s=>s===""||isoKey(s)!=null?s:undefined; // "" clears, invalid dates ignored
+  if(input.status!==undefined) next.status=input.status;
+  if(input.dateFrom!==undefined&&iso(input.dateFrom)!==undefined) next.dateFrom=input.dateFrom;
+  if(input.dateTo!==undefined&&iso(input.dateTo)!==undefined) next.dateTo=input.dateTo;
+  if(input.cities!==undefined) next.cities=input.cities.filter(c=>ALL_CITIES.includes(c));
+  if(input.people!==undefined) next.people=input.people.filter(p=>ALL_PEOPLE.includes(p));
+  if(input.solo!==undefined) next.solo=!!input.solo;
+  if(input.posti!==undefined) next.posti=input.posti.filter(p=>ALL_POSTI.includes(p));
+  if(input.vicinanze!==undefined) next.vicinanze=input.vicinanze.map(Number).filter(v=>ALL_VIC.includes(v));
+  if(input.price!==undefined) next.price=input.price;
+  const clampCost=v=>Math.min(COST_MAX,Math.max(COST_MIN,Math.round(v)));
+  if(input.costMin!==undefined) next.costMin=clampCost(input.costMin);
+  if(input.costMax!==undefined) next.costMax=clampCost(input.costMax);
+  if(next.costMin>next.costMax) [next.costMin,next.costMax]=[next.costMax,next.costMin];
+  return next;
+}
 
 function applyFilters(data,f){
   const from=isoKey(f.dateFrom), to=isoKey(f.dateTo);
@@ -1363,24 +1404,9 @@ function FilterButton(){
   );
 }
 
-const TOC_ITEMS=[
-  {id:"sec-kpis",icon:"star",label:"Riepilogo"},
-  {id:"sec-andamento",icon:"chart",label:"Andamento"},
-  {id:"sec-mappa",icon:"map",label:"Dove sono andato"},
-  {id:"sec-artisti",icon:"mic",label:"Chi ho visto di più"},
-  {id:"sec-compagni",icon:"users",label:"Con chi vado di più"},
-  {id:"sec-venue",icon:"repeat",label:"Dove torno più spesso"},
-  {id:"sec-posto",icon:"seat",label:"Che biglietto prendo"},
-  {id:"sec-vicinanza",icon:"target",label:"Quanto sono vicino"},
-  {id:"sec-stagionalita",icon:"calendar",label:"Quando vado"},
-  {id:"sec-voti",icon:"star",label:"Come li giudico"},
-  {id:"sec-voti-migliori",icon:"trophy",label:"I migliori"},
-  {id:"sec-voti-vs",icon:"target",label:"Voto a confronto"},
-  {id:"sec-spesa",icon:"wallet",label:"Quanto spendo"},
-  {id:"sec-spesa-dettaglio",icon:"euro",label:"Quando ho speso di più"},
-  {id:"sec-spesa-distribuzione",icon:"coins",label:"Quanto pago di solito"},
-  {id:"sec-archivio",icon:"list",label:"Archivio"},
-];
+/* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
   const popRef=useRef(null);
@@ -1466,6 +1492,27 @@ function App(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
+  // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
+  // nel suo contesto); i filtri correnti si leggono via ref, non via closure.
+  const filtersRef=React.useRef(filters);
+  filtersRef.current=filters;
+  const chatCtx=React.useMemo(()=>({
+    applyFilters:(input)=>{
+      const next=mergeToolFilters(filtersRef.current,input);
+      setFilters(next);
+      return {matchCount:applyFilters(ALLDATA,next).length,summary:describeFilters(next)};
+    },
+    clearFilters:()=>{
+      setFilters(EMPTY_FILTERS);
+      return {matchCount:ALLDATA.length};
+    },
+    goToSection:(id)=>{
+      const el=document.getElementById(id);
+      if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+      const s=SECTIONS.find(x=>x.id===id);
+      return {ok:!!el,label:s?s.label:id};
+    },
+  }),[]);
   const [mode,setMode]=React.useState(()=>{
     try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
     return "dark";
@@ -1582,8 +1629,11 @@ function App(){
         <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
         <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
       </main>
-      <TocButton/>
-      <FilterButton/>
+      <div className="bottombar">
+        <TocButton/>
+        <ChatWidget ctx={chatCtx}/>
+        <FilterButton/>
+      </div>
     </FilterContext.Provider>
   );
 }
