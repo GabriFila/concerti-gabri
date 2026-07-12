@@ -953,6 +953,14 @@ function MapCard(){
       center:[9.6,45.0],
       zoom:5.4,
       attributionControl:true,
+      // Don't hijack page scrolling: zoom needs Ctrl/Cmd+scroll on desktop and
+      // two fingers on touch; a plain swipe/scroll over the map scrolls the page.
+      cooperativeGestures:true,
+      locale:{
+        "ScrollZoomBlocker.CtrlMessage":"Usa Ctrl + scroll per zoomare la mappa",
+        "ScrollZoomBlocker.CmdMessage":"Usa ⌘ + scroll per zoomare la mappa",
+        "TouchPanBlocker.Message":"Usa due dita per muovere la mappa",
+      },
     });
     mapRef.current=map;
     map.addControl(new mapboxgl.NavigationControl({showCompass:false}),"top-right");
@@ -1629,6 +1637,9 @@ function App(){
         <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
         <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
       </main>
+      <footer className="sitefooter">
+        <p>Creato con il fondamentale supporto di Cami</p>
+      </footer>
       <div className="bottombar">
         <TocButton/>
         <ChatWidget ctx={chatCtx}/>

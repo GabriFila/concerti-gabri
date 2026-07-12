@@ -633,7 +633,11 @@
   .kpi .pnote::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--planned);flex-shrink:0}
 
   /* ============ MAIN / PANELS ============ */
-  main{position:relative;z-index:1;padding:clamp(26px,4vw,52px) clamp(12px,3.4vw,48px) 90px;display:grid;gap:clamp(18px,2.6vw,30px)}
+  main{position:relative;z-index:1;padding:clamp(26px,4vw,52px) clamp(12px,3.4vw,48px) 0;display:grid;gap:clamp(18px,2.6vw,30px)}
+
+  /* ── Footer: piccolo ringraziamento in fondo alla pagina, sopra la barra fissa ── */
+  .sitefooter{position:relative;z-index:1;text-align:center;padding:clamp(28px,4vw,44px) 20px calc(92px + env(safe-area-inset-bottom,0px))}
+  .sitefooter p{margin:0;font-size:.9rem;color:var(--muted);letter-spacing:.01em}
   .grid2{display:grid;gap:clamp(18px,2.6vw,30px);grid-template-columns:1fr}
   @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
   .tocsec{min-width:0;scroll-margin-top:24px}
@@ -853,6 +857,8 @@
   .mapwrap{position:relative;width:100%;height:clamp(380px,54vh,580px);border:1px solid var(--line-2);border-radius:12px;overflow:hidden}
   .mapwrap .mapboxgl-canvas{outline:none}
   .mapwrap .mapboxgl-ctrl-logo,.mapwrap .mapboxgl-ctrl-attrib{opacity:.35}
+  /* overlay dei gesti cooperativi ("usa due dita" / "Ctrl+scroll") */
+  .mapwrap .mapboxgl-scroll-zoom-blocker,.mapwrap .mapboxgl-touch-pan-blocker{font-family:'Inter',sans-serif;font-size:.95rem}
   .mapwrap .mapboxgl-ctrl-group{background:var(--panel);border:1px solid var(--line-2);border-radius:10px}
   .mapwrap .mapboxgl-ctrl-group button+button{border-top:1px solid var(--line-2)}
   .mapwrap .mapboxgl-ctrl button .mapboxgl-ctrl-icon{filter:invert(1) brightness(1.5)}
