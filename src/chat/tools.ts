@@ -98,7 +98,7 @@ const sortKey = (d: Concert) => {
 const todayKey = () => { const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
 const isPlanned = (d: Concert) => sortKey(d) >= todayKey();
 
-const MAX_LISTED_CONCERTS = 30;
+const MAX_LISTED_CONCERTS = 200; // > dataset size today; the cap only guards future growth
 
 const queryInputSchema = z.object({
   status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = date before today, planned = today or later. Omitted = all. Past-tense questions ('è andato', 'ha visto') want attended." }),
@@ -107,7 +107,8 @@ const queryInputSchema = z.object({
   artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name" }),
   cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them)" }),
   years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
-  groupBy: z.enum(["person", "artist", "year", "city", "venue", "type"]).optional().meta({ description: "Also return per-group counts over the matching concerts (person = one entry per companion)" }),
+  gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "type", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group counts over the matching concerts (person = one entry per companion)" }),
 });
 
 export type ConcertQuery = z.infer<typeof queryInputSchema>;
@@ -115,9 +116,10 @@ export type ConcertQuery = z.infer<typeof queryInputSchema>;
 export const queryConcertsDef = toolDefinition({
   name: "query_concerts",
   description:
-    "Compute exact numbers over the full concert dataset: count, attended/planned split, total and average cost, " +
-    "average rating, optional per-person/artist/year/city/venue/type breakdown, and the list of matching concerts. " +
-    "Filters combine with AND. Results are computed by code, never estimated: use this for EVERY number you state.",
+    "The ONLY source of the concert data. Returns, for the concerts matching the filters (combined with AND): " +
+    "exact count, attended/planned split, total and average cost, average rating, optional breakdown by " +
+    "person/artist/year/city/venue/type/posto/vicinanza, and the full matching list in chronological order. " +
+    "Call it (possibly more than once) before answering ANY question about the data.",
   inputSchema: queryInputSchema,
   outputSchema: z.object({
     count: z.number().meta({ description: "Concerts matching all filters" }),
@@ -128,7 +130,7 @@ export const queryConcertsDef = toolDefinition({
     avgCost: z.number().nullable(),
     avgVoto: z.number().nullable(),
     groups: z.array(z.object({ key: z.string(), count: z.number() })).optional(),
-    concerts: z.array(z.string()).meta({ description: "Matching concerts as 'date · artist · city (con …)'" }),
+    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · voto N][ · in programma]'" }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -145,6 +147,7 @@ export function runConcertQuery(q: ConcertQuery) {
     if (artist && !d.artist.toLowerCase().includes(artist)) return false;
     if (q.cities?.length && !q.cities.includes(d.city)) return false;
     if (q.years?.length && !q.years.includes(d.y)) return false;
+    if (q.gift !== undefined && !!d.gift !== q.gift) return false;
     return true;
   });
 
@@ -160,6 +163,8 @@ export function runConcertQuery(q: ConcertQuery) {
       : q.groupBy === "year" ? [String(d.y)]
       : q.groupBy === "city" ? [d.city]
       : q.groupBy === "venue" ? [d.venue]
+      : q.groupBy === "posto" ? [d.posto]
+      : q.groupBy === "vicinanza" ? [String(d.vicinanza ?? "non impostata")]
       : [d.type];
     const counts = new Map<string, number>();
     for (const d of matches) for (const k of keysOf(d)) counts.set(k, (counts.get(k) || 0) + 1);
@@ -176,7 +181,12 @@ export function runConcertQuery(q: ConcertQuery) {
     avgVoto: withVoto.length ? round2(withVoto.reduce((s, d) => s + (d.voto as number), 0) / withVoto.length) : null,
     ...(groups ? { groups } : {}),
     concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(d =>
-      `${d.date} · ${d.artist} · ${d.city}${d.with?.length ? ` (con ${d.with.join(", ")})` : ""}`),
+      `${d.date} · ${d.artist} · ${d.venue} (${d.city})` +
+      ` · ${d.with?.length ? `con ${d.with.join(", ")}` : "da solo"}` +
+      (typeof d.cost === "number" ? ` · ${d.cost}€` : "") +
+      (d.gift ? " · regalo" : "") +
+      (typeof d.voto === "number" ? ` · voto ${d.voto}` : "") +
+      (isPlanned(d) ? " · in programma" : "")),
     concertsTruncated: matches.length > MAX_LISTED_CONCERTS,
   };
 }
