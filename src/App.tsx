@@ -1638,7 +1638,7 @@ function App(){
         <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
       </main>
       <footer className="sitefooter">
-        <p>con il fondamentale supporto di Cami</p>
+        <p>Creato con il fondamentale supporto di Cami</p>
       </footer>
       <div className="bottombar">
         <TocButton/>
