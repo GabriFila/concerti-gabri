@@ -4,16 +4,19 @@
    TanStack AI SSE connection; filter/navigation tool calls from
    the model run here in the browser through the `ctx` callbacks
    that App provides (they own the real filter state).
+
    Each conversation gets its own thread id (the server keys the
-   Redis transcript log on it, see netlify/functions/chat.mts);
-   "Nuova chat" rotates the id so a fresh conversation never
-   overwrites the previous one's log.
-   The history button lists this device's past chats: localStorage
-   keeps only {id, title, date} per conversation — the transcript
-   itself is fetched back from /api/chat/history (chat-history.mts)
-   and resumed by rebuilding the chat client with initialMessages.
-   Thread ids are unguessable, so a device can only ever open the
-   chats it started.
+   Redis transcript log on it, see netlify/functions/chat.mts) and
+   a secret write key: the id is public, the key stays in this
+   browser's localStorage and is sent with every message — the
+   server refuses to continue a thread without the matching key.
+   "Nuova chat" rotates both.
+
+   The history button shows two tabs backed by /api/chat/history
+   (chat-history.mts): "Le mie" (threads whose write key this
+   device holds — continuable, resumed by rebuilding the chat
+   client with initialMessages) and "Tutte" (every visitor's chats,
+   public by design — read-only viewer for the ones you don't own).
    ────────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -49,24 +52,27 @@ const SECTION_LABEL = Object.fromEntries(SECTIONS.map(s => [s.id, s.label]));
 
 // randomUUID needs a secure context (https/localhost); fall back to the
 // same shape TanStack generates so the server-side key stays valid.
-const newChatId = () =>
+const randomId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-/* ── Per-device chat history (list only: id + title + date) ──── */
-interface ThreadMeta { id: string; title: string; updatedAt: number }
+/* ── Owned threads: id + secret write key + list metadata ──────
+   localStorage is the only place the write keys live; losing it means
+   those chats become read-only (still visible in the "Tutte" tab). */
+interface OwnedThread { id: string; key: string; title: string; updatedAt: number }
+interface PublicThread { id: string; title: string; updatedAt: number }
 const LS_THREADS = "concerti-chat-threads";
-const MAX_THREADS = 20;
+const MAX_OWNED = 50;
 
-function loadThreads(): ThreadMeta[] {
+function loadOwned(): OwnedThread[] {
   try {
     const v = JSON.parse(localStorage.getItem(LS_THREADS) || "[]");
     return Array.isArray(v) ? v.filter(t => t && typeof t.id === "string") : [];
   } catch { return []; }
 }
-function saveThreads(threads: ThreadMeta[]) {
-  try { localStorage.setItem(LS_THREADS, JSON.stringify(threads)); } catch { /* private mode etc. */ }
+function saveOwned(threads: OwnedThread[]) {
+  try { localStorage.setItem(LS_THREADS, JSON.stringify(threads.slice(0, MAX_OWNED))); } catch { /* private mode etc. */ }
 }
 
 const fmtWhen = (ts: number) => {
@@ -88,6 +94,7 @@ const firstUserText = (messages: any[]): string => {
 function friendlyError(err: Error | undefined): string | null {
   if (!err) return null;
   const m = err.message || "";
+  if (/403|appartiene/.test(m)) return "Questa chat appartiene a un altro visitatore: puoi solo leggerla.";
   if (/429|Troppi|[Ll]imite/.test(m)) return "Hai raggiunto il limite di messaggi. Riprova più tardi.";
   if (/troppo lung/i.test(m)) return "Conversazione troppo lunga: apri una nuova chat.";
   return "Qualcosa è andato storto. Riprova, o apri una nuova chat.";
@@ -135,11 +142,15 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
 
   // id + threadId together: useChat only rebuilds its client when `id`
   // changes, so rotating both is what actually starts a new thread.
-  const [chatId, setChatId] = useState(newChatId);
-  const [view, setView] = useState<"chat" | "history">("chat");
-  const [threads, setThreads] = useState<ThreadMeta[]>(loadThreads);
+  const [thread, setThread] = useState(() => ({ id: randomId(), key: randomId() }));
+  const [view, setView] = useState<"chat" | "history" | "viewer">("chat");
+  const [histTab, setHistTab] = useState<"mine" | "all">("mine");
+  const [owned, setOwned] = useState<OwnedThread[]>(loadOwned);
+  const [publicThreads, setPublicThreads] = useState<PublicThread[] | null>(null); // null = not loaded yet
   // transcript fetched from the server, applied only while its id is current
   const [resume, setResume] = useState<{ id: string; messages: any[] } | null>(null);
+  // someone else's chat, shown read-only
+  const [viewer, setViewer] = useState<{ id: string; title: string; messages: any[] } | null>(null);
   const [histBusy, setHistBusy] = useState<string | null>(null);
   const [histError, setHistError] = useState<string | null>(null);
 
@@ -147,44 +158,77 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     connection: fetchServerSentEvents("/api/chat"),
     tools: [setFiltersTool, clearFiltersTool, goToSectionTool],
     context: ctx,
-    id: chatId,
-    threadId: chatId,
-    ...(resume?.id === chatId && { initialMessages: resume.messages }),
-  }), [ctx, chatId, resume]);
+    id: thread.id,
+    threadId: thread.id,
+    forwardedProps: { writeKey: thread.key },
+    ...(resume?.id === thread.id && { initialMessages: resume.messages }),
+  }), [ctx, thread, resume]);
   const { messages, sendMessage, isLoading, error, clear } = useChat(chatOptions);
   const uiError = friendlyError(error);
 
-  // keep this conversation in the device's history list
+  // remember this thread (and its write key) once it has content
   useEffect(() => {
     if (!messages.length) return;
     const title = firstUserText(messages).slice(0, 80) || "Chat";
-    setThreads(prev => {
-      const next = [{ id: chatId, title, updatedAt: Date.now() }, ...prev.filter(t => t.id !== chatId)].slice(0, MAX_THREADS);
-      saveThreads(next);
+    setOwned(prev => {
+      const next = [
+        { id: thread.id, key: thread.key, title, updatedAt: Date.now() },
+        ...prev.filter(t => t.id !== thread.id),
+      ].slice(0, MAX_OWNED);
+      saveOwned(next);
       return next;
     });
-  }, [messages.length, chatId]);
+  }, [messages.length, thread]);
 
-  const openThread = async (id: string) => {
-    if (id === chatId) { setView("chat"); return; }
+  const showHistory = (tab: "mine" | "all") => {
+    setView("history");
+    setHistTab(tab);
+    setHistError(null);
+    if (tab === "all") void loadPublicList();
+  };
+
+  const loadPublicList = async () => {
+    try {
+      const res = await fetch("/api/chat/history");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || "Impossibile caricare la cronologia, riprova.");
+      }
+      const data = await res.json();
+      setPublicThreads((data.chats || []).map((c: any) => ({ id: c.threadId, title: c.title, updatedAt: c.updatedAt })));
+    } catch (e: any) {
+      setHistError(e?.message || "Impossibile caricare la cronologia, riprova.");
+    }
+  };
+
+  const openThread = async (id: string, title: string) => {
+    const own = owned.find(t => t.id === id);
+    if (id === thread.id && own) { setView("chat"); return; }
     setHistBusy(id);
     setHistError(null);
     try {
       const res = await fetch(`/api/chat/history?threadId=${encodeURIComponent(id)}`);
       if (res.status === 404) {
-        // expired on the server: drop it from the local list too
-        setThreads(prev => {
+        // expired on the server: drop it from the lists too
+        setPublicThreads(prev => prev && prev.filter(t => t.id !== id));
+        if (own) setOwned(prev => {
           const next = prev.filter(t => t.id !== id);
-          saveThreads(next);
+          saveOwned(next);
           return next;
         });
         throw new Error("Questa chat è scaduta e non è più disponibile.");
       }
       if (!res.ok) throw new Error("Impossibile caricare la chat, riprova.");
       const data = await res.json();
-      setResume({ id, messages: data.messages || [] });
-      setChatId(id);
-      setView("chat");
+      if (own) {
+        // continue it: rebuild the chat client on this thread with its key
+        setResume({ id, messages: data.messages || [] });
+        setThread({ id, key: own.key || randomId() });
+        setView("chat");
+      } else {
+        setViewer({ id, title, messages: data.messages || [] });
+        setView("viewer");
+      }
     } catch (e: any) {
       setHistError(e?.message || "Impossibile caricare la chat, riprova.");
     } finally {
@@ -194,7 +238,8 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
 
   const startNewChat = () => {
     clear();
-    setChatId(newChatId());
+    setThread({ id: randomId(), key: randomId() });
+    setViewer(null);
     setView("chat");
   };
 
@@ -226,6 +271,20 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     setInput("");
   };
 
+  const histItem = (t: { id: string; title: string; updatedAt: number }, isOwn: boolean) => (
+    <button key={t.id} type="button"
+      className={"chat-hist-item" + (t.id === thread.id && isOwn ? " cur" : "")}
+      disabled={histBusy !== null || isLoading}
+      onClick={() => openThread(t.id, t.title)}>
+      <span className="chat-hist-title">{t.title}</span>
+      <span className="chat-hist-meta">
+        {histBusy === t.id ? "carico…"
+          : t.id === thread.id && isOwn ? "chat aperta"
+          : fmtWhen(t.updatedAt) + (histTab === "all" ? (isOwn ? " · tua" : " · solo lettura") : "")}
+      </span>
+    </button>
+  );
+
   return (
     <div className="chatdock">
       {open && (
@@ -237,10 +296,11 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                 Chat AI
               </span>
               <div className="fp-headactions">
-                <button type="button" className={"fp-clear" + (messages.length ? "" : " dis")} disabled={!messages.length}
+                <button type="button" className={"fp-clear" + (messages.length || view === "viewer" ? "" : " dis")}
+                  disabled={!messages.length && view !== "viewer"}
                   onClick={startNewChat}>Nuova chat</button>
                 <button type="button" className={"fp-close" + (view === "history" ? " on" : "")}
-                  onClick={() => setView(v => v === "history" ? "chat" : "history")}
+                  onClick={() => { if (view === "history") setView(viewer ? "viewer" : "chat"); else showHistory(histTab); }}
                   aria-label="Cronologia chat" aria-pressed={view === "history"} title="Cronologia chat">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
                 </button>
@@ -251,23 +311,44 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
             </div>
             {view === "history" ? (
               <div className="chat-body" ref={bodyRef}>
-                {threads.length === 0 && (
-                  <div className="chat-empty"><p>Nessuna chat precedente su questo dispositivo.</p></div>
-                )}
+                <div className="chat-sugg">
+                  <button type="button" className={"fchip" + (histTab === "mine" ? " on" : "")}
+                    onClick={() => showHistory("mine")}>Le mie</button>
+                  <button type="button" className={"fchip" + (histTab === "all" ? " on" : "")}
+                    onClick={() => showHistory("all")}>Tutte</button>
+                </div>
                 {histError && <div className="chat-error">{histError}</div>}
-                {threads.map(t => (
-                  <button key={t.id} type="button"
-                    className={"chat-hist-item" + (t.id === chatId ? " cur" : "")}
-                    disabled={histBusy !== null || isLoading}
-                    onClick={() => openThread(t.id)}>
-                    <span className="chat-hist-title">{t.title}</span>
-                    <span className="chat-hist-meta">
-                      {histBusy === t.id ? "carico…" : t.id === chatId ? "chat aperta" : fmtWhen(t.updatedAt)}
-                    </span>
-                  </button>
-                ))}
-                <div className="chat-note">Le chat restano disponibili per 90 giorni, solo su questo dispositivo.</div>
+                {histTab === "mine" ? (
+                  <>
+                    {owned.length === 0 && (
+                      <div className="chat-empty"><p>Non hai ancora chat su questo dispositivo.</p></div>
+                    )}
+                    {owned.map(t => histItem(t, true))}
+                  </>
+                ) : (
+                  <>
+                    {publicThreads === null && !histError && (
+                      <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
+                    )}
+                    {publicThreads?.length === 0 && (
+                      <div className="chat-empty"><p>Ancora nessuna chat: inizia tu la prima!</p></div>
+                    )}
+                    {publicThreads?.map(t => histItem(t, owned.some(o => o.id === t.id)))}
+                  </>
+                )}
+                <div className="chat-note">
+                  {histTab === "mine"
+                    ? "Le chat che hai iniziato da questo dispositivo: puoi continuarle. Restano per 90 giorni."
+                    : "Cronologia pubblica di tutti i visitatori (90 giorni): puoi leggerle, ma continuare solo le tue."}
+                </div>
               </div>
+            ) : view === "viewer" && viewer ? (
+              <>
+                <div className="chat-body" ref={bodyRef}>
+                  {viewer.messages.map((m: any) => <Message key={m.id} message={m} />)}
+                </div>
+                <div className="chat-note">Chat di un altro visitatore, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
+              </>
             ) : (
               <>
                 <div className="chat-body" ref={bodyRef}>

@@ -4,13 +4,25 @@
    imported by browser code.
 
    Redis layout: one JSON blob per conversation under
-   `concerti:chat:log:<threadId>` (TTL-bounded) plus a sorted-set
-   index of threadIds scored by last-update time.
+   `concerti:chat:log:<threadId>` (TTL-bounded), a sorted-set index
+   of threadIds scored by last-update time, a hash of chat titles
+   (first user message) so the history list can be served without
+   fetching whole transcripts, and a hash of per-thread write keys.
+
+   Ownership: the browser that starts a thread generates a secret
+   write key (kept in its localStorage, sent with every message);
+   chat.mts stores it in the keys hash and refuses to continue a
+   keyed thread without the matching key. Thread ids are public
+   (the history list shows them) — the key is what makes "continue
+   only your own chats" enforceable without accounts. Keys never
+   leave the server via the history endpoint.
    ────────────────────────────────────────────────────────────── */
 
 import { modelMessagesToUIMessages, type ModelMessage, type UIMessage } from "@tanstack/ai";
 
 export const CHAT_LOG_INDEX_KEY = "concerti:chat:log:index";
+export const CHAT_LOG_TITLES_KEY = "concerti:chat:log:titles";
+export const CHAT_LOG_KEYS_KEY = "concerti:chat:log:keys";
 export const chatLogKey = (threadId: string) => `concerti:chat:log:${threadId}`;
 
 // TanStack ids look like "thread-<ts>-<rand>", the widget's are UUIDs;
@@ -28,6 +40,56 @@ export interface ChatLogRecord {
   ip: string;
   updatedAt: string;
   messages: ModelMessage[];
+}
+
+/** History-list title for a conversation: its first user message. */
+export function chatTitle(messages: ModelMessage[]): string {
+  const c = messages.find(m => m.role === "user")?.content;
+  const text = typeof c === "string"
+    ? c
+    : Array.isArray(c) ? c.filter((p: any) => p.type === "text").map((p: any) => p.content).join(" ") : "";
+  return text.trim().slice(0, 80) || "Chat";
+}
+
+/** Drop index entries (and their titles + write keys) older than the
+    transcript TTL, so the listing never outlives the expiring
+    `concerti:chat:log:<id>` blobs. Called from both the write path
+    (chat.mts) and the list path (chat-history.mts); reads-then-removes so
+    the hashes never leak orphan fields. The Redis client is typed loosely
+    to avoid importing @upstash/redis into a src/ module. */
+export async function pruneExpiredChatLog(r: any, now: number, ttlSeconds: number): Promise<void> {
+  const expired: string[] = await r.zrange(CHAT_LOG_INDEX_KEY, 0, now - ttlSeconds * 1000, { byScore: true });
+  if (!expired.length) return;
+  await Promise.all([
+    r.zrem(CHAT_LOG_INDEX_KEY, ...expired),
+    r.hdel(CHAT_LOG_TITLES_KEY, ...expired),
+    r.hdel(CHAT_LOG_KEYS_KEY, ...expired),
+  ]);
+}
+
+/** Ownership gate for continuing a thread: a thread claimed with a write key
+    can only get new messages from the client holding that key. Unclaimed
+    threads (fresh ids, or legacy ones logged before keys existed) are open —
+    they get claimed by the next persisted request that carries a key. */
+export async function isThreadWritable(r: any, threadId: string, writeKey: string | undefined): Promise<boolean> {
+  const existing: string | null = await r.hget(CHAT_LOG_KEYS_KEY, threadId);
+  return !existing || existing === writeKey;
+}
+
+/** The public history list, newest first: prunes expired entries, then reads
+    ids+scores from the index and titles from the hash — whole transcripts are
+    never fetched for listing. */
+export async function listChatLog(r: any, now: number, ttlSeconds: number, limit: number): Promise<Array<{ threadId: string; title: string; updatedAt: number }>> {
+  await pruneExpiredChatLog(r, now, ttlSeconds);
+  const flat: Array<string | number> = await r.zrange(CHAT_LOG_INDEX_KEY, 0, limit - 1, { rev: true, withScores: true });
+  const ids: string[] = [];
+  const scores: number[] = [];
+  for (let i = 0; i < flat.length; i += 2) {
+    ids.push(String(flat[i]));
+    scores.push(Number(flat[i + 1]));
+  }
+  const titles: Record<string, string> | null = ids.length ? await r.hmget(CHAT_LOG_TITLES_KEY, ...ids) : null;
+  return ids.map((id, i) => ({ threadId: id, title: titles?.[id] || "Chat", updatedAt: scores[i] }));
 }
 
 const parseMaybeJson = (v: unknown): unknown => {
