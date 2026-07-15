@@ -91,7 +91,7 @@ export const ALLDATA: Concert[] = [
   {y:2026,date:"01/07/2026",artist:"Bresh",venue:"Arena del Mare",city:"Genova",type:"Arena",posto:"Prato/Parterre",with:["Cami <3","Giulia","Bianca"],cost:47.99,vicinanza:4,voto:2},
   {y:2026,date:"03/07/2026",artist:"Florence + The Machine",venue:"Ippodromo Snai San Siro",city:"Milano",type:"Arena",posto:"Pit/Gold",with:[],cost:92.29,vicinanza:3,voto:5},
   {y:2026,date:"05/07/2026",artist:"Foo Fighters",venue:"Ippodromo SNAI La Maura",city:"Milano",type:"Arena",posto:"Prato/Parterre",with:["Annap"],cost:92,vicinanza:4,voto:4},
-  {y:2026,date:"15/07/2026",artist:"Frah Quintale",venue:"Arena del Mare",city:"Genova",type:"Arena",posto:"Pit/Gold",with:["Cami <3"],accredito:true,vicinanza:1,voto:3},
+  {y:2026,date:"15/07/2026",artist:"Frah Quintale",venue:"Arena del Mare",city:"Genova",type:"Arena",posto:"Pit/Gold",with:["Cami <3"],accredito:true,vicinanza:2,voto:3},
   {y:2026,date:"17/07/2026",artist:"Mannarino",venue:"Arena del Mare",city:"Genova",type:"Arena",posto:"Pit/Gold",with:["Cami <3"],cost:54.14},
   {y:2026,date:"18/07/2026",artist:"Sayf",venue:"Arena del Mare",city:"Genova",type:"Arena",posto:"Pit/Gold",with:["Cami <3"],cost:50.03},
   {y:2026,date:"24/07/2026",artist:"Caparezza",venue:"Arena del Mare",city:"Genova",type:"Arena",posto:"Pit/Gold",with:["Cami <3"],cost:60.99},
