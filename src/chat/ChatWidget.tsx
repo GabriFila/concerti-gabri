@@ -7,8 +7,13 @@
    Each conversation gets its own thread id (the server keys the
    Redis transcript log on it, see netlify/functions/chat.mts);
    "Nuova chat" rotates the id so a fresh conversation never
-   overwrites the previous one's log. In the browser chats stay
-   ephemeral: nothing is restored on reload.
+   overwrites the previous one's log.
+   The history button lists this device's past chats: localStorage
+   keeps only {id, title, date} per conversation — the transcript
+   itself is fetched back from /api/chat/history (chat-history.mts)
+   and resumed by rebuilding the chat client with initialMessages.
+   Thread ids are unguessable, so a device can only ever open the
+   chats it started.
    ────────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -48,6 +53,37 @@ const newChatId = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+/* ── Per-device chat history (list only: id + title + date) ──── */
+interface ThreadMeta { id: string; title: string; updatedAt: number }
+const LS_THREADS = "concerti-chat-threads";
+const MAX_THREADS = 20;
+
+function loadThreads(): ThreadMeta[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(LS_THREADS) || "[]");
+    return Array.isArray(v) ? v.filter(t => t && typeof t.id === "string") : [];
+  } catch { return []; }
+}
+function saveThreads(threads: ThreadMeta[]) {
+  try { localStorage.setItem(LS_THREADS, JSON.stringify(threads)); } catch { /* private mode etc. */ }
+}
+
+const fmtWhen = (ts: number) => {
+  const d = new Date(ts);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+};
+
+const firstUserText = (messages: any[]): string => {
+  const m = messages.find((x: any) => x.role === "user");
+  return (m?.parts || [])
+    .filter((p: any) => p.type === "text" && p.content)
+    .map((p: any) => p.content)
+    .join(" ")
+    .trim();
+};
 
 function friendlyError(err: Error | undefined): string | null {
   if (!err) return null;
@@ -100,15 +136,67 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
   // id + threadId together: useChat only rebuilds its client when `id`
   // changes, so rotating both is what actually starts a new thread.
   const [chatId, setChatId] = useState(newChatId);
+  const [view, setView] = useState<"chat" | "history">("chat");
+  const [threads, setThreads] = useState<ThreadMeta[]>(loadThreads);
+  // transcript fetched from the server, applied only while its id is current
+  const [resume, setResume] = useState<{ id: string; messages: any[] } | null>(null);
+  const [histBusy, setHistBusy] = useState<string | null>(null);
+  const [histError, setHistError] = useState<string | null>(null);
+
   const chatOptions = useMemo(() => createChatClientOptions({
     connection: fetchServerSentEvents("/api/chat"),
     tools: [setFiltersTool, clearFiltersTool, goToSectionTool],
     context: ctx,
     id: chatId,
     threadId: chatId,
-  }), [ctx, chatId]);
+    ...(resume?.id === chatId && { initialMessages: resume.messages }),
+  }), [ctx, chatId, resume]);
   const { messages, sendMessage, isLoading, error, clear } = useChat(chatOptions);
   const uiError = friendlyError(error);
+
+  // keep this conversation in the device's history list
+  useEffect(() => {
+    if (!messages.length) return;
+    const title = firstUserText(messages).slice(0, 80) || "Chat";
+    setThreads(prev => {
+      const next = [{ id: chatId, title, updatedAt: Date.now() }, ...prev.filter(t => t.id !== chatId)].slice(0, MAX_THREADS);
+      saveThreads(next);
+      return next;
+    });
+  }, [messages.length, chatId]);
+
+  const openThread = async (id: string) => {
+    if (id === chatId) { setView("chat"); return; }
+    setHistBusy(id);
+    setHistError(null);
+    try {
+      const res = await fetch(`/api/chat/history?threadId=${encodeURIComponent(id)}`);
+      if (res.status === 404) {
+        // expired on the server: drop it from the local list too
+        setThreads(prev => {
+          const next = prev.filter(t => t.id !== id);
+          saveThreads(next);
+          return next;
+        });
+        throw new Error("Questa chat è scaduta e non è più disponibile.");
+      }
+      if (!res.ok) throw new Error("Impossibile caricare la chat, riprova.");
+      const data = await res.json();
+      setResume({ id, messages: data.messages || [] });
+      setChatId(id);
+      setView("chat");
+    } catch (e: any) {
+      setHistError(e?.message || "Impossibile caricare la chat, riprova.");
+    } finally {
+      setHistBusy(null);
+    }
+  };
+
+  const startNewChat = () => {
+    clear();
+    setChatId(newChatId());
+    setView("chat");
+  };
 
   // keep the newest message in view
   useEffect(() => {
@@ -118,11 +206,16 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
 
   useEffect(() => {
     if (!open) return;
-    inputRef.current?.focus();
+    setView("chat");
+    setHistError(null);
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
+
+  useEffect(() => {
+    if (open && view === "chat") inputRef.current?.focus();
+  }, [open, view]);
   // NOTE: unlike the filter modal, body scroll stays enabled so that
   // go_to_section can scroll the page behind the chat.
 
@@ -145,41 +238,69 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
               </span>
               <div className="fp-headactions">
                 <button type="button" className={"fp-clear" + (messages.length ? "" : " dis")} disabled={!messages.length}
-                  onClick={() => { clear(); setChatId(newChatId()); }}>Nuova chat</button>
+                  onClick={startNewChat}>Nuova chat</button>
+                <button type="button" className={"fp-close" + (view === "history" ? " on" : "")}
+                  onClick={() => setView(v => v === "history" ? "chat" : "history")}
+                  aria-label="Cronologia chat" aria-pressed={view === "history"} title="Cronologia chat">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
+                </button>
                 <button type="button" className="fp-close" onClick={() => setOpen(false)} aria-label="Chiudi">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               </div>
             </div>
-            <div className="chat-body" ref={bodyRef}>
-              {messages.length === 0 && (
-                <div className="chat-empty">
-                  <p>Chiedimi qualcosa sui concerti di Gabri: posso rispondere sui dati, cambiare i filtri della pagina o portarti a una sezione.</p>
-                  <div className="chat-sugg">
-                    {SUGGESTIONS.map(s => (
-                      <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
-                    ))}
-                  </div>
+            {view === "history" ? (
+              <div className="chat-body" ref={bodyRef}>
+                {threads.length === 0 && (
+                  <div className="chat-empty"><p>Nessuna chat precedente su questo dispositivo.</p></div>
+                )}
+                {histError && <div className="chat-error">{histError}</div>}
+                {threads.map(t => (
+                  <button key={t.id} type="button"
+                    className={"chat-hist-item" + (t.id === chatId ? " cur" : "")}
+                    disabled={histBusy !== null || isLoading}
+                    onClick={() => openThread(t.id)}>
+                    <span className="chat-hist-title">{t.title}</span>
+                    <span className="chat-hist-meta">
+                      {histBusy === t.id ? "carico…" : t.id === chatId ? "chat aperta" : fmtWhen(t.updatedAt)}
+                    </span>
+                  </button>
+                ))}
+                <div className="chat-note">Le chat restano disponibili per 90 giorni, solo su questo dispositivo.</div>
+              </div>
+            ) : (
+              <>
+                <div className="chat-body" ref={bodyRef}>
+                  {messages.length === 0 && (
+                    <div className="chat-empty">
+                      <p>Chiedimi qualcosa sui concerti di Gabri: posso rispondere sui dati, cambiare i filtri della pagina o portarti a una sezione.</p>
+                      <div className="chat-sugg">
+                        {SUGGESTIONS.map(s => (
+                          <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {messages.map((m: any) => <Message key={m.id} message={m} />)}
+                  {isLoading && <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>}
+                  {uiError && <div className="chat-error">{uiError}</div>}
                 </div>
-              )}
-              {messages.map((m: any) => <Message key={m.id} message={m} />)}
-              {isLoading && <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>}
-              {uiError && <div className="chat-error">{uiError}</div>}
-            </div>
-            <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                placeholder="Scrivi un messaggio…"
-                maxLength={1500}
-                aria-label="Messaggio"
-              />
-              <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
-              </button>
-            </form>
-            <div className="chat-note">Risposte generate dall'AI: possono contenere errori.</div>
+                <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
+                  <input
+                    ref={inputRef}
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    placeholder="Scrivi un messaggio…"
+                    maxLength={1500}
+                    aria-label="Messaggio"
+                  />
+                  <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
+                  </button>
+                </form>
+                <div className="chat-note">Risposte generate dall'AI: possono contenere errori.</div>
+              </>
+            )}
           </div>
         </div>
       )}
