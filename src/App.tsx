@@ -28,6 +28,7 @@ const PATHS={
   target:<><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></>,
   euro:<><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5a4 4 0 1 0 0 7M7 11h6M7 13.5h5"/></>,
   gift:<><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13"/><path d="M12 8S10.5 4 8 4a2 2 0 0 0 0 4h4ZM12 8s1.5-4 4-4a2 2 0 0 1 0 4h-4Z"/></>,
+  handshake:<><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></>,
   coins:<><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></>,
   wallet:<><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2"/><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2Z"/><circle cx="17" cy="14" r="1"/></>,
   chevron:<><path d="M6 9l6 6 6-6"/></>,
@@ -74,9 +75,11 @@ const rankCutoff=(rows,soft=8,hard=8)=>{
 // cost helpers — `cost` is the all-in price paid for a single seat (fees included), in EUR.
 // Many concerts have no known price; those are simply excluded from every cost stat.
 const hasCost=d=>typeof d.cost==="number";
-// a concert can be: priced (cost number) · a gift (someone paid for it) · unknown.
-// gifts and unknowns never enter the money stats.
+// a concert can be: priced (cost number) · a gift (someone paid for it) ·
+// an accredito (guest list/press pass, free entry) · unknown.
+// gifts, accrediti and unknowns never enter the money stats.
 const isGift=d=>d.gift===true;
+const isAccredito=d=>d.accredito===true;
 // voto — personal 1..5-star rating, given only after attending. Planned concerts
 // can't have one yet; any past concert without a voto is simply left out of vote stats.
 const hasVoto=d=>typeof d.voto==="number";
@@ -132,6 +135,7 @@ function describeFilters(f){
   if(f.vicinanze.length) parts.push("vicinanza: "+f.vicinanze.map(v=>VIC_LABELS[v]||v).join(", "));
   if(f.price==="paid") parts.push("solo con prezzo");
   if(f.price==="gift") parts.push("solo regalati");
+  if(f.price==="accredito") parts.push("solo con accredito");
   if(f.price==="unknown") parts.push("solo senza prezzo");
   if(!isDefaultCost(f)) parts.push("costo €"+f.costMin+"–€"+f.costMax);
   return parts.length?parts.join("; "):"nessun filtro attivo";
@@ -172,8 +176,9 @@ function applyFilters(data,f){
     if(f.status==="planned" && !isPlanned(d)) return false;
     if(f.price==="paid" && !hasCost(d)) return false;
     if(f.price==="gift" && !isGift(d)) return false;
-    if(f.price==="unknown" && (hasCost(d)||isGift(d))) return false;
-    // cost range: only constrains concerts with a known price; gifts/unknowns pass through
+    if(f.price==="accredito" && !isAccredito(d)) return false;
+    if(f.price==="unknown" && (hasCost(d)||isGift(d)||isAccredito(d))) return false;
+    // cost range: only constrains concerts with a known price; gifts/accrediti/unknowns pass through
     // unless the range is narrowed from the default, in which case only priced ones in range qualify
     if(!isDefaultCost(f)){
       if(!hasCost(d)) return false;
@@ -835,7 +840,7 @@ function ArchiveTable(){
                 <td className="date">{pl?<span className="d-planned">{d.date}</span>:<span className="d-past">{d.date}</span>}</td>
                 <td>{hl(d.venue,q)}</td>
                 <td className="with">{(d.with&&d.with.length)?d.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(d.city,q)}</b></td>
                 <td className="type">{d.type?<span className="typecell">{d.type}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
@@ -1367,6 +1372,7 @@ function FilterButton(){
             <FilterSection label="Prezzo">
               <FilterChip active={filters.price==="paid"} onClick={()=>setVal("price","paid")}>Pagato</FilterChip>
               <FilterChip active={filters.price==="gift"} onClick={()=>setVal("price","gift")}>Regalato</FilterChip>
+              <FilterChip active={filters.price==="accredito"} onClick={()=>setVal("price","accredito")}>Accredito</FilterChip>
               <FilterChip active={filters.price==="unknown"} onClick={()=>setVal("price","unknown")}>Senza prezzo</FilterChip>
             </FilterSection>
             <FilterSection label="Fascia di prezzo" value={costLabel} wide>
