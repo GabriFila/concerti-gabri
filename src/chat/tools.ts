@@ -55,7 +55,7 @@ export const setFiltersDef = toolDefinition({
     solo: z.boolean().optional().meta({ description: "true = only concerts attended alone" }),
     posti: z.array(z.enum(POSTI)).optional().meta({ description: "Ticket/spot type. Empty array = all." }),
     vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Closeness to the stage: 1 Transenna, 2 Sottopalco, 3 Centro, 4 Fondo, 5 Tribuna, 6 Anello alto. Empty array = all." }),
-    price: z.enum(["all", "paid", "gift", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, unknown = no price recorded" }),
+    price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, accredito = free entry via guest list/press pass, unknown = no price recorded" }),
     costMin: z.number().optional().meta({ description: "Minimum ticket cost in euros (only constrains concerts with a known price)" }),
     costMax: z.number().optional().meta({ description: "Maximum ticket cost in euros" }),
   }),
@@ -108,6 +108,7 @@ const queryInputSchema = z.object({
   cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them)" }),
   years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
   gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
+  accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
   groupBy: z.enum(["person", "artist", "year", "city", "venue", "type", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group stats (count, avg voto, costs) over the matching concerts (person = one entry per companion)" }),
   sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
 });
@@ -137,7 +138,7 @@ export const queryConcertsDef = toolDefinition({
       avgCost: z.number().nullable(),
       avgVoto: z.number().nullable(),
     })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking" }),
-    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · voto N][ · in programma]'" }),
+    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · in programma]'" }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -170,6 +171,7 @@ export function runConcertQuery(q: ConcertQuery) {
     if (q.cities?.length && !q.cities.includes(d.city)) return false;
     if (q.years?.length && !q.years.includes(d.y)) return false;
     if (q.gift !== undefined && !!d.gift !== q.gift) return false;
+    if (q.accredito !== undefined && !!d.accredito !== q.accredito) return false;
     return true;
   });
 
@@ -220,6 +222,7 @@ export function runConcertQuery(q: ConcertQuery) {
       ` · ${d.with?.length ? `con ${d.with.join(", ")}` : "da solo"}` +
       (typeof d.cost === "number" ? ` · ${d.cost}€` : "") +
       (d.gift ? " · regalo" : "") +
+      (d.accredito ? " · accredito" : "") +
       (typeof d.voto === "number" ? ` · voto ${d.voto}` : "") +
       (isPlanned(d) ? " · in programma" : "")),
     concertsTruncated: matches.length > MAX_LISTED_CONCERTS,
