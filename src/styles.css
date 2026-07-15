@@ -207,6 +207,22 @@
   .chat-send:hover:not(:disabled){filter:brightness(1.07)}
   .chat-send:disabled{opacity:.4;cursor:default}
   .chat-note{padding:0 16px 10px;font-size:.72rem;color:var(--dim);text-align:center;flex-shrink:0}
+  /* history view (list of past chats on this device) */
+  .fp-close.on{background:var(--lamp-faint);color:var(--lamp)}
+  .chat-hist-item{
+    display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;flex-shrink:0;
+    padding:10px 13px;border-radius:12px;cursor:pointer;
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    font:inherit;transition:border-color .15s ease,background .15s ease;
+  }
+  .chat-hist-item:hover:not(:disabled){border-color:var(--lamp-soft)}
+  .chat-hist-item:disabled{opacity:.55;cursor:default}
+  .chat-hist-item.cur{border-color:var(--lamp-soft);background:var(--lamp-faint)}
+  .chat-hist-title{
+    font-size:.9rem;font-weight:500;line-height:1.35;overflow-wrap:break-word;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .chat-hist-meta{font-size:.76rem;color:var(--dim)}
   @media (pointer:coarse){ .chat-inputrow input{font-size:16px} }
   @media (max-width:620px){
     .chatmodal{padding:10px}

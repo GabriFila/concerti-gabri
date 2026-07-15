@@ -24,6 +24,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { ALLDATA } from "../../src/data.ts";
+import { ALLOWED_ORIGINS, CHAT_LOG_INDEX_KEY, chatLogKey, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
 import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
 // query_concerts runs here on the server: exact numbers computed by
@@ -126,12 +127,6 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; reason?: 
    request (with the tool result) is, so nothing is lost unless the
    visitor closes the tab mid-tool-call. */
 const LOG_TTL_S = (Number(process.env.CHAT_LOG_TTL_DAYS) || 90) * 86_400;
-const LOG_INDEX_KEY = "concerti:chat:log:index";
-const logKey = (threadId: string) => `concerti:chat:log:${threadId}`;
-// TanStack ids look like "thread-<ts>-<rand>", ours are UUIDs; anything
-// else from a hand-rolled client gets a fresh server-side id instead of
-// becoming an arbitrary Redis key.
-const THREAD_ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
 
 function chatLogMiddleware(r: Redis, threadId: string, ip: string): ChatMiddleware {
   return {
@@ -144,10 +139,10 @@ function chatLogMiddleware(r: Redis, threadId: string, ip: string): ChatMiddlewa
         const now = Date.now();
         const record = { threadId, ip, updatedAt: new Date(now).toISOString(), messages };
         await Promise.all([
-          r.set(logKey(threadId), record, { ex: LOG_TTL_S }),
-          r.zadd(LOG_INDEX_KEY, { score: now, member: threadId }),
+          r.set(chatLogKey(threadId), record, { ex: LOG_TTL_S }),
+          r.zadd(CHAT_LOG_INDEX_KEY, { score: now, member: threadId }),
           // keep the index in step with the expiring transcripts
-          r.zremrangebyscore(LOG_INDEX_KEY, 0, now - LOG_TTL_S * 1000),
+          r.zremrangebyscore(CHAT_LOG_INDEX_KEY, 0, now - LOG_TTL_S * 1000),
         ]);
       } catch (err) {
         console.error("chat log persist failed", err);
@@ -157,7 +152,6 @@ function chatLogMiddleware(r: Redis, threadId: string, ip: string): ChatMiddlewa
 }
 
 /* ── Request sanity checks ──────────────────────────────────── */
-const ALLOWED_ORIGINS = /^https?:\/\/(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|concerti\.gabrifila\.me|[a-z0-9-]+\.netlify\.app)$/i;
 const MAX_BODY_CHARS = 80_000;
 const MAX_MESSAGES = 40;
 const MAX_USER_TEXT = 1_500;
