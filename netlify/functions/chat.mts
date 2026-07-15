@@ -24,7 +24,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { ALLDATA } from "../../src/data.ts";
-import { ALLOWED_ORIGINS, CHAT_LOG_INDEX_KEY, chatLogKey, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
+import { ALLOWED_ORIGINS, CHAT_LOG_INDEX_KEY, CHAT_LOG_KEYS_KEY, CHAT_LOG_TITLES_KEY, chatLogKey, chatTitle, isThreadWritable, pruneExpiredChatLog, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
 import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
 // query_concerts runs here on the server: exact numbers computed by
@@ -128,7 +128,7 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; reason?: 
    visitor closes the tab mid-tool-call. */
 const LOG_TTL_S = (Number(process.env.CHAT_LOG_TTL_DAYS) || 90) * 86_400;
 
-function chatLogMiddleware(r: Redis, threadId: string, ip: string): ChatMiddleware {
+function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: string): ChatMiddleware {
   return {
     name: "redis-chat-log",
     async onFinish(ctx, info) {
@@ -141,8 +141,12 @@ function chatLogMiddleware(r: Redis, threadId: string, ip: string): ChatMiddlewa
         await Promise.all([
           r.set(chatLogKey(threadId), record, { ex: LOG_TTL_S }),
           r.zadd(CHAT_LOG_INDEX_KEY, { score: now, member: threadId }),
-          // keep the index in step with the expiring transcripts
-          r.zremrangebyscore(CHAT_LOG_INDEX_KEY, 0, now - LOG_TTL_S * 1000),
+          r.hset(CHAT_LOG_TITLES_KEY, { [threadId]: chatTitle(messages) }),
+          // claim/refresh the thread's write key (the handler has already
+          // verified it matches when the thread was previously claimed)
+          ...(writeKey ? [r.hset(CHAT_LOG_KEYS_KEY, { [threadId]: writeKey })] : []),
+          // keep index + hashes in step with the expiring transcripts
+          pruneExpiredChatLog(r, now, LOG_TTL_S),
         ]);
       } catch (err) {
         console.error("chat log persist failed", err);
@@ -156,12 +160,15 @@ const MAX_BODY_CHARS = 80_000;
 const MAX_MESSAGES = 40;
 const MAX_USER_TEXT = 1_500;
 
-function validate(raw: string): { messages: unknown[]; threadId: string } | { error: string } {
+function validate(raw: string): { messages: unknown[]; threadId: string; writeKey?: string } | { error: string } {
   if (raw.length > MAX_BODY_CHARS) return { error: "Conversazione troppo lunga: apri una nuova chat." };
   let body: any;
   try { body = JSON.parse(raw); } catch { return { error: "Richiesta non valida." }; }
   const threadId: string =
     typeof body?.threadId === "string" && THREAD_ID_RE.test(body.threadId) ? body.threadId : randomUUID();
+  // per-thread ownership secret, sent by the widget in forwardedProps
+  const rawKey = body?.forwardedProps?.writeKey ?? body?.data?.writeKey;
+  const writeKey = typeof rawKey === "string" && THREAD_ID_RE.test(rawKey) ? rawKey : undefined;
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0) return { error: "Richiesta non valida." };
   if (messages.length > MAX_MESSAGES) return { error: "Conversazione troppo lunga: apri una nuova chat." };
@@ -170,7 +177,7 @@ function validate(raw: string): { messages: unknown[]; threadId: string } | { er
     if (m.role === "user" && typeof m.content === "string" && m.content.length > MAX_USER_TEXT)
       return { error: `Messaggio troppo lungo (max ${MAX_USER_TEXT} caratteri).` };
   }
-  return { messages, threadId };
+  return { messages, threadId, writeKey };
 }
 
 /* ── System prompt ──────────────────────────────────────────── */
@@ -240,6 +247,19 @@ export default async (req: Request, context: { ip?: string }) => {
   const parsed = validate(await req.text());
   if ("error" in parsed) return json(400, { error: parsed.error });
 
+  // Ownership gate: a thread claimed with a write key can only be continued
+  // by the client holding that key (thread ids are public via the history
+  // list; the key never leaves the owner's browser).
+  if (redis) {
+    try {
+      if (!(await isThreadWritable(redis, parsed.threadId, parsed.writeKey)))
+        return json(403, { error: "Questa chat appartiene a un altro visitatore: puoi solo leggerla." });
+    } catch (err) {
+      console.error("chat write-key check failed", err);
+      // best-effort like the rest of persistence: never block the chat on Redis trouble
+    }
+  }
+
   try {
     const stream = chat({
       adapter: geminiText(MODEL),
@@ -248,7 +268,7 @@ export default async (req: Request, context: { ip?: string }) => {
       systemPrompts: [systemPrompt()],
       tools: [...chatToolDefs, queryConcertsTool, reportUnsupportedTool],
       agentLoopStrategy: untilAnswered,
-      middleware: redis ? [chatLogMiddleware(redis, parsed.threadId, ip)] : [],
+      middleware: redis ? [chatLogMiddleware(redis, parsed.threadId, ip, parsed.writeKey)] : [],
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
     return toServerSentEventsResponse(stream);
