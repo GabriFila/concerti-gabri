@@ -51,6 +51,7 @@ const setThemeTool = setThemeDef.client<ChatSiteContext>((input, c) => {
 
 const SUGGESTIONS = [
   "Quanto ha speso Gabri in concerti nel 2025?",
+  "Chi fa parte degli Imagine Dragons?",
   "Mostra solo i concerti in programma",
   "Portami alla mappa",
 ];
@@ -385,7 +386,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                 <div className="chat-body" ref={bodyRef}>
                   {messages.length === 0 && (
                     <div className="chat-empty">
-                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
+                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
                       <div className="chat-sugg">
                         {SUGGESTIONS.map(s => (
                           <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
