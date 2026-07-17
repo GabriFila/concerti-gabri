@@ -24,7 +24,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { ALLDATA } from "../../src/data.ts";
-import { ALLOWED_ORIGINS, CHAT_LOG_INDEX_KEY, CHAT_LOG_KEYS_KEY, CHAT_LOG_TITLES_KEY, chatLogKey, chatTitle, isThreadWritable, pruneExpiredChatLog, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
+import { ALLOWED_ORIGINS, CHAT_LOG_AUTHORS_KEY, CHAT_LOG_INDEX_KEY, CHAT_LOG_KEYS_KEY, CHAT_LOG_TITLES_KEY, chatLogKey, chatTitle, isThreadWritable, pruneExpiredChatLog, sanitizeAuthor, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
 import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
 // query_concerts runs here on the server: exact numbers computed by
@@ -128,7 +128,7 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; reason?: 
    visitor closes the tab mid-tool-call. */
 const LOG_TTL_S = (Number(process.env.CHAT_LOG_TTL_DAYS) || 90) * 86_400;
 
-function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: string): ChatMiddleware {
+function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: string, author?: string): ChatMiddleware {
   return {
     name: "redis-chat-log",
     async onFinish(ctx, info) {
@@ -137,7 +137,7 @@ function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: st
           ? [...ctx.messages, { role: "assistant", content: info.content }]
           : [...ctx.messages];
         const now = Date.now();
-        const record = { threadId, ip, updatedAt: new Date(now).toISOString(), messages };
+        const record = { threadId, ip, updatedAt: new Date(now).toISOString(), messages, ...(author && { author }) };
         await Promise.all([
           r.set(chatLogKey(threadId), record, { ex: LOG_TTL_S }),
           r.zadd(CHAT_LOG_INDEX_KEY, { score: now, member: threadId }),
@@ -145,6 +145,9 @@ function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: st
           // claim/refresh the thread's write key (the handler has already
           // verified it matches when the thread was previously claimed)
           ...(writeKey ? [r.hset(CHAT_LOG_KEYS_KEY, { [threadId]: writeKey })] : []),
+          // the visitor's optional signature, shown in the public history;
+          // only ever set by the thread's owner (writes are key-gated above)
+          ...(author ? [r.hset(CHAT_LOG_AUTHORS_KEY, { [threadId]: author })] : []),
           // keep index + hashes in step with the expiring transcripts
           pruneExpiredChatLog(r, now, LOG_TTL_S),
         ]);
@@ -160,7 +163,7 @@ const MAX_BODY_CHARS = 80_000;
 const MAX_MESSAGES = 40;
 const MAX_USER_TEXT = 1_500;
 
-function validate(raw: string): { messages: unknown[]; threadId: string; writeKey?: string } | { error: string } {
+function validate(raw: string): { messages: unknown[]; threadId: string; writeKey?: string; author?: string } | { error: string } {
   if (raw.length > MAX_BODY_CHARS) return { error: "Conversazione troppo lunga: apri una nuova chat." };
   let body: any;
   try { body = JSON.parse(raw); } catch { return { error: "Richiesta non valida." }; }
@@ -169,6 +172,8 @@ function validate(raw: string): { messages: unknown[]; threadId: string; writeKe
   // per-thread ownership secret, sent by the widget in forwardedProps
   const rawKey = body?.forwardedProps?.writeKey ?? body?.data?.writeKey;
   const writeKey = typeof rawKey === "string" && THREAD_ID_RE.test(rawKey) ? rawKey : undefined;
+  // optional visitor signature for the public history, sent next to the key
+  const author = sanitizeAuthor(body?.forwardedProps?.author ?? body?.data?.author);
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0) return { error: "Richiesta non valida." };
   if (messages.length > MAX_MESSAGES) return { error: "Conversazione troppo lunga: apri una nuova chat." };
@@ -269,7 +274,7 @@ export default async (req: Request, context: { ip?: string }) => {
       systemPrompts: [systemPrompt()],
       tools: [...chatToolDefs, queryConcertsTool, reportUnsupportedTool],
       agentLoopStrategy: untilAnswered,
-      middleware: redis ? [chatLogMiddleware(redis, parsed.threadId, ip, parsed.writeKey)] : [],
+      middleware: redis ? [chatLogMiddleware(redis, parsed.threadId, ip, parsed.writeKey, parsed.author)] : [],
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
     return toServerSentEventsResponse(stream);

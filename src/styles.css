@@ -171,6 +171,14 @@
   .chat-body::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:9px;border:2px solid var(--panel)}
   .chat-empty{margin:auto 0;display:flex;flex-direction:column;gap:14px;color:var(--muted);font-size:.92rem;line-height:1.5}
   .chat-empty p{margin:0}
+  .chat-name{display:flex;flex-direction:column;gap:6px;font-size:.8rem;color:var(--dim)}
+  .chat-name input{
+    align-self:flex-start;width:min(240px,100%);height:36px;padding:0 14px;border-radius:999px;
+    border:1px solid var(--line-2);background:var(--panel-2);color:var(--text);
+    font:inherit;font-size:.88rem;outline:none;transition:border-color .15s ease;
+  }
+  .chat-name input:focus{border-color:var(--lamp-soft)}
+  .chat-name input::placeholder{color:var(--dim)}
   .chat-sugg{display:flex;flex-wrap:wrap;gap:7px}
   .chat-msg{
     max-width:88%;padding:9px 13px;border-radius:14px;
@@ -223,7 +231,7 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .chat-hist-meta{font-size:.76rem;color:var(--dim)}
-  @media (pointer:coarse){ .chat-inputrow input{font-size:16px} }
+  @media (pointer:coarse){ .chat-inputrow input,.chat-name input{font-size:16px} }
   @media (max-width:620px){
     .chatmodal{padding:10px}
     .chatpop{height:calc(100dvh - 80px)}

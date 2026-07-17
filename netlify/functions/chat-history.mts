@@ -4,8 +4,9 @@
    Two modes, both reading the Redis transcript log written by
    chat.mts:
    - without ?threadId: the PUBLIC list of recent conversations
-     ({threadId, title, updatedAt}, newest first). Titles come from
-     a Redis hash so listing never fetches whole transcripts.
+     ({threadId, title, updatedAt, author?}, newest first). Titles
+     and the optional visitor signatures come from Redis hashes so
+     listing never fetches whole transcripts.
    - with ?threadId=...: one conversation as UIMessages ready for
      the widget's `initialMessages`.
 
@@ -65,6 +66,7 @@ export default async (req: Request, context: { ip?: string }) => {
     return json(200, {
       threadId,
       updatedAt: record.updatedAt,
+      ...(record.author && { author: record.author }),
       messages: logMessagesToUIMessages(record.messages),
     });
   } catch (err) {
