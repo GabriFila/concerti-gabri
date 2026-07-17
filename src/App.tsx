@@ -815,7 +815,7 @@ function ArchiveTable(){
     );
   };
 
-  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["city","Città"],["type","Tipo"],["posto","Posto"],["vicinanza","Vicinanza"]];
+  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["city","Città"],["posto","Posto"],["vicinanza","Vicinanza"]];
   const orderNote = sort.col ? null : (searching ? "Ordinati per pertinenza" : null);
 
   return (
@@ -843,12 +843,11 @@ function ArchiveTable(){
                 <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(d.city,q)}</b></td>
-                <td className="type">{d.type?<span className="typecell">{d.type}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
               </tr>
             );})}
-            {rows.length===0&&<tr><td colSpan={10} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
+            {rows.length===0&&<tr><td colSpan={9} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
           </tbody>
         </table>
       </div>
