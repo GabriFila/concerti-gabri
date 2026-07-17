@@ -17,6 +17,7 @@ export const SECTIONS = [
   { id: "sec-kpis", label: "Riepilogo" },
   { id: "sec-andamento", label: "Andamento" },
   { id: "sec-mappa", label: "Dove sono andato" },
+  { id: "sec-viaggi", label: "Quanto viaggio" },
   { id: "sec-artisti", label: "Chi ho visto di più" },
   { id: "sec-compagni", label: "Con chi vado di più" },
   { id: "sec-venue", label: "Dove torno più spesso" },

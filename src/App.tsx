@@ -86,6 +86,18 @@ const isAccredito=d=>d.accredito===true;
 // voto — personal 1..5-star rating, given only after attending. Planned concerts
 // can't have one yet; any past concert without a voto is simply left out of vote stats.
 const hasVoto=d=>typeof d.voto==="number";
+// from — città di partenza del viaggio ("m" Milano / "g" Genova). Come voto e
+// vicinanza si può impostare anche dopo l'evento: assente = non ancora definita.
+// Le distanze usano i centri città di CITY_COORDS, mai indirizzi precisi.
+const FROM_LABELS={m:"Milano",g:"Genova"};
+const hasFrom=d=>d.from==="m"||d.from==="g";
+const fromMissing=d=>!isPlanned(d)&&!hasFrom(d);   // passato senza partenza -> da segnalare
+const HOME_COORDS={m:CITY_COORDS["Milano"],g:CITY_COORDS["Genova"]};
+// great-circle km between two [lng,lat] points
+const havKm=(a,b)=>{const R=6371,rad=x=>x*Math.PI/180;const s=Math.sin(rad(b[1]-a[1])/2)**2+Math.cos(rad(a[1]))*Math.cos(rad(b[1]))*Math.sin(rad(b[0]-a[0])/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
+// one-way straight-line km from home to the venue (city center as fallback); null if origin unknown
+const distKm=d=>{if(!hasFrom(d))return null;const dest=VENUE_COORDS[d.venue]||CITY_COORDS[d.city];return dest?havKm(HOME_COORDS[d.from],dest):null;};
+const km0=n=>Math.round(n).toLocaleString("it-IT")+" km";
 const voto1=n=>n.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1});
 const eur0=n=>"€"+Math.round(n).toLocaleString("it-IT");
 const eur2=n=>"€"+n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -608,6 +620,33 @@ function TopSpend(){
         </div>
       ))}</div>
       {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={full.length-7} entity={ENT_CONCERT}/>}
+    </section>
+  );
+}
+
+function TravelCard(){
+  const DATA=useData();
+  const [expanded,setExpanded]=useState(false);
+  const full=DATA.map(d=>({d,km:distKm(d)})).filter(r=>r.km!==null).sort((a,b)=>b.km-a.km);
+  const total=sum(full.map(r=>r.km))*2; // andata e ritorno
+  const top=expanded?full:full.slice(0,7);
+  const hasMore=full.length>7;
+  const max=top.length?top[0].km:1;
+  return (
+    <section className="panel">
+      <h2><Icon name="pin" size={22} className="h2ic"/>Quanto viaggio</h2>
+      {full.length>0?(<>
+        <p className="desc" style={{marginTop:0}}>Distanza in linea d'aria dalla città di partenza (Milano o Genova). In totale ≈ <b style={{color:"var(--lamp)"}}>{km0(total)}</b> tra andata e ritorno, su {full.length} concerti con partenza nota.</p>
+        <div className="rank">{top.map(({d,km},i)=>(
+          <div className="rrow" key={i}>
+            <div className="rtop"><span className="name">{d.artist} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)} da {FROM_LABELS[d.from]}</span></span><span className="val"><span className="vneu">≈ {km0(km)}</span></span></div>
+            <div className="track"><div className="fill" style={{width:Math.max(1,Math.round(km/max*100))+"%",background:isPlanned(d)?"var(--planned)":"var(--lamp)"}}></div></div>
+          </div>
+        ))}</div>
+        {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={full.length-7} entity={ENT_CONCERT}/>}
+      </>):(
+        <p className="desc" style={{margin:0}}>Nessun concerto con partenza nota con questi filtri.</p>
+      )}
     </section>
   );
 }
@@ -1445,7 +1484,7 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-viaggi":"pin","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
@@ -1520,6 +1559,23 @@ function VotoAlert(){
     <div className="vicalert">
       <Icon name="star" size={17} className="vicalert-ic"/>
       <span><b>{missing.length}</b> {missing.length===1?"concerto passato è":"concerti passati sono"} senza voto:
+        <ul className="vicalert-list">{missing.map((d,i)=>(
+          <li key={i}>{d.artist} '{String(d.y).slice(2)}</li>
+        ))}</ul>
+      </span>
+    </div>
+  );
+}
+
+function FromAlert(){
+  // segnala i concerti GIÀ passati senza città di partenza.
+  // i futuri (planned) sono esclusi: si può decidere anche all'ultimo.
+  const missing=ALLDATA.filter(fromMissing);
+  if(missing.length===0) return null;
+  return (
+    <div className="vicalert">
+      <Icon name="map" size={17} className="vicalert-ic"/>
+      <span><b>{missing.length}</b> {missing.length===1?"concerto passato è":"concerti passati sono"} senza città di partenza:
         <ul className="vicalert-list">{missing.map((d,i)=>(
           <li key={i}>{d.artist} '{String(d.y).slice(2)}</li>
         ))}</ul>
@@ -1651,12 +1707,14 @@ function App(){
           <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
           <VicinanzaAlert/>
           <VotoAlert/>
+          <FromAlert/>
         </header>
         <div id="sec-kpis" className="tocsec"><KPIs/></div>
       </div>
       <main>
         <div id="sec-andamento" className="tocsec"><ChartCard/></div>
         <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
+        <div id="sec-viaggi" className="tocsec"><TravelCard/></div>
         <div className="grid2">
           <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(DATA,"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
           <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(DATA,"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
