@@ -48,6 +48,9 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? "";
 // Venue coordinates [lng, lat] — hardcoded, no runtime geocoding
 
 const sortKey=d=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(+m[3])*10000+(+m[2])*100+(+m[1]):0;};
+// weekday 0=lunedì..6=domenica; multi-day events count on their first day, like sortKey
+const GIORNI=["LUN","MAR","MER","GIO","VEN","SAB","DOM"];
+const weekdayOf=d=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(new Date(+m[3],+m[2]-1,+m[1]).getDay()+6)%7:0;};
 const todayKey=()=>{const t=new Date();return t.getFullYear()*10000+(t.getMonth()+1)*100+t.getDate();};
 const isPlanned=d=>sortKey(d)>=todayKey();
 const monthOf=d=>parseInt(d.date.split("/")[1],10)-1;
@@ -407,6 +410,30 @@ function Months(){
             <div className="mseg ma" style={{height:(v?ah:h)+"px"}}></div>
           </div>
           <div className="ml">{MESI[i][0]}</div>
+        </div>;
+      })}</div>
+    </section>
+  );
+}
+
+function Weekdays(){
+  const DATA=useData();
+  const wc:Record<number,number>={},wp:Record<number,number>={};for(let i=0;i<7;i++){wc[i]=0;wp[i]=0;}
+  DATA.forEach(d=>{wc[weekdayOf(d)]++;if(isPlanned(d))wp[weekdayOf(d)]++;});
+  const max=Math.max(...Object.values(wc),1);
+  return (
+    <section className="panel">
+      <h2><Icon name="calendar" size={22} className="h2ic"/>Che giorno esco</h2>
+      <div className="days">{Object.keys(wc).map(i=>{
+        const v=wc[i],p=wp[i],a=v-p;const h=v?Math.max(4,Math.round(v/max*105)):2;
+        const ph=v?Math.round(p/v*h):0;const ah=h-ph;
+        return <div className={"mcol"+(v===max&&v>0?" top":"")} key={i}>
+          <div className="mn">{a>0&&<span className="mnpast">{a}</span>}{p>0&&<span className="mnpl">{p}</span>}</div>
+          <div className="mbar" style={{height:h+"px",opacity:v?1:.3}}>
+            {p>0&&<div className="mseg mpl" style={{height:ph+"px"}}></div>}
+            <div className="mseg ma" style={{height:(v?ah:h)+"px"}}></div>
+          </div>
+          <div className="ml">{GIORNI[i]}</div>
         </div>;
       })}</div>
     </section>
@@ -1418,7 +1445,7 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
@@ -1638,7 +1665,7 @@ function App(){
           <div id="sec-venue" className="tocsec full"><VenueCard/></div>
         </div>
         <div className="grid2"><div id="sec-posto" className="tocsec"><PostoCard/></div><div id="sec-vicinanza" className="tocsec"><VicinanzaCard/></div></div>
-        <div id="sec-stagionalita" className="tocsec"><Months/></div>
+        <div className="grid2"><div id="sec-stagionalita" className="tocsec"><Months/></div><div id="sec-giorni" className="tocsec"><Weekdays/></div></div>
         <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
         <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>
         <div id="sec-voti-vs" className="tocsec"><VoteScatter/></div>

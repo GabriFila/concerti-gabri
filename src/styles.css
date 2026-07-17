@@ -779,6 +779,8 @@
 
   /* ============ MONTHS ============ */
   .months{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;align-items:end;height:150px}
+  /* weekday variant: same columns/bars as .months, just 7 of them */
+  .days{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;align-items:end;height:150px}
   .mcol{display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
   .mcol .mbar{width:100%;border-radius:0;min-height:2px;background:transparent;display:flex;flex-direction:column;justify-content:flex-end;transition:height .6s ease}
   .mcol .mbar .mseg.ma{background:var(--lamp)}
