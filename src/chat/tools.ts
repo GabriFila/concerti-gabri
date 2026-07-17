@@ -23,6 +23,7 @@ export const SECTIONS = [
   { id: "sec-posto", label: "Che biglietto prendo" },
   { id: "sec-vicinanza", label: "Quanto sono vicino" },
   { id: "sec-stagionalita", label: "Quando vado" },
+  { id: "sec-giorni", label: "Che giorno esco" },
   { id: "sec-voti", label: "Come li giudico" },
   { id: "sec-voti-migliori", label: "I migliori" },
   { id: "sec-voti-vs", label: "Voto a confronto" },
