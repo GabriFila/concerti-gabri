@@ -6,8 +6,10 @@
    Redis layout: one JSON blob per conversation under
    `concerti:chat:log:<threadId>` (TTL-bounded), a sorted-set index
    of threadIds scored by last-update time, a hash of chat titles
-   (first user message) so the history list can be served without
-   fetching whole transcripts, and a hash of per-thread write keys.
+   (first user message) and a hash of author names (the optional
+   visitor-chosen signature) so the history list can be served
+   without fetching whole transcripts, and a hash of per-thread
+   write keys.
 
    Ownership: the browser that starts a thread generates a secret
    write key (kept in its localStorage, sent with every message);
@@ -23,6 +25,7 @@ import { modelMessagesToUIMessages, type ModelMessage, type UIMessage } from "@t
 export const CHAT_LOG_INDEX_KEY = "concerti:chat:log:index";
 export const CHAT_LOG_TITLES_KEY = "concerti:chat:log:titles";
 export const CHAT_LOG_KEYS_KEY = "concerti:chat:log:keys";
+export const CHAT_LOG_AUTHORS_KEY = "concerti:chat:log:authors";
 export const chatLogKey = (threadId: string) => `concerti:chat:log:${threadId}`;
 
 // TanStack ids look like "thread-<ts>-<rand>", the widget's are UUIDs;
@@ -40,6 +43,18 @@ export interface ChatLogRecord {
   ip: string;
   updatedAt: string;
   messages: ModelMessage[];
+  /** Optional visitor-chosen name, shown next to the chat in the public history. */
+  author?: string;
+}
+
+/** The author name is free text from the browser and ends up rendered to every
+    visitor: cap its length and collapse whitespace/control chars server-side,
+    whatever the widget's own maxLength says. */
+export const MAX_AUTHOR_CHARS = 40;
+export function sanitizeAuthor(v: unknown): string | undefined {
+  if (typeof v !== "string") return undefined;
+  const s = v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_AUTHOR_CHARS).trim();
+  return s || undefined;
 }
 
 /** History-list title for a conversation: its first user message. */
@@ -51,7 +66,7 @@ export function chatTitle(messages: ModelMessage[]): string {
   return text.trim().slice(0, 80) || "Chat";
 }
 
-/** Drop index entries (and their titles + write keys) older than the
+/** Drop index entries (and their titles + authors + write keys) older than the
     transcript TTL, so the listing never outlives the expiring
     `concerti:chat:log:<id>` blobs. Called from both the write path
     (chat.mts) and the list path (chat-history.mts); reads-then-removes so
@@ -64,6 +79,7 @@ export async function pruneExpiredChatLog(r: any, now: number, ttlSeconds: numbe
     r.zrem(CHAT_LOG_INDEX_KEY, ...expired),
     r.hdel(CHAT_LOG_TITLES_KEY, ...expired),
     r.hdel(CHAT_LOG_KEYS_KEY, ...expired),
+    r.hdel(CHAT_LOG_AUTHORS_KEY, ...expired),
   ]);
 }
 
@@ -77,9 +93,9 @@ export async function isThreadWritable(r: any, threadId: string, writeKey: strin
 }
 
 /** The public history list, newest first: prunes expired entries, then reads
-    ids+scores from the index and titles from the hash — whole transcripts are
-    never fetched for listing. */
-export async function listChatLog(r: any, now: number, ttlSeconds: number, limit: number): Promise<Array<{ threadId: string; title: string; updatedAt: number }>> {
+    ids+scores from the index and titles/authors from the hashes — whole
+    transcripts are never fetched for listing. */
+export async function listChatLog(r: any, now: number, ttlSeconds: number, limit: number): Promise<Array<{ threadId: string; title: string; updatedAt: number; author?: string }>> {
   await pruneExpiredChatLog(r, now, ttlSeconds);
   const flat: Array<string | number> = await r.zrange(CHAT_LOG_INDEX_KEY, 0, limit - 1, { rev: true, withScores: true });
   const ids: string[] = [];
@@ -88,8 +104,15 @@ export async function listChatLog(r: any, now: number, ttlSeconds: number, limit
     ids.push(String(flat[i]));
     scores.push(Number(flat[i + 1]));
   }
-  const titles: Record<string, string> | null = ids.length ? await r.hmget(CHAT_LOG_TITLES_KEY, ...ids) : null;
-  return ids.map((id, i) => ({ threadId: id, title: titles?.[id] || "Chat", updatedAt: scores[i] }));
+  const [titles, authors]: Array<Record<string, string> | null> = ids.length
+    ? await Promise.all([r.hmget(CHAT_LOG_TITLES_KEY, ...ids), r.hmget(CHAT_LOG_AUTHORS_KEY, ...ids)])
+    : [null, null];
+  return ids.map((id, i) => ({
+    threadId: id,
+    title: titles?.[id] || "Chat",
+    updatedAt: scores[i],
+    ...(authors?.[id] && { author: authors[id] }),
+  }));
 }
 
 const parseMaybeJson = (v: unknown): unknown => {

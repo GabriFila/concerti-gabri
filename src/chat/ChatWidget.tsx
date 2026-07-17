@@ -1,6 +1,7 @@
 /* ──────────────────────────────────────────────────────────────
-   AI chat widget: trigger button (lives in the bottom bar) plus
-   the chat modal. Talks to /api/chat (Netlify function) via the
+   "L'Oracolo" — the AI chat widget: trigger button (lives in the
+   bottom bar) plus the chat modal. Talks to /api/chat (Netlify
+   function) via the
    TanStack AI SSE connection; filter/navigation tool calls from
    the model run here in the browser through the `ctx` callbacks
    that App provides (they own the real filter state).
@@ -67,9 +68,21 @@ const randomId = () =>
    localStorage is the only place the write keys live; losing it means
    those chats become read-only (still visible in the "Tutte" tab). */
 interface OwnedThread { id: string; key: string; title: string; updatedAt: number }
-interface PublicThread { id: string; title: string; updatedAt: number }
+interface PublicThread { id: string; title: string; updatedAt: number; author?: string }
 const LS_THREADS = "concerti-chat-threads";
 const MAX_OWNED = 50;
+
+/* Optional visitor signature: shown next to their chats in the public
+   history. Kept per-device, sent with every message; the server caps it
+   at the same length and stores it per-thread. */
+const LS_NAME = "concerti-chat-name";
+const MAX_NAME = 40;
+function loadName(): string {
+  try { return (localStorage.getItem(LS_NAME) || "").slice(0, MAX_NAME); } catch { return ""; }
+}
+function saveName(name: string) {
+  try { localStorage.setItem(LS_NAME, name); } catch { /* private mode etc. */ }
+}
 
 function loadOwned(): OwnedThread[] {
   try {
@@ -155,6 +168,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
   // id + threadId together: useChat only rebuilds its client when `id`
   // changes, so rotating both is what actually starts a new thread.
   const [thread, setThread] = useState(() => ({ id: randomId(), key: randomId() }));
+  const [name, setName] = useState<string>(loadName);
   const [view, setView] = useState<"chat" | "history" | "viewer">("chat");
   const [histTab, setHistTab] = useState<"mine" | "all">("mine");
   const [owned, setOwned] = useState<OwnedThread[]>(loadOwned);
@@ -162,19 +176,22 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
   // transcript fetched from the server, applied only while its id is current
   const [resume, setResume] = useState<{ id: string; messages: any[] } | null>(null);
   // someone else's chat, shown read-only
-  const [viewer, setViewer] = useState<{ id: string; title: string; messages: any[] } | null>(null);
+  const [viewer, setViewer] = useState<{ id: string; title: string; messages: any[]; author?: string } | null>(null);
   const [histBusy, setHistBusy] = useState<string | null>(null);
   const [histError, setHistError] = useState<string | null>(null);
 
+  // useChat syncs forwardedProps changes onto its client, so an edited
+  // name is picked up by the next message without rebuilding the thread.
+  const author = name.trim();
   const chatOptions = useMemo(() => createChatClientOptions({
     connection: fetchServerSentEvents("/api/chat"),
     tools: [setFiltersTool, clearFiltersTool, goToSectionTool, setThemeTool],
     context: ctx,
     id: thread.id,
     threadId: thread.id,
-    forwardedProps: { writeKey: thread.key },
+    forwardedProps: { writeKey: thread.key, ...(author && { author }) },
     ...(resume?.id === thread.id && { initialMessages: resume.messages }),
-  }), [ctx, thread, resume]);
+  }), [ctx, thread, resume, author]);
   const { messages, sendMessage, isLoading, error, clear } = useChat(chatOptions);
   const uiError = friendlyError(error);
 
@@ -207,7 +224,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
         throw new Error(body?.error || "Impossibile caricare la cronologia, riprova.");
       }
       const data = await res.json();
-      setPublicThreads((data.chats || []).map((c: any) => ({ id: c.threadId, title: c.title, updatedAt: c.updatedAt })));
+      setPublicThreads((data.chats || []).map((c: any) => ({ id: c.threadId, title: c.title, updatedAt: c.updatedAt, author: c.author })));
     } catch (e: any) {
       setHistError(e?.message || "Impossibile caricare la cronologia, riprova.");
     }
@@ -238,7 +255,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
         setThread({ id, key: own.key || randomId() });
         setView("chat");
       } else {
-        setViewer({ id, title, messages: data.messages || [] });
+        setViewer({ id, title, messages: data.messages || [], author: data.author });
         setView("viewer");
       }
     } catch (e: any) {
@@ -283,7 +300,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     setInput("");
   };
 
-  const histItem = (t: { id: string; title: string; updatedAt: number }, isOwn: boolean) => (
+  const histItem = (t: { id: string; title: string; updatedAt: number; author?: string }, isOwn: boolean) => (
     <button key={t.id} type="button"
       className={"chat-hist-item" + (t.id === thread.id && isOwn ? " cur" : "")}
       disabled={histBusy !== null || isLoading}
@@ -292,7 +309,9 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
       <span className="chat-hist-meta">
         {histBusy === t.id ? "carico…"
           : t.id === thread.id && isOwn ? "chat aperta"
-          : fmtWhen(t.updatedAt) + (histTab === "all" ? (isOwn ? " · tua" : " · solo lettura") : "")}
+          : fmtWhen(t.updatedAt) + (histTab === "all"
+              ? (isOwn ? " · tua" : ` · di ${t.author || "anonimo"} · solo lettura`)
+              : "")}
       </span>
     </button>
   );
@@ -301,11 +320,11 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     <div className="chatdock">
       {open && (
         <div className="chatmodal" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <div className="chatpop" role="dialog" aria-modal="true" aria-label="Chat AI">
+          <div className="chatpop" role="dialog" aria-modal="true" aria-label="L'Oracolo — chat AI">
             <div className="fp-head">
               <span className="fp-title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
-                Chat AI
+                L'Oracolo
               </span>
               <div className="fp-headactions">
                 <button type="button" className={"fp-clear" + (messages.length || view === "viewer" ? "" : " dis")}
@@ -359,19 +378,29 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                 <div className="chat-body" ref={bodyRef}>
                   {viewer.messages.map((m: any) => <Message key={m.id} message={m} />)}
                 </div>
-                <div className="chat-note">Chat di un altro visitatore, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
+                <div className="chat-note">Chat di {viewer.author || "un altro visitatore"}, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
               </>
             ) : (
               <>
                 <div className="chat-body" ref={bodyRef}>
                   {messages.length === 0 && (
                     <div className="chat-empty">
-                      <p>Chiedimi qualcosa sui concerti di Gabri: posso rispondere sui dati, cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
+                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
                       <div className="chat-sugg">
                         {SUGGESTIONS.map(s => (
                           <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
                         ))}
                       </div>
+                      <label className="chat-name">
+                        <span>Firma le tue chat (facoltativo)</span>
+                        <input
+                          value={name}
+                          onChange={e => { setName(e.target.value); saveName(e.target.value); }}
+                          placeholder="Il tuo nome"
+                          maxLength={MAX_NAME}
+                          aria-label="Il tuo nome (facoltativo)"
+                        />
+                      </label>
                     </div>
                   )}
                   {messages.map((m: any) => <Message key={m.id} message={m} />)}
@@ -391,7 +420,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
                   </button>
                 </form>
-                <div className="chat-note">Risposte generate dall'AI: possono contenere errori.</div>
+                <div className="chat-note">Risposte generate dall'AI: possono contenere errori. Le chat sono pubbliche: gli altri visitatori potranno leggerle{author ? ` (firmate come “${author}”)` : ""}.</div>
               </>
             )}
           </div>
@@ -401,10 +430,10 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
         type="button"
         className={"chatbtn" + (open ? " open" : "")}
         onClick={() => setOpen(o => !o)}
-        aria-label="Apri la chat AI"
+        aria-label="Apri L'Oracolo, la chat AI"
         aria-expanded={open}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-        <span className="filterbtn-lbl">Chat</span>
+        <span className="filterbtn-lbl">L'Oracolo</span>
       </button>
     </div>
   );
