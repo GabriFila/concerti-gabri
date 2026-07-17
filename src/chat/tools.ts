@@ -119,7 +119,7 @@ const queryInputSchema = z.object({
   years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
   gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
   accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
-  groupBy: z.enum(["person", "artist", "year", "city", "venue", "type", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group stats (count, avg voto, costs) over the matching concerts (person = one entry per companion)" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group stats (count, avg voto, costs) over the matching concerts (person = one entry per companion)" }),
   sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
 });
 
@@ -130,7 +130,7 @@ export const queryConcertsDef = toolDefinition({
   description:
     "The ONLY source of the concert data. Returns, for the concerts matching the filters (combined with AND): " +
     "exact count, attended/planned split, total and average cost, average rating, optional breakdown by " +
-    "person/artist/year/city/venue/type/posto/vicinanza, and the full matching list in chronological order. " +
+    "person/artist/year/city/venue/posto/vicinanza, and the full matching list in chronological order. " +
     "Call it (possibly more than once) before answering ANY question about the data.",
   inputSchema: queryInputSchema,
   outputSchema: z.object({
@@ -207,8 +207,7 @@ export function runConcertQuery(q: ConcertQuery) {
       : q.groupBy === "city" ? [d.city]
       : q.groupBy === "venue" ? [d.venue]
       : q.groupBy === "posto" ? [d.posto]
-      : q.groupBy === "vicinanza" ? [String(d.vicinanza ?? "non impostata")]
-      : [d.type];
+      : [String(d.vicinanza ?? "non impostata")];
     const byKey = new Map<string, Concert[]>();
     for (const d of matches) for (const k of keysOf(d)) byKey.set(k, [...(byKey.get(k) || []), d]);
     const sortBy = q.sortGroupsBy || "count";
