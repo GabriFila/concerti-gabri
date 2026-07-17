@@ -84,6 +84,16 @@ export const goToSectionDef = toolDefinition({
   outputSchema: z.object({ ok: z.boolean(), label: z.string() }),
 });
 
+export const setThemeDef = toolDefinition({
+  name: "set_theme",
+  description:
+    "Switch the page's color theme. The change is visible immediately, even behind the open chat.",
+  inputSchema: z.object({
+    theme: z.enum(["dark", "light", "system"]).meta({ description: "dark = tema scuro, light = tema chiaro, system = follow the visitor's OS preference" }),
+  }),
+  outputSchema: z.object({ ok: z.boolean(), theme: z.enum(["dark", "light", "system"]) }),
+});
+
 /* ── query_concerts ────────────────────────────────────────────
    Server tool (execute attached in netlify/functions/chat.mts):
    deterministic counts/sums over ALLDATA, so the model quotes
@@ -229,4 +239,4 @@ export function runConcertQuery(q: ConcertQuery) {
   };
 }
 
-export const chatToolDefs = [setFiltersDef, clearFiltersDef, goToSectionDef];
+export const chatToolDefs = [setFiltersDef, clearFiltersDef, goToSectionDef, setThemeDef];

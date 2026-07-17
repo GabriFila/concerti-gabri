@@ -22,13 +22,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useChat, fetchServerSentEvents } from "@tanstack/ai-react";
 import { createChatClientOptions } from "@tanstack/ai-client";
-import { setFiltersDef, clearFiltersDef, goToSectionDef, SECTIONS } from "./tools.ts";
+import { setFiltersDef, clearFiltersDef, goToSectionDef, setThemeDef, SECTIONS } from "./tools.ts";
 
-/* Implemented by App, which owns filters and the page. */
+export type ThemeMode = "dark" | "light" | "system";
+
+/* Implemented by App, which owns filters, the theme and the page. */
 export interface ChatSiteContext {
   applyFilters(input: any): { matchCount: number; summary: string };
   clearFilters(): { matchCount: number };
   goToSection(id: string): { ok: boolean; label: string };
+  setTheme(theme: ThemeMode): { ok: boolean; theme: ThemeMode };
 }
 
 const setFiltersTool = setFiltersDef.client<ChatSiteContext>((input, c) => {
@@ -40,6 +43,9 @@ const clearFiltersTool = clearFiltersDef.client<ChatSiteContext>((_input, c) => 
 });
 const goToSectionTool = goToSectionDef.client<ChatSiteContext>((input, c) => {
   return c.context.goToSection(input.section);
+});
+const setThemeTool = setThemeDef.client<ChatSiteContext>((input, c) => {
+  return c.context.setTheme(input.theme);
 });
 
 const SUGGESTIONS = [
@@ -100,9 +106,11 @@ function friendlyError(err: Error | undefined): string | null {
   return "Qualcosa è andato storto. Riprova, o apri una nuova chat.";
 }
 
+const THEME_LABEL: Record<string, string> = { dark: "Scuro", light: "Chiaro", system: "Sistema" };
+
 function ToolChip({ part }: { part: any }) {
   const done = part.output != null;
-  let icon = "✓", text = "";
+  let icon = "✓", text = "", hint = true;
   if (part.name === "set_filters") {
     text = done ? `Filtri applicati — ${part.output.matchCount} concerti` : "Applico i filtri…";
   } else if (part.name === "clear_filters") {
@@ -111,6 +119,10 @@ function ToolChip({ part }: { part: any }) {
     const label = SECTION_LABEL[part.input?.section] || "sezione";
     text = done ? `Pagina portata su “${label}”` : "Scorro la pagina…";
     icon = "→";
+  } else if (part.name === "set_theme") {
+    const label = THEME_LABEL[part.input?.theme] || part.input?.theme || "tema";
+    text = done ? `Tema impostato: ${label}` : "Cambio il tema…";
+    hint = false; // the new theme is already visible, chat included
   } else {
     return null;
   }
@@ -118,7 +130,7 @@ function ToolChip({ part }: { part: any }) {
     <div className={"chat-tool" + (done ? " done" : "")}>
       <span className="chat-tool-ic" aria-hidden="true">{done ? icon : "…"}</span>
       <span>{text}</span>
-      {done && <span className="chat-tool-hint">Chiudi la chat per vedere la pagina.</span>}
+      {done && hint && <span className="chat-tool-hint">Chiudi la chat per vedere la pagina.</span>}
     </div>
   );
 }
@@ -156,7 +168,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
 
   const chatOptions = useMemo(() => createChatClientOptions({
     connection: fetchServerSentEvents("/api/chat"),
-    tools: [setFiltersTool, clearFiltersTool, goToSectionTool],
+    tools: [setFiltersTool, clearFiltersTool, goToSectionTool, setThemeTool],
     context: ctx,
     id: thread.id,
     threadId: thread.id,
@@ -354,7 +366,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                 <div className="chat-body" ref={bodyRef}>
                   {messages.length === 0 && (
                     <div className="chat-empty">
-                      <p>Chiedimi qualcosa sui concerti di Gabri: posso rispondere sui dati, cambiare i filtri della pagina o portarti a una sezione.</p>
+                      <p>Chiedimi qualcosa sui concerti di Gabri: posso rispondere sui dati, cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
                       <div className="chat-sugg">
                         {SUGGESTIONS.map(s => (
                           <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>

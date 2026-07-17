@@ -1506,8 +1506,13 @@ function App(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
+  const [mode,setMode]=React.useState(()=>{
+    try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
+    return "dark";
+  });
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
-  // nel suo contesto); i filtri correnti si leggono via ref, non via closure.
+  // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
+  // setMode è un setter di useState, quindi stabile anche lui.
   const filtersRef=React.useRef(filters);
   filtersRef.current=filters;
   const chatCtx=React.useMemo(()=>({
@@ -1526,11 +1531,11 @@ function App(){
       const s=SECTIONS.find(x=>x.id===id);
       return {ok:!!el,label:s?s.label:id};
     },
+    setTheme:(t)=>{
+      setMode(t);
+      return {ok:true,theme:t};
+    },
   }),[]);
-  const [mode,setMode]=React.useState(()=>{
-    try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
-    return "dark";
-  });
   React.useEffect(()=>{
     const mq=window.matchMedia("(prefers-color-scheme: dark)");
     const apply=()=>{
