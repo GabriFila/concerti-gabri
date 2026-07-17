@@ -137,6 +137,9 @@ function ToolChip({ part }: { part: any }) {
     const label = THEME_LABEL[part.input?.theme] || part.input?.theme || "tema";
     text = done ? `Tema impostato: ${label}` : "Cambio il tema…";
     hint = false; // the new theme is already visible, chat included
+  } else if (part.name === "web_search") {
+    text = done ? "Ricerca sul web completata" : "Cerco sul web…";
+    hint = false;
   } else {
     return null;
   }
