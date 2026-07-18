@@ -88,15 +88,13 @@ const isAccredito=d=>d.accredito===true;
 const hasVoto=d=>typeof d.voto==="number";
 // from — città di partenza del viaggio ("m" Milano / "g" Genova). Come voto e
 // vicinanza si può impostare anche dopo l'evento: assente = non ancora definita.
-// Le distanze partono dagli indirizzi di casa (HOME_COORDS); le destinazioni usano VENUE_COORDS o il centro città.
+// I km sono precalcolati offline e salvati per-concerto in data.ts (vedi CLAUDE.md):
+// nessuna coordinata di partenza né formula di distanza deve vivere nel bundle.
 const FROM_LABELS={m:"Milano",g:"Genova"};
 const hasFrom=d=>d.from==="m"||d.from==="g";
 const fromMissing=d=>!isPlanned(d)&&!hasFrom(d);   // passato senza partenza -> da segnalare
-const HOME_COORDS={m:[9.1694,45.4600],g:[8.9487069,44.4008906]}; // [lng,lat] di casa, non centri città
-// great-circle km between two [lng,lat] points
-const havKm=(a,b)=>{const R=6371,rad=x=>x*Math.PI/180;const s=Math.sin(rad(b[1]-a[1])/2)**2+Math.cos(rad(a[1]))*Math.cos(rad(b[1]))*Math.sin(rad(b[0]-a[0])/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
-// one-way straight-line km from home to the venue (city center as fallback); null if origin unknown
-const distKm=d=>{if(!hasFrom(d))return null;const dest=VENUE_COORDS[d.venue]||CITY_COORDS[d.city];return dest?havKm(HOME_COORDS[d.from],dest):null;};
+// one-way km from home; null if origin unknown or km not yet computed
+const distKm=d=>hasFrom(d)&&typeof d.km==="number"?d.km:null;
 const km0=n=>Math.round(n).toLocaleString("it-IT")+" km";
 const voto1=n=>n.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1});
 const eur0=n=>"€"+Math.round(n).toLocaleString("it-IT");
@@ -887,7 +885,7 @@ function ArchiveTable(){
                 <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(d.city,q)}</b></td>
-                <td className="km">{hasFrom(d)?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="km">{distKm(d)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
               </tr>
