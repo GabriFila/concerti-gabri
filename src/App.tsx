@@ -245,11 +245,11 @@ function KPIs(){
     {num:voted.length?<>{voto1(avgVoto)}<span className="star" style={{fontSize:"0.58em"}}>★</span></>:"—",lbl:"Voto medio",hint:voted.length+" concerti votati",ic:"star"},
     {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" concerti",ic:"coins"},
     {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" concerti",ic:"wallet"},
-    {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
     {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin"},
     {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
     {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
+    {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
   ];
   return <section className="kpis">{items.map((k,i)=>(
     <div className="kpi" key={i}><div className={"num"+(k.accent?" acc-"+k.accent:"")}>{k.num}</div><div className="lbl"><Icon name={k.ic} size={13} className="kic"/>{k.lbl}</div>{k.hint&&<div className="hint">{k.hint}</div>}{k.note&&<div className="pnote">{k.note}</div>}</div>
@@ -628,31 +628,6 @@ function TopSpend(){
   );
 }
 
-function TravelCard(){
-  const DATA=useData();
-  const [expanded,setExpanded]=useState(false);
-  const full=DATA.map(d=>({d,km:distKm(d)})).filter(r=>r.km!==null).sort((a,b)=>b.km-a.km);
-  const top=expanded?full:full.slice(0,7);
-  const hasMore=full.length>7;
-  const max=top.length?top[0].km:1;
-  return (
-    <section className="panel">
-      <h2><Icon name="pin" size={22} className="h2ic"/>Quanto viaggio</h2>
-      {full.length>0?(<>
-        <div className="rank">{top.map(({d,km},i)=>(
-          <div className="rrow" key={i}>
-            <div className="rtop"><span className="name">{d.artist} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)} da {FROM_LABELS[d.from]}</span></span><span className="val"><span className="vneu">~{km0(km)}</span></span></div>
-            <div className="track"><div className="fill" style={{width:Math.max(1,Math.round(km/max*100))+"%",background:isPlanned(d)?"var(--planned)":"var(--lamp)"}}></div></div>
-          </div>
-        ))}</div>
-        {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={full.length-7} entity={ENT_CONCERT}/>}
-      </>):(
-        <p className="desc" style={{margin:0}}>Nessun concerto con partenza nota con questi filtri.</p>
-      )}
-    </section>
-  );
-}
-
 function PriceDistribution(){
   const DATA=useData();
   const known=DATA.filter(hasCost);
@@ -855,6 +830,7 @@ function ArchiveTable(){
       else if(sort.col==="cost"){av=hasCost(a)?a.cost:-Infinity;bv=hasCost(b)?b.cost:-Infinity;} // unknown prices sink to the bottom
       else if(sort.col==="voto"){av=hasVoto(a)?a.voto:-Infinity;bv=hasVoto(b)?b.voto:-Infinity;} // unrated (planned) sink like unknown prices
       else if(sort.col==="vicinanza"){av=hasVic(a)?a.vicinanza:-Infinity;bv=hasVic(b)?b.vicinanza:-Infinity;} // "na"/missing sink like unknown prices
+      else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // unknown origins sink like unknown prices
       else if(sort.col==="with"){av=(a.with||[]).join(", ").toLowerCase();bv=(b.with||[]).join(", ").toLowerCase();}
       else{av=(a[sort.col]||"").toLowerCase();bv=(b[sort.col]||"").toLowerCase();}
       return av<bv?-dir:av>bv?dir:0;
@@ -883,7 +859,7 @@ function ArchiveTable(){
     );
   };
 
-  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["city","Città"],["posto","Posto"],["vicinanza","Vicinanza"]];
+  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["city","Città"],["km","Viaggio"],["posto","Posto"],["vicinanza","Vicinanza"]];
   const orderNote = sort.col ? null : (searching ? "Ordinati per pertinenza" : null);
 
   return (
@@ -911,11 +887,12 @@ function ArchiveTable(){
                 <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(d.city,q)}</b></td>
+                <td className="km">{hasFrom(d)?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
               </tr>
             );})}
-            {rows.length===0&&<tr><td colSpan={9} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
+            {rows.length===0&&<tr><td colSpan={10} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -1486,7 +1463,7 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-viaggi":"pin","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
@@ -1716,7 +1693,6 @@ function App(){
       <main>
         <div id="sec-andamento" className="tocsec"><ChartCard/></div>
         <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
-        <div id="sec-viaggi" className="tocsec"><TravelCard/></div>
         <div className="grid2">
           <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(DATA,"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
           <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(DATA,"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
