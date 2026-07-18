@@ -234,6 +234,9 @@ function KPIs(){
   const priced=DATA.filter(hasCost);
   const totalSpent=sum(priced.map(d=>d.cost));
   const avgSpent=priced.length?totalSpent/priced.length:0;
+  // km — round trip from the origin city, only over concerts with a known `from`
+  const trips=DATA.map(d=>distKm(d)).filter(k=>k!==null);
+  const totalKm=sum(trips)*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
   const items:any[]=[
     {num:total,lbl:"Concerti",hint:"sino ad oggi",ic:"ticket",accent:"amber"},
@@ -242,6 +245,7 @@ function KPIs(){
     {num:voted.length?<>{voto1(avgVoto)}<span className="star" style={{fontSize:"0.58em"}}>★</span></>:"—",lbl:"Voto medio",hint:voted.length+" concerti votati",ic:"star"},
     {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" concerti",ic:"coins"},
     {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" concerti",ic:"wallet"},
+    {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
     {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin"},
     {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
@@ -628,7 +632,6 @@ function TravelCard(){
   const DATA=useData();
   const [expanded,setExpanded]=useState(false);
   const full=DATA.map(d=>({d,km:distKm(d)})).filter(r=>r.km!==null).sort((a,b)=>b.km-a.km);
-  const total=sum(full.map(r=>r.km))*2; // andata e ritorno
   const top=expanded?full:full.slice(0,7);
   const hasMore=full.length>7;
   const max=top.length?top[0].km:1;
@@ -636,10 +639,9 @@ function TravelCard(){
     <section className="panel">
       <h2><Icon name="pin" size={22} className="h2ic"/>Quanto viaggio</h2>
       {full.length>0?(<>
-        <p className="desc" style={{marginTop:0}}>Distanza in linea d'aria dalla città di partenza (Milano o Genova). In totale ≈ <b style={{color:"var(--lamp)"}}>{km0(total)}</b> tra andata e ritorno, su {full.length} concerti con partenza nota.</p>
         <div className="rank">{top.map(({d,km},i)=>(
           <div className="rrow" key={i}>
-            <div className="rtop"><span className="name">{d.artist} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)} da {FROM_LABELS[d.from]}</span></span><span className="val"><span className="vneu">≈ {km0(km)}</span></span></div>
+            <div className="rtop"><span className="name">{d.artist} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)} da {FROM_LABELS[d.from]}</span></span><span className="val"><span className="vneu">~{km0(km)}</span></span></div>
             <div className="track"><div className="fill" style={{width:Math.max(1,Math.round(km/max*100))+"%",background:isPlanned(d)?"var(--planned)":"var(--lamp)"}}></div></div>
           </div>
         ))}</div>
