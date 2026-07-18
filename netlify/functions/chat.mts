@@ -67,22 +67,31 @@ const webSearchDef = toolDefinition({
   outputSchema: z.object({
     answer: z.string(),
     sources: z.array(z.string()).meta({ description: "Names of the main web sources the answer is based on" }),
+    grounded: z.boolean().meta({ description: "true = answer comes from a live Google Search; false = model knowledge only, may be outdated — say so briefly" }),
+    error: z.string().optional().meta({ description: "Why live search was unavailable, for diagnostics" }),
   }),
 });
 
+// Keys must never reach the transcript; the rest of an API error is
+// generic JSON (status/code/message) and safe to expose for debugging.
+const sanitizeErr = (err: unknown) =>
+  String((err as Error)?.message ?? err).replace(/AIza[0-9A-Za-z_-]{30,}/g, "***").slice(0, 300);
+
 const webSearchTool = webSearchDef.server(async ({ query }) => {
-  try {
-    const genai = new GoogleGenAI({ apiKey: (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)! });
-    const res = await genai.models.generateContent({
+  const genai = new GoogleGenAI({ apiKey: (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)! });
+  const ask = (grounded: boolean) =>
+    genai.models.generateContent({
       model: MODEL,
       contents: query,
       config: {
-        tools: [{ googleSearch: {} }],
+        ...(grounded && { tools: [{ googleSearch: {} }] }),
         maxOutputTokens: 1000,
         temperature: 0.2,
-        systemInstruction: "Answer concisely (a few sentences, plain text) using Google Search. Reply in the language of the question.",
+        systemInstruction: `Answer concisely (a few sentences, plain text)${grounded ? " using Google Search" : ""}. Reply in the language of the question.`,
       },
     });
+  try {
+    const res = await ask(true);
     const answer = (res.text ?? "").trim();
     const sources = [...new Set(
       (res.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [])
@@ -90,10 +99,20 @@ const webSearchTool = webSearchDef.server(async ({ query }) => {
         .filter((t): t is string => !!t),
     )].slice(0, 3);
     console.log("web_search", JSON.stringify(query), "->", answer ? `${answer.length} chars, ${sources.length} sources` : "empty");
-    return { answer: answer || "La ricerca non ha trovato una risposta.", sources };
+    return { answer: answer || "La ricerca non ha trovato una risposta.", sources, grounded: true };
   } catch (err) {
-    console.error("web_search failed", err);
-    return { answer: "La ricerca sul web non è disponibile in questo momento.", sources: [] };
+    // Grounding can be unavailable (e.g. key tier without Google Search
+    // quota): degrade to the model's own knowledge instead of failing.
+    const error = sanitizeErr(err);
+    console.error("web_search grounding failed:", error);
+    try {
+      const res = await ask(false);
+      const answer = (res.text ?? "").trim();
+      return { answer: answer || "Non ho trovato una risposta.", sources: [], grounded: false, error };
+    } catch (err2) {
+      console.error("web_search fallback failed:", sanitizeErr(err2));
+      return { answer: "La ricerca sul web non è disponibile in questo momento.", sources: [], grounded: false, error };
+    }
   }
 });
 
@@ -258,6 +277,7 @@ WEB SEARCH (web_search):
 - Use web_search ONLY for the general music questions above, or to enrich an answer about an artist/venue in Gabri's data (e.g. "chi fa parte degli Imagine Dragons?", "quando esce il nuovo album di…", "che band è…").
 - NEVER answer questions about Gabri's data from search results or memory: those facts come ONLY from query_concerts. A mixed question ("chi sono gli Imagine Dragons e quante volte li ha visti Gabri?") needs both tools: query_concerts for Gabri's part, web_search for the rest.
 - Answer from the tool's "answer" field, keeping it short (a few sentences, no long biographies); you may name its "sources". If the search does not give a reliable answer, say you don't know instead of guessing.
+- If the result has grounded=false, the live search was unavailable and the answer comes from the model's general knowledge: still answer, but add one short caveat that the info might not be up to date.
 - Never use search for off-topic requests, even if the user insists.
 
 DATA ACCESS — the most important rule:
