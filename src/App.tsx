@@ -88,11 +88,11 @@ const isAccredito=d=>d.accredito===true;
 const hasVoto=d=>typeof d.voto==="number";
 // from — città di partenza del viaggio ("m" Milano / "g" Genova). Come voto e
 // vicinanza si può impostare anche dopo l'evento: assente = non ancora definita.
-// Le distanze usano i centri città di CITY_COORDS, mai indirizzi precisi.
+// Le distanze partono dagli indirizzi di casa (HOME_COORDS); le destinazioni usano VENUE_COORDS o il centro città.
 const FROM_LABELS={m:"Milano",g:"Genova"};
 const hasFrom=d=>d.from==="m"||d.from==="g";
 const fromMissing=d=>!isPlanned(d)&&!hasFrom(d);   // passato senza partenza -> da segnalare
-const HOME_COORDS={m:CITY_COORDS["Milano"],g:CITY_COORDS["Genova"]};
+const HOME_COORDS={m:[9.1694,45.4600],g:[8.9487069,44.4008906]}; // [lng,lat] di casa, non centri città
 // great-circle km between two [lng,lat] points
 const havKm=(a,b)=>{const R=6371,rad=x=>x*Math.PI/180;const s=Math.sin(rad(b[1]-a[1])/2)**2+Math.cos(rad(a[1]))*Math.cos(rad(b[1]))*Math.sin(rad(b[0]-a[0])/2)**2;return 2*R*Math.asin(Math.sqrt(s));};
 // one-way straight-line km from home to the venue (city center as fallback); null if origin unknown
