@@ -13,6 +13,10 @@
    `concerti:chat:log:<threadId>` after every completed response,
    plus a sorted-set index (`concerti:chat:log:index`) for listing.
    TTL-bounded, best-effort: a Redis failure never breaks the chat.
+   Non-production deploys (previews, branch deploys, local dev)
+   write to the separate `concerti:chat:log:preview:*` namespace,
+   so test chats are kept for debugging but never appear in the
+   production public history (see chatlog.ts).
 
    Env (set in Netlify): GEMINI_API_KEY (required), GEMINI_MODEL,
    UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN (rate limit +
@@ -29,7 +33,7 @@ import { z } from "zod";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { ALLDATA } from "../../src/data.ts";
-import { ALLOWED_ORIGINS, CHAT_LOG_AUTHORS_KEY, CHAT_LOG_INDEX_KEY, CHAT_LOG_KEYS_KEY, CHAT_LOG_TITLES_KEY, chatLogKey, chatTitle, isThreadWritable, pruneExpiredChatLog, sanitizeAuthor, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
+import { ALLOWED_ORIGINS, type ChatLogKeys, chatLogKeys, chatLogNamespace, chatTitle, isThreadWritable, isValidThreadId, pruneExpiredChatLog, sanitizeAuthor, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
 import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
 // query_concerts runs here on the server: exact numbers computed by
@@ -201,7 +205,7 @@ async function checkRateLimit(ip: string): Promise<{ allowed: boolean; reason?: 
    visitor closes the tab mid-tool-call. */
 const LOG_TTL_S = (Number(process.env.CHAT_LOG_TTL_DAYS) || 90) * 86_400;
 
-function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: string, author?: string): ChatMiddleware {
+function chatLogMiddleware(r: Redis, k: ChatLogKeys, threadId: string, ip: string, writeKey?: string, author?: string, deployContext?: string): ChatMiddleware {
   return {
     name: "redis-chat-log",
     async onFinish(ctx, info) {
@@ -210,19 +214,19 @@ function chatLogMiddleware(r: Redis, threadId: string, ip: string, writeKey?: st
           ? [...ctx.messages, { role: "assistant", content: info.content }]
           : [...ctx.messages];
         const now = Date.now();
-        const record = { threadId, ip, updatedAt: new Date(now).toISOString(), messages, ...(author && { author }) };
+        const record = { threadId, ip, updatedAt: new Date(now).toISOString(), messages, ...(author && { author }), ...(deployContext && { deployContext }) };
         await Promise.all([
-          r.set(chatLogKey(threadId), record, { ex: LOG_TTL_S }),
-          r.zadd(CHAT_LOG_INDEX_KEY, { score: now, member: threadId }),
-          r.hset(CHAT_LOG_TITLES_KEY, { [threadId]: chatTitle(messages) }),
+          r.set(k.record(threadId), record, { ex: LOG_TTL_S }),
+          r.zadd(k.index, { score: now, member: threadId }),
+          r.hset(k.titles, { [threadId]: chatTitle(messages) }),
           // claim/refresh the thread's write key (the handler has already
           // verified it matches when the thread was previously claimed)
-          ...(writeKey ? [r.hset(CHAT_LOG_KEYS_KEY, { [threadId]: writeKey })] : []),
+          ...(writeKey ? [r.hset(k.keys, { [threadId]: writeKey })] : []),
           // the visitor's optional signature, shown in the public history;
           // only ever set by the thread's owner (writes are key-gated above)
-          ...(author ? [r.hset(CHAT_LOG_AUTHORS_KEY, { [threadId]: author })] : []),
+          ...(author ? [r.hset(k.authors, { [threadId]: author })] : []),
           // keep index + hashes in step with the expiring transcripts
-          pruneExpiredChatLog(r, now, LOG_TTL_S),
+          pruneExpiredChatLog(r, k, now, LOG_TTL_S),
         ]);
       } catch (err) {
         console.error("chat log persist failed", err);
@@ -241,7 +245,7 @@ function validate(raw: string): { messages: unknown[]; threadId: string; writeKe
   let body: any;
   try { body = JSON.parse(raw); } catch { return { error: "Richiesta non valida." }; }
   const threadId: string =
-    typeof body?.threadId === "string" && THREAD_ID_RE.test(body.threadId) ? body.threadId : randomUUID();
+    typeof body?.threadId === "string" && isValidThreadId(body.threadId) ? body.threadId : randomUUID();
   // per-thread ownership secret, sent by the widget in forwardedProps
   const rawKey = body?.forwardedProps?.writeKey ?? body?.data?.writeKey;
   const writeKey = typeof rawKey === "string" && THREAD_ID_RE.test(rawKey) ? rawKey : undefined;
@@ -315,7 +319,7 @@ ${sections}`;
 const json = (status: number, payload: unknown) =>
   new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } });
 
-export default async (req: Request, context: { ip?: string }) => {
+export default async (req: Request, context: { ip?: string; deploy?: { context?: string } }) => {
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
   const origin = req.headers.get("origin");
@@ -336,12 +340,19 @@ export default async (req: Request, context: { ip?: string }) => {
   const parsed = validate(await req.text());
   if ("error" in parsed) return json(400, { error: parsed.error });
 
+  // Which log namespace this deploy writes to: only production uses the
+  // public one (context.deploy.context is Netlify's runtime value, CONTEXT
+  // the build-time env var fallback).
+  const deployContext = context.deploy?.context ?? process.env.CONTEXT;
+  const logNs = chatLogNamespace(deployContext);
+  const logKeys = chatLogKeys(logNs);
+
   // Ownership gate: a thread claimed with a write key can only be continued
   // by the client holding that key (thread ids are public via the history
   // list; the key never leaves the owner's browser).
   if (redis) {
     try {
-      if (!(await isThreadWritable(redis, parsed.threadId, parsed.writeKey)))
+      if (!(await isThreadWritable(redis, logKeys, parsed.threadId, parsed.writeKey)))
         return json(403, { error: "Questa chat appartiene a un altro visitatore: puoi solo leggerla." });
     } catch (err) {
       console.error("chat write-key check failed", err);
@@ -357,7 +368,7 @@ export default async (req: Request, context: { ip?: string }) => {
       systemPrompts: [systemPrompt()],
       tools: [...chatToolDefs, queryConcertsTool, reportUnsupportedTool, webSearchTool],
       agentLoopStrategy: untilAnswered,
-      middleware: redis ? [chatLogMiddleware(redis, parsed.threadId, ip, parsed.writeKey, parsed.author)] : [],
+      middleware: redis ? [chatLogMiddleware(redis, logKeys, parsed.threadId, ip, parsed.writeKey, parsed.author, logNs ? deployContext ?? "unknown" : undefined)] : [],
       modelOptions: { maxOutputTokens: 1500, temperature: 0.4 },
     });
     return toServerSentEventsResponse(stream);

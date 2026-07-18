@@ -11,6 +11,14 @@
    without fetching whole transcripts, and a hash of per-thread
    write keys.
 
+   Deploy isolation: chats from deploy previews / branch deploys /
+   local dev live under a separate `concerti:chat:log:preview:*`
+   namespace (same layout). They're still persisted — useful for
+   debugging a branch later — but production's public history only
+   reads the production namespace, so test chats never show up on
+   the live site. Each non-production deploy's own history endpoint
+   reads the preview namespace instead.
+
    Ownership: the browser that starts a thread generates a secret
    write key (kept in its localStorage, sent with every message);
    chat.mts stores it in the keys hash and refuses to continue a
@@ -22,16 +30,51 @@
 
 import { modelMessagesToUIMessages, type ModelMessage, type UIMessage } from "@tanstack/ai";
 
-export const CHAT_LOG_INDEX_KEY = "concerti:chat:log:index";
-export const CHAT_LOG_TITLES_KEY = "concerti:chat:log:titles";
-export const CHAT_LOG_KEYS_KEY = "concerti:chat:log:keys";
-export const CHAT_LOG_AUTHORS_KEY = "concerti:chat:log:authors";
-export const chatLogKey = (threadId: string) => `concerti:chat:log:${threadId}`;
+const CHAT_LOG_ROOT = "concerti:chat:log";
+
+/** "" = production (keys unchanged from before namespacing, so existing
+    transcripts stay reachable); "preview" = everything else. */
+export type ChatLogNamespace = "" | "preview";
+
+/** Map Netlify's deploy context ("production" | "deploy-preview" |
+    "branch-deploy" | "dev") to a log namespace. Anything that isn't
+    positively production — including an undefined context — goes to the
+    preview namespace: misdetection then hides a chat from the public
+    list (recoverable, it's still stored) instead of publishing a test
+    chat on the live site. */
+export function chatLogNamespace(deployContext: string | undefined): ChatLogNamespace {
+  return deployContext === "production" ? "" : "preview";
+}
+
+export interface ChatLogKeys {
+  index: string;
+  titles: string;
+  keys: string;
+  authors: string;
+  record: (threadId: string) => string;
+}
+
+export function chatLogKeys(ns: ChatLogNamespace): ChatLogKeys {
+  const base = ns ? `${CHAT_LOG_ROOT}:${ns}` : CHAT_LOG_ROOT;
+  return {
+    index: `${base}:index`,
+    titles: `${base}:titles`,
+    keys: `${base}:keys`,
+    authors: `${base}:authors`,
+    record: (threadId: string) => `${base}:${threadId}`,
+  };
+}
 
 // TanStack ids look like "thread-<ts>-<rand>", the widget's are UUIDs;
 // anything else from a hand-rolled client is rejected so a client-chosen
-// value never becomes an arbitrary Redis key.
+// value never becomes an arbitrary Redis key. The reserved names are the
+// non-transcript keys sharing the `concerti:chat:log[:preview]:` prefix —
+// as threadIds they would collide with them ("index" and "keys" already
+// can't: too short).
 export const THREAD_ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
+const RESERVED_THREAD_IDS = new Set(["titles", "authors", "preview"]);
+export const isValidThreadId = (id: string) =>
+  THREAD_ID_RE.test(id) && !RESERVED_THREAD_IDS.has(id);
 
 // Same origin allowlist for both chat functions.
 export const ALLOWED_ORIGINS = /^https?:\/\/(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|concerti\.gabrifila\.me|[a-z0-9-]+\.netlify\.app)$/i;
@@ -45,6 +88,9 @@ export interface ChatLogRecord {
   messages: ModelMessage[];
   /** Optional visitor-chosen name, shown next to the chat in the public history. */
   author?: string;
+  /** Netlify deploy context, recorded only in the preview namespace so a
+      debug transcript says which kind of deploy produced it. */
+  deployContext?: string;
 }
 
 /** The author name is free text from the browser and ends up rendered to every
@@ -72,14 +118,14 @@ export function chatTitle(messages: ModelMessage[]): string {
     (chat.mts) and the list path (chat-history.mts); reads-then-removes so
     the hashes never leak orphan fields. The Redis client is typed loosely
     to avoid importing @upstash/redis into a src/ module. */
-export async function pruneExpiredChatLog(r: any, now: number, ttlSeconds: number): Promise<void> {
-  const expired: string[] = await r.zrange(CHAT_LOG_INDEX_KEY, 0, now - ttlSeconds * 1000, { byScore: true });
+export async function pruneExpiredChatLog(r: any, k: ChatLogKeys, now: number, ttlSeconds: number): Promise<void> {
+  const expired: string[] = await r.zrange(k.index, 0, now - ttlSeconds * 1000, { byScore: true });
   if (!expired.length) return;
   await Promise.all([
-    r.zrem(CHAT_LOG_INDEX_KEY, ...expired),
-    r.hdel(CHAT_LOG_TITLES_KEY, ...expired),
-    r.hdel(CHAT_LOG_KEYS_KEY, ...expired),
-    r.hdel(CHAT_LOG_AUTHORS_KEY, ...expired),
+    r.zrem(k.index, ...expired),
+    r.hdel(k.titles, ...expired),
+    r.hdel(k.keys, ...expired),
+    r.hdel(k.authors, ...expired),
   ]);
 }
 
@@ -87,17 +133,17 @@ export async function pruneExpiredChatLog(r: any, now: number, ttlSeconds: numbe
     can only get new messages from the client holding that key. Unclaimed
     threads (fresh ids, or legacy ones logged before keys existed) are open —
     they get claimed by the next persisted request that carries a key. */
-export async function isThreadWritable(r: any, threadId: string, writeKey: string | undefined): Promise<boolean> {
-  const existing: string | null = await r.hget(CHAT_LOG_KEYS_KEY, threadId);
+export async function isThreadWritable(r: any, k: ChatLogKeys, threadId: string, writeKey: string | undefined): Promise<boolean> {
+  const existing: string | null = await r.hget(k.keys, threadId);
   return !existing || existing === writeKey;
 }
 
 /** The public history list, newest first: prunes expired entries, then reads
     ids+scores from the index and titles/authors from the hashes — whole
     transcripts are never fetched for listing. */
-export async function listChatLog(r: any, now: number, ttlSeconds: number, limit: number): Promise<Array<{ threadId: string; title: string; updatedAt: number; author?: string }>> {
-  await pruneExpiredChatLog(r, now, ttlSeconds);
-  const flat: Array<string | number> = await r.zrange(CHAT_LOG_INDEX_KEY, 0, limit - 1, { rev: true, withScores: true });
+export async function listChatLog(r: any, k: ChatLogKeys, now: number, ttlSeconds: number, limit: number): Promise<Array<{ threadId: string; title: string; updatedAt: number; author?: string }>> {
+  await pruneExpiredChatLog(r, k, now, ttlSeconds);
+  const flat: Array<string | number> = await r.zrange(k.index, 0, limit - 1, { rev: true, withScores: true });
   const ids: string[] = [];
   const scores: number[] = [];
   for (let i = 0; i < flat.length; i += 2) {
@@ -105,7 +151,7 @@ export async function listChatLog(r: any, now: number, ttlSeconds: number, limit
     scores.push(Number(flat[i + 1]));
   }
   const [titles, authors]: Array<Record<string, string> | null> = ids.length
-    ? await Promise.all([r.hmget(CHAT_LOG_TITLES_KEY, ...ids), r.hmget(CHAT_LOG_AUTHORS_KEY, ...ids)])
+    ? await Promise.all([r.hmget(k.titles, ...ids), r.hmget(k.authors, ...ids)])
     : [null, null];
   return ids.map((id, i) => ({
     threadId: id,
