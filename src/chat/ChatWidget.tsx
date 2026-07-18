@@ -138,8 +138,20 @@ function ToolChip({ part }: { part: any }) {
     text = done ? `Tema impostato: ${label}` : "Cambio il tema…";
     hint = false; // the new theme is already visible, chat included
   } else if (part.name === "web_search") {
-    text = done ? "Ricerca sul web completata" : "Cerco sul web…";
-    hint = false;
+    const q = typeof part.input?.query === "string" ? part.input.query : "";
+    const grounded = part.output?.grounded;
+    const sources: string[] = (part.output?.sources || []).filter(Boolean);
+    return (
+      <div className={"chat-tool chat-ws" + (done ? " done" : "")}>
+        <span className={"chat-ws-ic" + (done ? "" : " live")} aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        </span>
+        <span>{done ? (grounded === false ? "Ricerca web non disponibile" : "Cercato sul web") : "Cerco sul web…"}</span>
+        {q && <span className="chat-ws-q">“{q}”</span>}
+        {done && grounded === false && <span className="chat-tool-hint">Risposta dalla memoria dell'AI: potrebbe non essere aggiornata.</span>}
+        {done && grounded !== false && sources.length > 0 && <span className="chat-tool-hint">Fonti: {sources.join(" · ")}</span>}
+      </div>
+    );
   } else {
     return null;
   }
