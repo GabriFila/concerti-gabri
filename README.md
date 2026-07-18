@@ -19,7 +19,6 @@ public/                 Static assets copied to the site root
   favicon-32.png, icon-192.png, icon-512.png,
   apple-touch-icon.png, manifest.webmanifest
 netlify/functions/
-  hello.mjs             Test serverless function, served at /api/hello
   chat.mts              AI chat endpoint (/api/chat): rate limit + Gemini via TanStack AI
 netlify.toml            Netlify config (build command, publish dir, functions dir)
 ```
@@ -60,15 +59,3 @@ so test the chat with `netlify dev` (Netlify CLI) or on a deploy preview.
 
 - **Push to `main`** → Netlify runs `pnpm build` and deploys `dist/` to production at https://concerti.gabrifila.me
 - **Open a PR** → Netlify builds a deploy preview and links it on the PR
-
-## Testing the function
-
-```sh
-curl https://concerti.gabrifila.me/api/hello
-```
-
-Expected response:
-
-```json
-{"ok":true,"message":"Hello from Netlify Functions!","timestamp":"2026-07-12T10:00:00.000Z"}
-```
