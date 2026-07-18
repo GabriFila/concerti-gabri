@@ -92,7 +92,7 @@ export const ALLDATA: Concert[] = [
   {y:2026,date:"05/07/2026",artist:"Foo Fighters",venue:"Ippodromo Snai La Maura",city:"Milano",posto:"Prato/Parterre",with:["Annap"],cost:92,vicinanza:4,voto:4,from:"m"},
   {y:2026,date:"15/07/2026",artist:"Frah Quintale",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],accredito:true,vicinanza:2,voto:4,from:"g"},
   {y:2026,date:"17/07/2026",artist:"Mannarino",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:54.14,vicinanza:1,voto:3,from:"g"},
-  {y:2026,date:"18/07/2026",artist:"Sayf",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:50.03,from:"g"},
+  {y:2026,date:"18/07/2026",artist:"Sayf",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:50.03,vicinanza:4,voto:3,from:"g"},
   {y:2026,date:"24/07/2026",artist:"Caparezza",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:60.99},
   {y:2026,date:"25/07/2026",artist:"I Cani",venue:"Arena del Mare",city:"Genova",posto:"Prato/Parterre",with:["Cami <3"],cost:44.28},
   {y:2026,date:"05/09/2026",artist:"Dov'è Liana",venue:"Castello Sforzesco",city:"Milano",posto:"Prato/Parterre",with:["Waitz"],cost:25},
