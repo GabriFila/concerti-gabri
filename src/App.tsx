@@ -219,8 +219,10 @@ function KPIs(){
   const milano=total?Math.round(ATTENDED.filter(d=>d.city==="Milano").length/total*100):0;
   const since=2022;
   const dataSince=ATTENDED.filter(d=>d.y>=since);
-  const activeYSince=new Set(dataSince.map(d=>d.y)).size;
-  const avgSince=activeYSince?(dataSince.length/activeYSince).toFixed(1):"0";
+  // continuous-time rate: attended ÷ years elapsed since 1 Jan 2022, so a barely-started
+  // current year doesn't weigh like a full one in the denominator
+  const elapsedYSince=(Date.now()-new Date(since,0,1).getTime())/(365.25*24*3600*1000);
+  const avgSince=(dataSince.length/elapsedYSince).toFixed(1);
   // most frequent companion across attended concerts
   const topMate=ranked(counter(ATTENDED.flatMap(d=>d.with||[]),x=>x))[0]||["—",0];
   // concerts attended alone (no companions)
