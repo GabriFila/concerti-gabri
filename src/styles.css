@@ -237,6 +237,8 @@
   .chat-note{padding:0 16px 10px;font-size:.72rem;color:var(--dim);text-align:center;flex-shrink:0}
   /* history view (list of past chats on this device) */
   .fp-close.on{background:var(--lamp-faint);color:var(--lamp)}
+  .fp-share.ok{color:var(--lamp)}
+  .fp-share svg{width:16px;height:16px}
   .chat-hist-item{
     display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;flex-shrink:0;
     padding:10px 13px;border-radius:12px;cursor:pointer;
