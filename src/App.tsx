@@ -853,9 +853,6 @@ function CanzoniNoteCard(){
   }).filter(r=>r.n>0);
   const total=rows.reduce((s,r)=>s+r.n,0);
   const max=Math.max(1,...rows.map(r=>r.n));
-  const avgOf=list=>sum(list.map(d=>d.voto))/list.length;
-  const hi=DATA.filter(d=>hasCN(d)&&d.canzoniNote>=4&&hasVoto(d)); // repertorio noto (quasi tutte/tutte)
-  const lo=DATA.filter(d=>hasCN(d)&&d.canzoniNote<=2&&hasVoto(d)); // quasi alla cieca (nessuna/poche)
   return (
     <section className="panel">
       <h2><Icon name="note" size={22} className="h2ic"/>Quante canzoni conosco</h2>
@@ -869,7 +866,6 @@ function CanzoniNoteCard(){
             </div>
           </div>
         ))}</div>
-        {hi.length>0&&lo.length>0&&<p className="desc" style={{margin:"18px 0 0"}}>Con il repertorio già noto (quasi tutte o tutte) il voto medio è <b style={{color:"var(--lamp)"}}>{voto1(avgOf(hi))}<span className="star">★</span></b> su {hi.length} concerti; quasi alla cieca (nessuna o poche) è <b style={{color:"var(--lamp)"}}>{voto1(avgOf(lo))}<span className="star">★</span></b> su {lo.length}.</p>}
       </>):(
         <p className="desc" style={{margin:0}}>Nessun dato sulle canzoni note con questi filtri.</p>
       )}
