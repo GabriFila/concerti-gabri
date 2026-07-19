@@ -27,6 +27,7 @@ export const SECTIONS = [
   { id: "sec-voti", label: "Come li giudico" },
   { id: "sec-voti-migliori", label: "I migliori" },
   { id: "sec-voti-vs", label: "Voto a confronto" },
+  { id: "sec-canzoni", label: "Quante canzoni conosco" },
   { id: "sec-spesa", label: "Quanto spendo" },
   { id: "sec-spesa-dettaglio", label: "Quando ho speso di più" },
   { id: "sec-spesa-distribuzione", label: "Quanto pago di solito" },
