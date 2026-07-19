@@ -768,9 +768,15 @@ function TopVoted(){
 
 function VoteScatter(){
   const DATA=useData();
-  const [dim,setDim]=useState("cost"); // "cost" | "vic"
-  const swipe=useSwipeToggle(()=>setDim("cost"),()=>setDim("vic"));
-  const pts=DATA.filter(d=>hasVoto(d)&&(dim==="cost"?hasCost(d):hasVic(d)));
+  const DIMS=["cost","vic","cn"]; // tab order — swipe steps through it
+  const DIM_NAMES={cost:"prezzo",vic:"vicinanza",cn:"canzoni note"};
+  const [dim,setDim]=useState("cost"); // "cost" | "vic" | "cn"
+  const swipe=useSwipeToggle(
+    ()=>setDim(d=>DIMS[Math.max(0,DIMS.indexOf(d)-1)]),
+    ()=>setDim(d=>DIMS[Math.min(DIMS.length-1,DIMS.indexOf(d)+1)])
+  );
+  const hasDim=dim==="cost"?hasCost:dim==="vic"?hasVic:hasCN;
+  const pts=DATA.filter(d=>hasVoto(d)&&hasDim(d));
   // svg geometry — viewBox scales with the panel width
   const W=720,H=310,ML=48,MR=16,MT=14,MB=42;
   const iw=W-ML-MR,ih=H-MT-MB;
@@ -778,10 +784,12 @@ function VoteScatter(){
   const costMax=Math.max(50,Math.ceil(Math.max(0,...pts.map(d=>d.cost||0))/25)*25);
   const xOf=d=>dim==="cost"
     ? ML+(d.cost/costMax)*iw
-    : ML+((d.vicinanza-0.5)/6)*iw;
+    : dim==="vic"
+    ? ML+((d.vicinanza-0.5)/6)*iw
+    : ML+((d.canzoniNote-0.5)/5)*iw;
   const xTicks=dim==="cost"
     ? Array.from({length:costMax/25+1},(_,i)=>i*25).filter(t=>costMax<=150||t%50===0)
-    : VIC_ORDER;
+    : dim==="vic"?VIC_ORDER:[1,2,3,4,5];
   // overlapping points get a small deterministic offset so every dot stays visible
   const OFF=[[0,0],[0,11],[0,-11],[11,0],[-11,0],[11,11],[-11,-11],[11,-11],[-11,11],[0,22],[0,-22],[22,0],[-22,0],[22,11],[-22,-11],[22,-11],[-22,11],[11,22],[-11,-22]];
   const seen={};
@@ -800,10 +808,11 @@ function VoteScatter(){
         <div className="toggle">
           <button className={"tg"+(dim==="cost"?" on":"")} onClick={()=>setDim("cost")}>Prezzo</button>
           <button className={"tg"+(dim==="vic"?" on":"")} onClick={()=>setDim("vic")}>Vicinanza</button>
+          <button className={"tg"+(dim==="cn"?" on":"")} onClick={()=>setDim("cn")}>Canzoni note</button>
         </div>
       </div>
       {pts.length>0?(<>
-        <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"auto",display:"block"}} role="img" aria-label={"Grafico a dispersione: voto contro "+(dim==="cost"?"prezzo":"vicinanza")}>
+        <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"auto",display:"block"}} role="img" aria-label={"Grafico a dispersione: voto contro "+DIM_NAMES[dim]}>
           {[1,2,3,4,5].map(v=>(
             <g key={v}>
               <line x1={ML} y1={yOf(v)} x2={W-MR} y2={yOf(v)} stroke="var(--line)" strokeWidth="1"/>
@@ -811,20 +820,20 @@ function VoteScatter(){
             </g>
           ))}
           {xTicks.map(t=>{
-            const x=dim==="cost"?ML+(t/costMax)*iw:ML+((t-0.5)/6)*iw;
+            const x=dim==="cost"?ML+(t/costMax)*iw:dim==="vic"?ML+((t-0.5)/6)*iw:ML+((t-0.5)/5)*iw;
             return <g key={t}>
               <line x1={x} y1={MT} x2={x} y2={MT+ih} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 5" opacity="0.6"/>
-              <text x={x} y={H-14} textAnchor="middle" fontSize={dim==="cost"?14:12} fill="var(--muted)" fontFamily="Inter,sans-serif">{dim==="cost"?"€"+t:VIC_LABELS[t]}</text>
+              <text x={x} y={H-14} textAnchor="middle" fontSize={dim==="cost"?14:12} fill="var(--muted)" fontFamily="Inter,sans-serif">{dim==="cost"?"€"+t:dim==="vic"?VIC_LABELS[t]:CANZONI_NOTE_LABELS[t]}</text>
             </g>;
           })}
           {nodes.map(({d,x,y},i)=>(
             <circle key={i} cx={x} cy={y} r="6" fill="var(--lamp)" fillOpacity="0.82" stroke="var(--bg-2)" strokeWidth="1.5">
-              <title>{d.artist+" · "+d.date+" · "+"★".repeat(d.voto)+(dim==="cost"?" · "+eur2(d.cost):" · "+VIC_LABELS[d.vicinanza])}</title>
+              <title>{d.artist+" · "+d.date+" · "+"★".repeat(d.voto)+" · "+(dim==="cost"?eur2(d.cost):dim==="vic"?VIC_LABELS[d.vicinanza]:CANZONI_NOTE_LABELS[d.canzoniNote])}</title>
             </circle>
           ))}
         </svg>
       </>):(
-        <p className="desc" style={{margin:0}}>Nessun concerto con voto e {dim==="cost"?"prezzo":"vicinanza"} con questi filtri.</p>
+        <p className="desc" style={{margin:0}}>Nessun concerto con voto e {DIM_NAMES[dim]} con questi filtri.</p>
       )}
     </section>
   );
