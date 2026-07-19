@@ -234,8 +234,9 @@ function KPIs(){
   const priced=DATA.filter(hasCost);
   const totalSpent=sum(priced.map(d=>d.cost));
   const avgSpent=priced.length?totalSpent/priced.length:0;
-  // km — round trip from the origin city, only over concerts with a known `from`
-  const trips=DATA.map(d=>distKm(d)).filter(k=>k!==null);
+  // km — round trip from the origin city, only over attended concerts with a known `from`
+  // (planned trips haven't happened yet, so they don't belong in a "km traveled" total)
+  const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null);
   const totalKm=sum(trips)*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
   const items:any[]=[
