@@ -164,6 +164,37 @@ function ToolChip({ part }: { part: any }) {
   );
 }
 
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // clipboard API needs a secure context; fall back to execCommand
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } finally { ta.remove(); }
+    }
+    setCopied(true);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button type="button" className={"chat-copy" + (copied ? " ok" : "")}
+      onClick={copy} aria-label={copied ? "Copiato" : "Copia messaggio"} title="Copia messaggio">
+      {copied
+        ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+        : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>}
+    </button>
+  );
+}
+
 function Message({ message }: { message: any }) {
   const isUser = message.role === "user";
   const parts = (message.parts || []).map((part: any, i: number) => {
@@ -172,7 +203,17 @@ function Message({ message }: { message: any }) {
     return null;
   }).filter(Boolean);
   if (parts.length === 0) return null;
-  return <div className={"chat-msg " + (isUser ? "user" : "ai")}>{parts}</div>;
+  const text = (message.parts || [])
+    .filter((p: any) => p.type === "text" && p.content)
+    .map((p: any) => p.content)
+    .join("\n\n")
+    .trim();
+  return (
+    <div className={"chat-row " + (isUser ? "user" : "ai")}>
+      <div className={"chat-msg " + (isUser ? "user" : "ai")}>{parts}</div>
+      {text && <CopyBtn text={text} />}
+    </div>
+  );
 }
 
 export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {

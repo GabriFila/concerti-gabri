@@ -180,6 +180,21 @@
   .chat-name input:focus{border-color:var(--lamp-soft)}
   .chat-name input::placeholder{color:var(--dim)}
   .chat-sugg{display:flex;flex-wrap:wrap;gap:7px}
+  .chat-row{display:flex;align-items:flex-end;gap:6px;max-width:88%}
+  .chat-row.user{align-self:flex-end;flex-direction:row-reverse}
+  .chat-row.ai{align-self:flex-start}
+  .chat-row .chat-msg{max-width:none;min-width:0}
+  .chat-copy{
+    width:26px;height:26px;flex-shrink:0;border-radius:8px;padding:0;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);background:var(--panel-2);color:var(--muted);
+    opacity:0;transition:opacity .15s ease,color .15s ease,border-color .15s ease;
+  }
+  .chat-copy svg{width:13px;height:13px;display:block}
+  .chat-row:hover .chat-copy,.chat-copy:focus-visible,.chat-copy.ok{opacity:1}
+  .chat-copy:hover{color:var(--text);border-color:var(--lamp-soft)}
+  .chat-copy.ok{color:var(--lamp);border-color:var(--lamp-soft)}
+  @media (pointer:coarse){ .chat-copy{opacity:.6} }
   .chat-msg{
     max-width:88%;padding:9px 13px;border-radius:14px;
     font-size:.92rem;line-height:1.45;
