@@ -164,23 +164,27 @@ function ToolChip({ part }: { part: any }) {
   );
 }
 
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // clipboard API needs a secure context; fall back to execCommand
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } finally { ta.remove(); }
+  }
+}
+
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // clipboard API needs a secure context; fall back to execCommand
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); } finally { ta.remove(); }
-    }
+    await copyText(text);
     setCopied(true);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCopied(false), 1500);
@@ -322,10 +326,43 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     }
   };
 
+  /* ── Share: a chat is shareable via ?chat=<threadId> because reading
+     any thread is already public through /api/chat/history. ── */
+  const shareId = view === "viewer" && viewer ? viewer.id : view === "chat" && messages.length ? thread.id : null;
+  const [shared, setShared] = useState(false);
+  const shareTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(shareTimer.current), []);
+  const shareChat = async () => {
+    if (!shareId) return;
+    const url = `${location.origin}${location.pathname}?chat=${encodeURIComponent(shareId)}`;
+    const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer:coarse)").matches;
+    if (touch && navigator.share) {
+      try { await navigator.share({ title: "L'Oracolo — concerti di Gabri", url }); } catch { /* user closed the share sheet */ }
+      return;
+    }
+    await copyText(url);
+    setShared(true);
+    window.clearTimeout(shareTimer.current);
+    shareTimer.current = window.setTimeout(() => setShared(false), 1500);
+  };
+
+  // opened via a shared link? load that thread (owned → continue, else viewer)
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get("chat");
+    if (!id) return;
+    const u = new URL(location.href);
+    u.searchParams.delete("chat");
+    history.replaceState(null, "", u.pathname + u.search + u.hash);
+    setOpen(true);
+    void openThread(id, "Chat");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const startNewChat = () => {
     clear();
     setThread({ id: randomId(), key: randomId() });
     setViewer(null);
+    setHistError(null);
     setView("chat");
   };
 
@@ -355,6 +392,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     if (!t || isLoading) return;
     sendMessage(t);
     setInput("");
+    setHistError(null);
   };
 
   // grow the textarea with its content (capped in CSS via max-height)
@@ -395,6 +433,15 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                 <button type="button" className={"fp-clear" + (messages.length || view === "viewer" ? "" : " dis")}
                   disabled={!messages.length && view !== "viewer"}
                   onClick={startNewChat}>Nuova chat</button>
+                {shareId && (
+                  <button type="button" className={"fp-close fp-share" + (shared ? " ok" : "")} onClick={shareChat}
+                    aria-label={shared ? "Link copiato" : "Condividi chat: copia il link"}
+                    title={shared ? "Link copiato!" : "Condividi chat (copia il link)"}>
+                    {shared
+                      ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 3.98M15.4 6.5l-6.8 3.98"/></svg>}
+                  </button>
+                )}
                 <button type="button" className={"fp-close" + (view === "history" ? " on" : "")}
                   onClick={() => { if (view === "history") setView(viewer ? "viewer" : "chat"); else showHistory(histTab); }}
                   aria-label="Cronologia chat" aria-pressed={view === "history"} title="Cronologia chat">
@@ -448,7 +495,11 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
             ) : (
               <>
                 <div className="chat-body" ref={bodyRef}>
-                  {messages.length === 0 && (
+                  {messages.length === 0 && histBusy && (
+                    <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
+                  )}
+                  {messages.length === 0 && histError && <div className="chat-error">{histError}</div>}
+                  {messages.length === 0 && !histBusy && (
                     <div className="chat-empty">
                       <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
                       <div className="chat-sugg">
