@@ -128,16 +128,21 @@ const votoMissing=d=>!isPlanned(d)&&!hasVoto(d);      // passato senza voto -> d
 // (assente = non ancora definita, "na" = non applicabile e fuori dal recap).
 const hasCN=d=>typeof d.canzoniNote==="number";
 const ALL_VIC=VIC_ORDER.filter(v=>ALLDATA.some(d=>d.vicinanza===v));
+const CN_ORDER=[1,2,3,4,5];
+const ALL_CN=CN_ORDER.filter(v=>ALLDATA.some(d=>d.canzoniNote===v));
 const COST_MIN=0;
 const COST_MAX=Math.ceil(Math.max(...ALLDATA.filter(hasCost).map(d=>d.cost))/10)*10;
+const KM_MIN=0;
+const KM_MAX=Math.ceil(Math.max(...ALLDATA.map(d=>distKm(d)).filter(k=>k!==null))/10)*10;
 // ISO YYYY-MM-DD (from a native date input) → comparable YYYYMMDD integer
 const isoKey=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?(+m[1])*10000+(+m[2])*100+(+m[3]):null;};
 
-const EMPTY_FILTERS={dateFrom:"",dateTo:"",cities:[],people:[],posti:[],vicinanze:[],status:"all",price:"all",solo:false,costMin:COST_MIN,costMax:COST_MAX};
+const EMPTY_FILTERS={dateFrom:"",dateTo:"",cities:[],people:[],posti:[],vicinanze:[],canzoni:[],status:"all",price:"all",solo:false,costMin:COST_MIN,costMax:COST_MAX,kmMin:KM_MIN,kmMax:KM_MAX};
 const isDefaultDate=f=>!f.dateFrom&&!f.dateTo;
 const isDefaultCost=f=>f.costMin===COST_MIN&&f.costMax===COST_MAX;
-const isEmptyFilters=f=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.posti.length===0&&f.vicinanze.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f);
-const countActive=f=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.posti.length+f.vicinanze.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1);
+const isDefaultKm=f=>f.kmMin===KM_MIN&&f.kmMax===KM_MAX;
+const isEmptyFilters=f=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.posti.length===0&&f.vicinanze.length===0&&f.canzoni.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f)&&isDefaultKm(f);
+const countActive=f=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.posti.length+f.vicinanze.length+f.canzoni.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1)+(isDefaultKm(f)?0:1);
 
 /* Recap testuale dei filtri attivi — usato dalla chat AI per confermare cosa mostra la pagina. */
 function describeFilters(f){
@@ -151,11 +156,13 @@ function describeFilters(f){
   if(f.solo) parts.push("da solo");
   if(f.posti.length) parts.push("posto: "+f.posti.join(", "));
   if(f.vicinanze.length) parts.push("vicinanza: "+f.vicinanze.map(v=>VIC_LABELS[v]||v).join(", "));
+  if(f.canzoni.length) parts.push("canzoni note: "+f.canzoni.map(v=>CANZONI_NOTE_LABELS[v]||v).join(", "));
   if(f.price==="paid") parts.push("solo con prezzo");
   if(f.price==="gift") parts.push("solo regalati");
   if(f.price==="accredito") parts.push("solo con accredito");
   if(f.price==="unknown") parts.push("solo senza prezzo");
   if(!isDefaultCost(f)) parts.push("costo €"+f.costMin+"–€"+f.costMax);
+  if(!isDefaultKm(f)) parts.push("viaggio "+f.kmMin+"–"+f.kmMax+" km");
   return parts.length?parts.join("; "):"nessun filtro attivo";
 }
 
@@ -171,11 +178,16 @@ function mergeToolFilters(cur,input){
   if(input.solo!==undefined) next.solo=!!input.solo;
   if(input.posti!==undefined) next.posti=input.posti.filter(p=>ALL_POSTI.includes(p));
   if(input.vicinanze!==undefined) next.vicinanze=input.vicinanze.map(Number).filter(v=>ALL_VIC.includes(v));
+  if(input.canzoniNote!==undefined) next.canzoni=input.canzoniNote.map(Number).filter(v=>ALL_CN.includes(v));
   if(input.price!==undefined) next.price=input.price;
   const clampCost=v=>Math.min(COST_MAX,Math.max(COST_MIN,Math.round(v)));
   if(input.costMin!==undefined) next.costMin=clampCost(input.costMin);
   if(input.costMax!==undefined) next.costMax=clampCost(input.costMax);
   if(next.costMin>next.costMax) [next.costMin,next.costMax]=[next.costMax,next.costMin];
+  const clampKm=v=>Math.min(KM_MAX,Math.max(KM_MIN,Math.round(v)));
+  if(input.kmMin!==undefined) next.kmMin=clampKm(input.kmMin);
+  if(input.kmMax!==undefined) next.kmMax=clampKm(input.kmMax);
+  if(next.kmMin>next.kmMax) [next.kmMin,next.kmMax]=[next.kmMax,next.kmMin];
   return next;
 }
 
@@ -189,6 +201,7 @@ function applyFilters(data,f){
     if(f.people.length && !(d.with||[]).some(p=>f.people.includes(p))) return false;
     if(f.posti.length && !f.posti.includes(d.posto)) return false;
     if(f.vicinanze.length && !(hasVic(d)&&f.vicinanze.includes(d.vicinanza))) return false;
+    if(f.canzoni.length && !(hasCN(d)&&f.canzoni.includes(d.canzoniNote))) return false;
     if(f.solo && (d.with&&d.with.length)) return false;
     if(f.status==="attended" && isPlanned(d)) return false;
     if(f.status==="planned" && !isPlanned(d)) return false;
@@ -201,6 +214,12 @@ function applyFilters(data,f){
     if(!isDefaultCost(f)){
       if(!hasCost(d)) return false;
       if(d.cost<f.costMin || d.cost>f.costMax) return false;
+    }
+    // km range: like the cost range, it only kicks in when narrowed from the
+    // default, and then admits only concerts with a known trip distance
+    if(!isDefaultKm(f)){
+      const k=distKm(d);
+      if(k===null || k<f.kmMin || k>f.kmMax) return false;
     }
     return true;
   });
@@ -1424,9 +1443,11 @@ function FilterButton(){
   const toggleBool=key=>setFilters(f=>({...f,[key]:!f[key]}));
   const setDate=(key,val)=>setFilters(f=>({...f,[key]:val}));
   const setCost=(lo,hi)=>setFilters(f=>({...f,costMin:lo,costMax:hi}));
+  const setKm=(lo,hi)=>setFilters(f=>({...f,kmMin:lo,kmMax:hi}));
   const clearAll=()=>setFilters(EMPTY_FILTERS);
 
   const costLabel = isDefaultCost(filters)?null:(eur0(filters.costMin)+"–"+eur0(filters.costMax));
+  const kmLabel = isDefaultKm(filters)?null:(filters.kmMin+"–"+filters.kmMax+" km");
 
   return (
     <div className="filterdock">
@@ -1494,6 +1515,16 @@ function FilterButton(){
                 <FilterChip key={v} active={filters.vicinanze.includes(v)} onClick={()=>toggleIn("vicinanze",v)}>{VIC_LABELS[v]}</FilterChip>
               ))}
             </FilterSection>
+            <FilterSection label="Canzoni note">
+              {ALL_CN.map(v=>(
+                <FilterChip key={v} active={filters.canzoni.includes(v)} onClick={()=>toggleIn("canzoni",v)}>{CANZONI_NOTE_LABELS[v]}</FilterChip>
+              ))}
+            </FilterSection>
+            <FilterSection label="Distanza del viaggio" value={kmLabel} wide>
+              <RangeSlider min={KM_MIN} max={KM_MAX} step={10}
+                valMin={filters.kmMin} valMax={filters.kmMax} onChange={setKm} fmt={km0}/>
+              <div className="fsec-note">Km di sola andata; solo concerti con viaggio noto.</div>
+            </FilterSection>
           </div>
         </div>
         </div>
@@ -1514,7 +1545,7 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
