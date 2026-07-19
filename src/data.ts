@@ -56,7 +56,7 @@ export const ALLDATA: Concert[] = [
   {y:2023,date:"07/11/2023",artist:"Willie Peyote",venue:"Fabrique",city:"Milano",posto:"Prato/Parterre",with:["Camilla C"],cost:31.38,vicinanza:3,voto:3,from:"m",km:9},
   {y:2023,date:"26/11/2023",artist:"Colla Zio",venue:"Fabrique",city:"Milano",posto:"Prato/Parterre",with:["Gio G"],gift:true,vicinanza:2,voto:3,from:"m",km:9},
   {y:2023,date:"10/12/2023",artist:"Olly",venue:"Fabrique",city:"Milano",posto:"Prato/Parterre",with:[],gift:true,vicinanza:2,voto:4,from:"m",km:9},
-  {y:2024,date:"04/04/2024",artist:"Fulminacci",venue:"Fabrique",city:"Milano",posto:"Prato/Parterre",with:["Camilla C"],cost:30.95,vicinanza:3,voto:3,from:"m",km:9},
+  {y:2024,date:"04/04/2024",artist:"Fulminacci",venue:"Fabrique",city:"Milano",posto:"Prato/Parterre",with:["Camilla C"],cost:30.95,vicinanza:3,voto:4,from:"m",km:9},
   {y:2024,date:"04/05/2024",artist:"Pinguini Tattici Nucleari",venue:"Nelson Mandela Forum",city:"Firenze",posto:"Prato/Parterre",with:["Camilla C","Marco D","Ludo"],cost:60,vicinanza:3,voto:3,from:"g",km:229},
   {y:2024,date:"08/06/2024",artist:"Ed Sheeran",venue:"Lucca Summer Festival",city:"Lucca",posto:"Pit/Gold",with:["Marco D","Ludo"],cost:129.72,vicinanza:3,voto:5,from:"g",km:163},
   {y:2024,date:"22/06/2024",artist:"Paolo Nutini",venue:"La Prima Estate",city:"Lido di Camaiore",posto:"Pit/Gold",with:["Camilla C"],cost:100,vicinanza:2,voto:2,from:"g",km:133},
