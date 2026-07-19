@@ -27,6 +27,7 @@ const PATHS={
   seat:<><path d="M5 11V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5"/><path d="M4 11h13a2 2 0 0 1 2 2v3H6a2 2 0 0 1-2-2v-3Z"/><path d="M6 16v4M17 16v4"/></>,
   target:<><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></>,
   note:<><circle cx="6.5" cy="17.5" r="2.8"/><circle cx="17" cy="15.5" r="2.8"/><path d="M9.3 17.5V6.2l10.5-2.1v11.4M9.3 9.7l10.5-2.1"/></>,
+  eyeclosed:<><path d="M3 10c2.6 3 5.7 4.5 9 4.5s6.4-1.5 9-4.5"/><path d="M12 14.5v3.2M6.1 13.3l-2 2.6M17.9 13.3l2 2.6M8.9 14.2l-1.1 3M15.1 14.2l1.1 3"/></>,
   euro:<><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5a4 4 0 1 0 0 7M7 11h6M7 13.5h5"/></>,
   gift:<><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13"/><path d="M12 8S10.5 4 8 4a2 2 0 0 0 0 4h4ZM12 8s1.5-4 4-4a2 2 0 0 1 0 4h-4Z"/></>,
   handshake:<><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></>,
@@ -243,10 +244,11 @@ function KPIs(){
   const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null);
   const totalKm=sum(trips)*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
-  // scoperte — concerti visti quasi alla cieca (canzoni note: nessuna o poche);
-  // la % è sui concerti con un valore vero di canzoniNote, "na"/assenti esclusi
+  // alla cieca — concerti visti conoscendo nessuna o poche canzoni; la % è
+  // sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi),
+  // da cui il "~": è la stima della quota sul totale
   const cnKnown=DATA.filter(hasCN).length;
-  const scoperte=DATA.filter(d=>hasCN(d)&&d.canzoniNote<=2).length;
+  const cieca=DATA.filter(d=>hasCN(d)&&d.canzoniNote<=2).length;
   const items:any[]=[
     {num:total,lbl:"Concerti",hint:"sino ad oggi",ic:"ticket",accent:"amber"},
     {num:planned,lbl:"In programma",ic:"calendar",accent:"planned",hint:nextPlanned?"prossimo "+nextPlanned.date:undefined},
@@ -258,7 +260,7 @@ function KPIs(){
     {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
     {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
-    {num:scoperte,lbl:"Scoperte",ic:"note",hint:cnKnown?Math.round(scoperte/cnKnown*100)+"% quasi alla cieca":undefined},
+    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?"~"+Math.round(cieca/cnKnown*100)+"% del totale":undefined},
     {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
   ];
   return <section className="kpis">{items.map((k,i)=>(
