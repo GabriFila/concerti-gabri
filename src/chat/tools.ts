@@ -57,9 +57,12 @@ export const setFiltersDef = toolDefinition({
     solo: z.boolean().optional().meta({ description: "true = only concerts attended alone" }),
     posti: z.array(z.enum(POSTI)).optional().meta({ description: "Ticket/spot type. Empty array = all." }),
     vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Closeness to the stage: 1 Transenna, 2 Sottopalco, 3 Centro, 4 Fondo, 5 Tribuna, 6 Anello alto. Empty array = all." }),
+    canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte. Empty array = all." }),
     price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, accredito = free entry via guest list/press pass, unknown = no price recorded" }),
     costMin: z.number().optional().meta({ description: "Minimum ticket cost in euros (only constrains concerts with a known price)" }),
     costMax: z.number().optional().meta({ description: "Maximum ticket cost in euros" }),
+    kmMin: z.number().optional().meta({ description: "Minimum one-way trip distance in km (only constrains concerts with a known trip distance)" }),
+    kmMax: z.number().optional().meta({ description: "Maximum one-way trip distance in km" }),
   }),
   outputSchema: z.object({
     ok: z.boolean(),
