@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import Fuse from "fuse.js";
-import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS } from "./data.ts";
+import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget from "./chat/ChatWidget.tsx";
 
@@ -26,6 +26,7 @@ const PATHS={
   list:<><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></>,
   seat:<><path d="M5 11V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5"/><path d="M4 11h13a2 2 0 0 1 2 2v3H6a2 2 0 0 1-2-2v-3Z"/><path d="M6 16v4M17 16v4"/></>,
   target:<><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></>,
+  note:<><circle cx="6.5" cy="17.5" r="2.8"/><circle cx="17" cy="15.5" r="2.8"/><path d="M9.3 17.5V6.2l10.5-2.1v11.4M9.3 9.7l10.5-2.1"/></>,
   euro:<><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5a4 4 0 1 0 0 7M7 11h6M7 13.5h5"/></>,
   gift:<><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v9h14v-9M12 8v13"/><path d="M12 8S10.5 4 8 4a2 2 0 0 0 0 4h4ZM12 8s1.5-4 4-4a2 2 0 0 1 0 4h-4Z"/></>,
   handshake:<><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></>,
@@ -122,6 +123,9 @@ const hasVic=d=>typeof d.vicinanza==="number";        // valore vero, entra nel 
 const vicSet=d=>d.vicinanza!==undefined;              // impostata (numero o "na")
 const vicMissing=d=>!isPlanned(d)&&!vicSet(d);        // passato senza valore -> da segnalare
 const votoMissing=d=>!isPlanned(d)&&!hasVoto(d);      // passato senza voto -> da segnalare
+// canzoniNote ("Canzoni note"): scala ordinale 1..5, stesse semantiche di vicinanza
+// (assente = non ancora definita, "na" = non applicabile e fuori dal recap).
+const hasCN=d=>typeof d.canzoniNote==="number";
 const ALL_VIC=VIC_ORDER.filter(v=>ALLDATA.some(d=>d.vicinanza===v));
 const COST_MIN=0;
 const COST_MAX=Math.ceil(Math.max(...ALLDATA.filter(hasCost).map(d=>d.cost))/10)*10;
@@ -801,6 +805,44 @@ function VoteScatter(){
   );
 }
 
+function CanzoniNoteCard(){
+  const DATA=useData();
+  // breakdown per livello di "Canzoni note" (Tutte in cima), solo valori veri:
+  // "na" e non-definiti restano fuori, come in VicinanzaCard. Ogni riga mostra
+  // anche il voto medio dei concerti votati di quel livello: è la statistica
+  // interessante — conoscere le canzoni cambia quanto mi godo il concerto?
+  const rows=[5,4,3,2,1].map(v=>{
+    const list=DATA.filter(d=>d.canzoniNote===v);
+    const pl=list.filter(isPlanned).length;
+    const voted=list.filter(hasVoto);
+    return {v,n:list.length,a:list.length-pl,pl,avg:voted.length?sum(voted.map(d=>d.voto))/voted.length:null};
+  }).filter(r=>r.n>0);
+  const total=rows.reduce((s,r)=>s+r.n,0);
+  const max=Math.max(1,...rows.map(r=>r.n));
+  const avgOf=list=>sum(list.map(d=>d.voto))/list.length;
+  const hi=DATA.filter(d=>hasCN(d)&&d.canzoniNote>=4&&hasVoto(d)); // repertorio noto (quasi tutte/tutte)
+  const lo=DATA.filter(d=>hasCN(d)&&d.canzoniNote<=2&&hasVoto(d)); // quasi alla cieca (nessuna/poche)
+  return (
+    <section className="panel">
+      <h2><Icon name="note" size={22} className="h2ic"/>Quante canzoni conosco</h2>
+      {total>0?(<>
+        <div className="rank">{rows.map(({v,n,a,pl,avg})=>(
+          <div className="rrow" key={v}>
+            <div className="rtop"><span className="name">{CANZONI_NOTE_LABELS[v]} · <span style={{color:"var(--muted)",fontWeight:400}}>{Math.round(n/total*100)}%{avg!=null&&<> · voto {voto1(avg)}<span className="star" style={{fontSize:"0.85em"}}>★</span></>}</span></span><span className="val">{a>0&&<span className="vpast">{a}</span>}{a>0&&pl>0&&<span className="vplus"> + </span>}{pl>0&&<span className="vpl">{pl}</span>}</span></div>
+            <div className="track">
+              <div className="fill" style={{width:Math.round(a/max*100)+"%",background:"var(--lamp)"}}></div>
+              {pl>0&&<div className="fill fpl" style={{width:Math.round(pl/max*100)+"%"}}></div>}
+            </div>
+          </div>
+        ))}</div>
+        {hi.length>0&&lo.length>0&&<p className="desc" style={{margin:"18px 0 0"}}>Con il repertorio già noto (quasi tutte o tutte) il voto medio è <b style={{color:"var(--lamp)"}}>{voto1(avgOf(hi))}<span className="star">★</span></b> su {hi.length} concerti; quasi alla cieca (nessuna o poche) è <b style={{color:"var(--lamp)"}}>{voto1(avgOf(lo))}<span className="star">★</span></b> su {lo.length}.</p>}
+      </>):(
+        <p className="desc" style={{margin:0}}>Nessun dato sulle canzoni note con questi filtri.</p>
+      )}
+    </section>
+  );
+}
+
 function hl(text,q){
   if(!q) return text;
   const i=text.toLowerCase().indexOf(q.toLowerCase());
@@ -831,6 +873,7 @@ function ArchiveTable(){
       else if(sort.col==="cost"){av=hasCost(a)?a.cost:-Infinity;bv=hasCost(b)?b.cost:-Infinity;} // unknown prices sink to the bottom
       else if(sort.col==="voto"){av=hasVoto(a)?a.voto:-Infinity;bv=hasVoto(b)?b.voto:-Infinity;} // unrated (planned) sink like unknown prices
       else if(sort.col==="vicinanza"){av=hasVic(a)?a.vicinanza:-Infinity;bv=hasVic(b)?b.vicinanza:-Infinity;} // "na"/missing sink like unknown prices
+      else if(sort.col==="canzoniNote"){av=hasCN(a)?a.canzoniNote:-Infinity;bv=hasCN(b)?b.canzoniNote:-Infinity;} // "na"/missing sink like unknown prices
       else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // unknown origins sink like unknown prices
       else if(sort.col==="with"){av=(a.with||[]).join(", ").toLowerCase();bv=(b.with||[]).join(", ").toLowerCase();}
       else{av=(a[sort.col]||"").toLowerCase();bv=(b[sort.col]||"").toLowerCase();}
@@ -860,7 +903,7 @@ function ArchiveTable(){
     );
   };
 
-  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["city","Città"],["km","Viaggio"],["posto","Posto"],["vicinanza","Vicinanza"]];
+  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["canzoniNote","Canzoni note"],["city","Città"],["km","Viaggio"],["posto","Posto"],["vicinanza","Vicinanza"]];
   const orderNote = sort.col ? null : (searching ? "Ordinati per pertinenza" : null);
 
   return (
@@ -887,13 +930,14 @@ function ArchiveTable(){
                 <td className="with">{(d.with&&d.with.length)?d.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cn">{hasCN(d)?<span className="viccell">{CANZONI_NOTE_LABELS[d.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(d.city,q)}</b></td>
                 <td className="km">{distKm(d)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
               </tr>
             );})}
-            {rows.length===0&&<tr><td colSpan={10} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
+            {rows.length===0&&<tr><td colSpan={11} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -1706,6 +1750,7 @@ function App(){
         <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
         <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>
         <div id="sec-voti-vs" className="tocsec"><VoteScatter/></div>
+        <div id="sec-canzoni" className="tocsec"><CanzoniNoteCard/></div>
         <div id="sec-spesa" className="tocsec"><CostCard/></div>
         <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
         <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
