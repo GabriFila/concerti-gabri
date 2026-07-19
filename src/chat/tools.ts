@@ -10,7 +10,7 @@
 
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { ALLDATA, type Concert } from "../data.ts";
+import { ALLDATA, CANZONI_NOTE_LABELS, type Concert } from "../data.ts";
 
 // Single source of truth for the page sections (the TOC adds icons on top).
 export const SECTIONS = [
@@ -121,8 +121,9 @@ const queryInputSchema = z.object({
   years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
   gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
   accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
-  groupBy: z.enum(["person", "artist", "year", "city", "venue", "posto", "vicinanza"]).optional().meta({ description: "Also return per-group stats (count, avg voto, costs) over the matching concerts (person = one entry per companion)" }),
-  sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
+  canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte (OR between them)" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "posto", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion)" }),
+  sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost", "avgCanzoniNote"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
 });
 
 export type ConcertQuery = z.infer<typeof queryInputSchema>;
@@ -131,8 +132,8 @@ export const queryConcertsDef = toolDefinition({
   name: "query_concerts",
   description:
     "The ONLY source of the concert data. Returns, for the concerts matching the filters (combined with AND): " +
-    "exact count, attended/planned split, total and average cost, average rating, optional breakdown by " +
-    "person/artist/year/city/venue/posto/vicinanza, and the full matching list in chronological order. " +
+    "exact count, attended/planned split, total and average cost, average rating, average canzoni note, optional breakdown by " +
+    "person/artist/year/city/venue/posto/vicinanza/canzoniNote, and the full matching list in chronological order. " +
     "Call it (possibly more than once) before answering ANY question about the data.",
   inputSchema: queryInputSchema,
   outputSchema: z.object({
@@ -143,14 +144,16 @@ export const queryConcertsDef = toolDefinition({
     costKnownCount: z.number().meta({ description: "How many matching concerts have a known cost" }),
     avgCost: z.number().nullable(),
     avgVoto: z.number().nullable(),
+    avgCanzoniNote: z.number().nullable().meta({ description: "Average canzoni-note level (1..5) over the matching concerts that have one" }),
     groups: z.array(z.object({
       key: z.string(),
       count: z.number(),
       totalCost: z.number(),
       avgCost: z.number().nullable(),
       avgVoto: z.number().nullable(),
+      avgCanzoniNote: z.number().nullable(),
     })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking" }),
-    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · in programma]'" }),
+    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma]'" }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -184,22 +187,25 @@ export function runConcertQuery(q: ConcertQuery) {
     if (q.years?.length && !q.years.includes(d.y)) return false;
     if (q.gift !== undefined && !!d.gift !== q.gift) return false;
     if (q.accredito !== undefined && !!d.accredito !== q.accredito) return false;
+    if (q.canzoniNote?.length && !q.canzoniNote.includes(String(d.canzoniNote) as "1")) return false;
     return true;
   });
 
   const costVotoStats = (list: Concert[]) => {
     const withCost = list.filter(d => typeof d.cost === "number");
     const withVoto = list.filter(d => typeof d.voto === "number");
+    const withCN = list.filter(d => typeof d.canzoniNote === "number");
     const totalCost = withCost.reduce((s, d) => s + (d.cost as number), 0);
     return {
       totalCost: round2(totalCost),
       costKnownCount: withCost.length,
       avgCost: withCost.length ? round2(totalCost / withCost.length) : null,
       avgVoto: withVoto.length ? round2(withVoto.reduce((s, d) => s + (d.voto as number), 0) / withVoto.length) : null,
+      avgCanzoniNote: withCN.length ? round2(withCN.reduce((s, d) => s + (d.canzoniNote as number), 0) / withCN.length) : null,
     };
   };
 
-  type Group = { key: string; count: number; totalCost: number; avgCost: number | null; avgVoto: number | null };
+  type Group = { key: string; count: number; totalCost: number; avgCost: number | null; avgVoto: number | null; avgCanzoniNote: number | null };
   let groups: Group[] | undefined;
   if (q.groupBy) {
     const keysOf = (d: Concert): string[] =>
@@ -209,6 +215,7 @@ export function runConcertQuery(q: ConcertQuery) {
       : q.groupBy === "city" ? [d.city]
       : q.groupBy === "venue" ? [d.venue]
       : q.groupBy === "posto" ? [d.posto]
+      : q.groupBy === "canzoniNote" ? [typeof d.canzoniNote === "number" ? `${d.canzoniNote} (${CANZONI_NOTE_LABELS[d.canzoniNote]})` : String(d.canzoniNote ?? "non impostata")]
       : [String(d.vicinanza ?? "non impostata")];
     const byKey = new Map<string, Concert[]>();
     for (const d of matches) for (const k of keysOf(d)) byKey.set(k, [...(byKey.get(k) || []), d]);
@@ -235,6 +242,7 @@ export function runConcertQuery(q: ConcertQuery) {
       (d.gift ? " · regalo" : "") +
       (d.accredito ? " · accredito" : "") +
       (typeof d.voto === "number" ? ` · voto ${d.voto}` : "") +
+      (typeof d.canzoniNote === "number" ? ` · canzoni note ${CANZONI_NOTE_LABELS[d.canzoniNote]}` : "") +
       (isPlanned(d) ? " · in programma" : "")),
     concertsTruncated: matches.length > MAX_LISTED_CONCERTS,
   };

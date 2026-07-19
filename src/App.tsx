@@ -244,9 +244,8 @@ function KPIs(){
   const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null);
   const totalKm=sum(trips)*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
-  // alla cieca — concerti visti conoscendo nessuna o poche canzoni; la % è
-  // sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi),
-  // da cui il "~": è la stima della quota sul totale
+  // alla cieca — concerti visti conoscendo nessuna o poche canzoni; il "su M"
+  // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi)
   const cnKnown=DATA.filter(hasCN).length;
   const cieca=DATA.filter(d=>hasCN(d)&&d.canzoniNote<=2).length;
   const items:any[]=[
@@ -260,7 +259,7 @@ function KPIs(){
     {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
     {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
-    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?"~"+Math.round(cieca/cnKnown*100)+"% del totale":undefined},
+    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?cieca+" su "+cnKnown:undefined},
     {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
   ];
   return <section className="kpis">{items.map((k,i)=>(
