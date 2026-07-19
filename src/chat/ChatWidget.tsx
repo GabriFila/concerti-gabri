@@ -528,13 +528,6 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                     ref={inputRef}
                     value={input}
                     onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => {
-                      // Enter sends, Shift+Enter adds a newline (IME-safe)
-                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        send(input);
-                      }
-                    }}
                     placeholder="Scrivi un messaggio…"
                     maxLength={1500}
                     rows={1}
