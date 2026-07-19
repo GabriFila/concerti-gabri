@@ -179,7 +179,7 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // id + threadId together: useChat only rebuilds its client when `id`
   // changes, so rotating both is what actually starts a new thread.
@@ -316,6 +316,14 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     setInput("");
   };
 
+  // grow the textarea with its content (capped in CSS via max-height)
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input, view, open]);
+
   const histItem = (t: { id: string; title: string; updatedAt: number; author?: string }, isOwn: boolean) => (
     <button key={t.id} type="button"
       className={"chat-hist-item" + (t.id === thread.id && isOwn ? " cur" : "")}
@@ -424,12 +432,20 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
                   {uiError && <div className="chat-error">{uiError}</div>}
                 </div>
                 <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
-                  <input
+                  <textarea
                     ref={inputRef}
                     value={input}
                     onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => {
+                      // Enter sends, Shift+Enter adds a newline (IME-safe)
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        send(input);
+                      }
+                    }}
                     placeholder="Scrivi un messaggio…"
                     maxLength={1500}
+                    rows={1}
                     aria-label="Messaggio"
                   />
                   <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
