@@ -278,7 +278,7 @@ function KPIs(){
     {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
     {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
-    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?cieca+" su "+cnKnown:undefined},
+    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?"su "+cnKnown+" concerti":undefined},
     {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
   ];
   return <section className="kpis">{items.map((k,i)=>(
