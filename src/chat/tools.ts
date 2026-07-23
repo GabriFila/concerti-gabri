@@ -10,7 +10,7 @@
 
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { ALLDATA, CANZONI_NOTE_LABELS, type Concert } from "../data.ts";
+import { ALLDATA, CANZONI_NOTE_LABELS, flatConcerts, type FlatConcert, type Person } from "../data.ts";
 
 // Single source of truth for the page sections (the TOC adds icons on top).
 export const SECTIONS = [
@@ -36,9 +36,13 @@ export const SECTIONS = [
 
 const SECTION_IDS = SECTIONS.map(s => s.id) as [string, ...string[]];
 
+// Every concert flattened out of its event: festival sets count one each,
+// with the event's place/date/ticket context attached (see data.ts).
+const ALL_CONCERTS = flatConcerts(ALLDATA);
+
 // Vocabularies derived from the data, so the model can only pick real values.
 const CITIES = [...new Set(ALLDATA.map(d => d.city))].sort() as [string, ...string[]];
-export const COMPANIONS = [...new Set(ALLDATA.flatMap(d => d.with || []))].sort() as [string, ...string[]];
+export const COMPANIONS = [...new Set(ALL_CONCERTS.flatMap(c => c.with || []))].sort() as [string, ...string[]];
 const POSTI = ["Pit/Gold", "Prato/Parterre", "Platea", "Gradinata"] as const;
 
 export const setFiltersDef = toolDefinition({
@@ -106,12 +110,12 @@ export const setThemeDef = toolDefinition({
 
 // Same date semantics as App.tsx: first day of a multi-day range,
 // and a concert happening today still counts as "planned".
-const sortKey = (d: Concert) => {
+const sortKey = (d: { date: string }) => {
   const m = d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);
   return m ? +m[3] * 10000 + +m[2] * 100 + +m[1] : 0;
 };
 const todayKey = () => { const t = new Date(); return t.getFullYear() * 10000 + (t.getMonth() + 1) * 100 + t.getDate(); };
-const isPlanned = (d: Concert) => sortKey(d) >= todayKey();
+const isPlanned = (d: { date: string }) => sortKey(d) >= todayKey();
 
 const MAX_LISTED_CONCERTS = 200; // > dataset size today; the cap only guards future growth
 
@@ -119,7 +123,7 @@ const queryInputSchema = z.object({
   status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = date before today, planned = today or later. Omitted = all. Past-tense questions ('è andato', 'ha visto') want attended." }),
   people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Exact companion names; matches concerts with at least one of them (OR). One person = that person's concerts." }),
   solo: z.boolean().optional().meta({ description: "true = only concerts attended alone (no companions)" }),
-  artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name" }),
+  artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name; festival names (e.g. 'MI AMI 2023') also match every set watched there" }),
   cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them)" }),
   years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
   gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
@@ -134,19 +138,21 @@ export type ConcertQuery = z.infer<typeof queryInputSchema>;
 export const queryConcertsDef = toolDefinition({
   name: "query_concerts",
   description:
-    "The ONLY source of the concert data. Returns, for the concerts matching the filters (combined with AND): " +
-    "exact count, attended/planned split, total and average cost, average rating, average canzoni note, optional breakdown by " +
+    "The ONLY source of the concert data. A CONCERT is one act's set; a festival (e.g. MI AMI) is one EVENT/ticket containing several concerts, " +
+    "so counts are per concert while costs are per ticket/event. Returns, for the concerts matching the filters (combined with AND): " +
+    "exact count, attended/planned split, distinct event/ticket count, total and average ticket cost, average rating, average canzoni note, optional breakdown by " +
     "person/artist/year/city/venue/posto/vicinanza/canzoniNote, and the full matching list in chronological order. " +
     "Call it (possibly more than once) before answering ANY question about the data.",
   inputSchema: queryInputSchema,
   outputSchema: z.object({
-    count: z.number().meta({ description: "Concerts matching all filters" }),
+    count: z.number().meta({ description: "Concerts (sets) matching all filters — a festival contributes one per set watched" }),
     attendedCount: z.number(),
     plannedCount: z.number(),
-    totalCost: z.number().meta({ description: "Sum of the known costs, euros" }),
-    costKnownCount: z.number().meta({ description: "How many matching concerts have a known cost" }),
-    avgCost: z.number().nullable(),
-    avgVoto: z.number().nullable(),
+    eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once)" }),
+    totalCost: z.number().meta({ description: "Sum of the known ticket costs over the matching events, euros (a festival ticket counts once)" }),
+    costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost" }),
+    avgCost: z.number().nullable().meta({ description: "Average cost per ticket/event, not per concert" }),
+    avgVoto: z.number().nullable().meta({ description: "Average rating over the matching concerts that have one" }),
     avgCanzoniNote: z.number().nullable().meta({ description: "Average canzoni-note level (1..5) over the matching concerts that have one" }),
     groups: z.array(z.object({
       key: z.string(),
@@ -155,8 +161,8 @@ export const queryConcertsDef = toolDefinition({
       avgCost: z.number().nullable(),
       avgVoto: z.number().nullable(),
       avgCanzoniNote: z.number().nullable(),
-    })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking" }),
-    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma]'" }),
+    })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking. count = concerts; costs = distinct tickets in the group" }),
+    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event." }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -180,52 +186,59 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function runConcertQuery(q: ConcertQuery) {
   const artist = q.artist?.trim().toLowerCase();
-  const matches = ALLDATA.filter(d => {
-    if (q.status === "attended" && isPlanned(d)) return false;
-    if (q.status === "planned" && !isPlanned(d)) return false;
-    if (q.people?.length && !q.people.some(p => (d.with || []).includes(p as Concert["with"][number]))) return false;
-    if (q.solo && (d.with || []).length > 0) return false;
-    if (artist && !d.artist.toLowerCase().includes(artist)) return false;
-    if (q.cities?.length && !q.cities.includes(d.city)) return false;
-    if (q.years?.length && !q.years.includes(d.y)) return false;
-    if (q.gift !== undefined && !!d.gift !== q.gift) return false;
-    if (q.accredito !== undefined && !!d.accredito !== q.accredito) return false;
-    if (q.canzoniNote?.length && !q.canzoniNote.includes(String(d.canzoniNote) as "1")) return false;
+  // per concert: festival sets match individually. The artist filter also
+  // matches the festival's own name ("mi ami" finds every set watched there);
+  // gift/accredito are ticket facts, so they come from the owning event.
+  const matches = ALL_CONCERTS.filter(c => {
+    if (q.status === "attended" && isPlanned(c)) return false;
+    if (q.status === "planned" && !isPlanned(c)) return false;
+    if (q.people?.length && !q.people.some(p => (c.with || []).includes(p as Person))) return false;
+    if (q.solo && (c.with || []).length > 0) return false;
+    if (artist && !c.artist.toLowerCase().includes(artist) && !(c.ev.sets && c.ev.artist.toLowerCase().includes(artist))) return false;
+    if (q.cities?.length && !q.cities.includes(c.city)) return false;
+    if (q.years?.length && !q.years.includes(c.y)) return false;
+    if (q.gift !== undefined && !!c.ev.gift !== q.gift) return false;
+    if (q.accredito !== undefined && !!c.ev.accredito !== q.accredito) return false;
+    if (q.canzoniNote?.length && !q.canzoniNote.includes(String(c.canzoniNote) as "1")) return false;
     return true;
   });
 
-  const costVotoStats = (list: Concert[]) => {
-    const withCost = list.filter(d => typeof d.cost === "number");
-    const withVoto = list.filter(d => typeof d.voto === "number");
-    const withCN = list.filter(d => typeof d.canzoniNote === "number");
+  // voto/canzoni are per concert; money is per ticket, so cost figures run
+  // over the DISTINCT events behind the given concerts (a festival counts once)
+  const costVotoStats = (list: FlatConcert[]) => {
+    const events = [...new Set(list.map(c => c.ev))];
+    const withCost = events.filter(d => typeof d.cost === "number");
+    const withVoto = list.filter(c => typeof c.voto === "number");
+    const withCN = list.filter(c => typeof c.canzoniNote === "number");
     const totalCost = withCost.reduce((s, d) => s + (d.cost as number), 0);
     return {
+      eventCount: events.length,
       totalCost: round2(totalCost),
       costKnownCount: withCost.length,
       avgCost: withCost.length ? round2(totalCost / withCost.length) : null,
-      avgVoto: withVoto.length ? round2(withVoto.reduce((s, d) => s + (d.voto as number), 0) / withVoto.length) : null,
-      avgCanzoniNote: withCN.length ? round2(withCN.reduce((s, d) => s + (d.canzoniNote as number), 0) / withCN.length) : null,
+      avgVoto: withVoto.length ? round2(withVoto.reduce((s, c) => s + (c.voto as number), 0) / withVoto.length) : null,
+      avgCanzoniNote: withCN.length ? round2(withCN.reduce((s, c) => s + (c.canzoniNote as number), 0) / withCN.length) : null,
     };
   };
 
   type Group = { key: string; count: number; totalCost: number; avgCost: number | null; avgVoto: number | null; avgCanzoniNote: number | null };
   let groups: Group[] | undefined;
   if (q.groupBy) {
-    const keysOf = (d: Concert): string[] =>
-      q.groupBy === "person" ? (d.with || [])
-      : q.groupBy === "artist" ? [d.artist]
-      : q.groupBy === "year" ? [String(d.y)]
-      : q.groupBy === "city" ? [d.city]
-      : q.groupBy === "venue" ? [d.venue]
-      : q.groupBy === "posto" ? [d.posto]
-      : q.groupBy === "canzoniNote" ? [typeof d.canzoniNote === "number" ? `${d.canzoniNote} (${CANZONI_NOTE_LABELS[d.canzoniNote]})` : String(d.canzoniNote ?? "non impostata")]
-      : [String(d.vicinanza ?? "non impostata")];
-    const byKey = new Map<string, Concert[]>();
-    for (const d of matches) for (const k of keysOf(d)) byKey.set(k, [...(byKey.get(k) || []), d]);
+    const keysOf = (c: FlatConcert): string[] =>
+      q.groupBy === "person" ? (c.with || [])
+      : q.groupBy === "artist" ? [c.artist]
+      : q.groupBy === "year" ? [String(c.y)]
+      : q.groupBy === "city" ? [c.city]
+      : q.groupBy === "venue" ? [c.venue]
+      : q.groupBy === "posto" ? [c.posto]
+      : q.groupBy === "canzoniNote" ? [typeof c.canzoniNote === "number" ? `${c.canzoniNote} (${CANZONI_NOTE_LABELS[c.canzoniNote]})` : String(c.canzoniNote ?? "non impostata")]
+      : [String(c.vicinanza ?? "non impostata")];
+    const byKey = new Map<string, FlatConcert[]>();
+    for (const c of matches) for (const k of keysOf(c)) byKey.set(k, [...(byKey.get(k) || []), c]);
     const sortBy = q.sortGroupsBy || "count";
     groups = [...byKey.entries()]
       .map(([key, list]) => {
-        const { costKnownCount: _ignored, ...stats } = costVotoStats(list);
+        const { costKnownCount: _ignored, eventCount: _ignored2, ...stats } = costVotoStats(list);
         return { key, count: list.length, ...stats };
       })
       .sort((a, b) =>
@@ -234,19 +247,19 @@ export function runConcertQuery(q: ConcertQuery) {
 
   return {
     count: matches.length,
-    attendedCount: matches.filter(d => !isPlanned(d)).length,
-    plannedCount: matches.filter(isPlanned).length,
+    attendedCount: matches.filter(c => !isPlanned(c)).length,
+    plannedCount: matches.filter(c => isPlanned(c)).length,
     ...costVotoStats(matches),
     ...(groups ? { groups } : {}),
-    concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(d =>
-      `${d.date} · ${d.artist} · ${d.venue} (${d.city})` +
-      ` · ${d.with?.length ? `con ${d.with.join(", ")}` : "da solo"}` +
-      (typeof d.cost === "number" ? ` · ${d.cost}€` : "") +
-      (d.gift ? " · regalo" : "") +
-      (d.accredito ? " · accredito" : "") +
-      (typeof d.voto === "number" ? ` · voto ${d.voto}` : "") +
-      (typeof d.canzoniNote === "number" ? ` · canzoni note ${CANZONI_NOTE_LABELS[d.canzoniNote]}` : "") +
-      (isPlanned(d) ? " · in programma" : "")),
+    concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(c =>
+      `${c.date} · ${c.artist}${c.ev.sets ? ` (${c.ev.artist})` : ""} · ${c.venue} (${c.city})` +
+      ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
+      (typeof c.cost === "number" ? ` · ${c.cost}€` : "") +
+      (c.gift ? " · regalo" : "") +
+      (c.accredito ? " · accredito" : "") +
+      (typeof c.voto === "number" ? ` · voto ${c.voto}` : "") +
+      (typeof c.canzoniNote === "number" ? ` · canzoni note ${CANZONI_NOTE_LABELS[c.canzoniNote]}` : "") +
+      (isPlanned(c) ? " · in programma" : "")),
     concertsTruncated: matches.length > MAX_LISTED_CONCERTS,
   };
 }

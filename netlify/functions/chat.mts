@@ -32,7 +32,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { z } from "zod";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { ALLDATA } from "../../src/data.ts";
+import { ALLDATA, flatConcerts } from "../../src/data.ts";
 import { ALLOWED_ORIGINS, type ChatLogKeys, chatLogKeys, chatLogNamespace, chatTitle, isThreadWritable, isValidThreadId, pruneExpiredChatLog, sanitizeAuthor, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
 import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
@@ -266,7 +266,8 @@ function validate(raw: string): { messages: unknown[]; threadId: string; writeKe
 function systemPrompt(): string {
   const today = new Date().toISOString().slice(0, 10);
   const sections = SECTIONS.map(s => `- ${s.id}: "${s.label}"`).join("\n");
-  const artists = [...new Set(ALLDATA.map(d => d.artist))].sort().join(", ");
+  const artists = [...new Set(flatConcerts(ALLDATA).map(c => c.artist))].sort().join(", ");
+  const festivals = [...new Set(ALLDATA.filter(d => d.sets).map(d => d.artist))].sort().join(", ");
   const years = [...new Set(ALLDATA.map(d => d.y))].sort((a, b) => a - b);
   return `You are the assistant of "Gabri ai concerti" (concerti.gabrifila.me), a public dashboard where Gabri tracks every concert he has attended or plans to attend. Today is ${today}.
 
@@ -289,7 +290,8 @@ DATA ACCESS — the most important rule:
 - For EVERY question about the data — counts, totals, averages, rankings, dates, prices, ratings, "which/who/where/when" — first call query_concerts with the right filters, then answer using ONLY its results. Call it more than once if needed (e.g. to compare two people).
 - Never answer a data question from memory or by guessing. If a question is about the data but query_concerts cannot compute it (no matching filter, aggregation or groupBy), call report_unsupported_query, then tell the user — in their language — that this calculation isn't supported yet and they can ask Gabri to extend the chat. Do NOT attempt a partial or approximate answer instead.
 - Call tools BEFORE writing your answer, then answer exactly once. Never call a tool together with or after your answer, and never repeat a call you already made.
-- Each concert in the result reads: date · artist · venue (city) · companions ("da solo" = alone) · cost in € · "regalo" if it was a present · "accredito" if entry was free via guest list/press pass · voto 1..5 (Gabri's rating, only after attending) · "canzoni note" (how much of the setlist Gabri already knew: Nessuna, Poche, Circa metà, Quasi tutte, Tutte) · "in programma" if upcoming. The list is chronological, so the next upcoming concert is the first "in programma" line.
+- A CONCERT is one act's set; a festival (${festivals}) is one EVENT — one ticket, one trip — containing several concerts. Counts and ratings are per concert; costs and km are per ticket/event (the tool's eventCount/totalCost/avgCost already handle this — a festival ticket is never multiplied by its sets).
+- Each concert in the result reads: date · artist (festival name in parentheses if it was a festival set) · venue (city) · companions ("da solo" = alone) · cost in € (absent on festival sets: the ticket belongs to the whole event) · "regalo" if it was a present · "accredito" if entry was free via guest list/press pass · voto 1..5 (Gabri's rating, only after attending) · "canzoni note" (how much of the setlist Gabri already knew: Nessuna, Poche, Circa metà, Quasi tutte, Tutte) · "in programma" if upcoming. The list is chronological, so the next upcoming concert is the first "in programma" line.
 
 LANGUAGE & STYLE:
 - The site is in Italian: default to Italian, but reply in the user's language if they clearly write in another one.

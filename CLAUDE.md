@@ -3,6 +3,7 @@
 Concert dashboard at concerti.gabrifila.me. Vite 8 + React 19 + TypeScript 7, pnpm only.
 
 - Concert data lives in `src/data.ts` (typed: bad enum values fail the build). App code in `src/App.tsx`, styles in `src/styles.css`.
+- Event vs concert: an `ALLDATA` row is an **event** (one ticket/trip/posto); a festival row lists its full sets in `sets`, each a **concert** with its own `artist`/`with`/`voto`/`vicinanza`/`canzoniNote` (and optional `date` for multi-day events). Ticket (`cost`/`gift`/`accredito`) and trip (`from`/`km`) always stay on the event — a concert inside a multi-set event has no price. Stats follow the unit: artist/voto/vicinanza/canzoni/compagni counts are per concert (`flatConcerts`/`concertsOf` in `data.ts`); money, km, posto, venue visits and calendar cards are per event. The archive nests a festival's concerts under its event row.
 - Verify with `pnpm build` (typecheck + build) before every commit.
 - Deploys are git-driven: push to `main` → production; PRs → deploy previews. Never deploy manually.
 - A new venue/city needs coordinates in `VENUE_COORDS`/`CITY_COORDS` (in `src/data.ts`), otherwise the map silently skips it — the types can't catch this.

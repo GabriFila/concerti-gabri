@@ -1,37 +1,110 @@
 /* ──────────────────────────────────────────────────────────────
    Concert data. This is the only file to touch for data entry.
 
+   Model: one ALLDATA row = one EVENT (a ticket, a trip, an evening
+   or a festival weekend). A normal row is an event with one implicit
+   concert, described inline. A festival row instead lists its full
+   sets in `sets`: each entry is a CONCERT with its own artist, with,
+   voto, vicinanza and canzoniNote; the row-level `artist` is then
+   the event name (e.g. "MI AMI 2023") and the per-concert fields
+   stay at the set level (the types forbid mixing the two shapes).
+   Ticket (`cost`/`gift`/`accredito`), trip (`from`/`km`), `posto`,
+   `date`, `venue` and `city` always belong to the event.
+
    Rules enforced by the types (pnpm build fails otherwise):
    - every name in `with` must exist in PEOPLE
    - `posto`, `vicinanza`, `voto`, `canzoniNote`, `from` accept only the listed values
+   - a row has either inline concert fields or `sets`, never both
    Rules NOT enforced by types: a new venue needs an entry in
    VENUE_COORDS and a new city in CITY_COORDS, or the map skips it;
    `km` goes with `from` (precomputed offline, recipe in CLAUDE.md).
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
-export const PEOPLE=["Alessia P","Amed","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio G","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matteo A","Ornella","Oscar","Perla","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
+export const PEOPLE=["Alessia P","Amed","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio G","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
 export type Posto = "Gradinata" | "Pit/Gold" | "Platea" | "Prato/Parterre";
 
-export interface Concert {
+// A full set watched at a festival: per-concert facts only. Ticket, trip,
+// posto and location live on the event row that contains it.
+export interface ConcertSet {
+  artist: string;
+  date?: string; // "dd/mm/yyyy" — which day of a multi-day event; absent = the event's (single) date
+  with: Person[];
+  voto?: 1 | 2 | 3 | 4 | 5;
+  vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; // Transenna .. Anello alto; absent = not yet defined
+  canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na"; // see CANZONI_NOTE_LABELS; "na" = can't recall; absent = not yet defined
+}
+
+interface EventBase {
   y: number;
   date: string; // "dd/mm/yyyy"; multi-day: "30–31/03/2017"
+  artist: string; // normal row: the act; festival row: the event name (e.g. "MI AMI 2023")
+  venue: string;
+  city: string;
+  posto: Posto;
+  cost?: number; // euros — the ticket, so always per event
+  gift?: boolean;
+  accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
+  from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
+  km?: number; // one-way trip km, precomputed offline (recipe in CLAUDE.md) — set together with `from`; reuse the value of an existing (from, venue) pair. Never derive it in app code: home coordinates must not ship in the bundle.
+}
+
+// The common case: an event that IS a single concert, fields inline.
+// `sets` is declared here too (TS 7 loses contextual typing on the union
+// when the two branches declare it differently) but must stay unset: a row
+// with `sets` is a festival and its inline concert fields would be ignored.
+export interface SingleConcertEvent extends EventBase {
+  sets?: ConcertSet[];
+  with: Person[];
+  vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; // Transenna .. Anello alto; absent = not yet defined (future events)
+  voto?: 1 | 2 | 3 | 4 | 5;
+  canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na"; // "Canzoni note": share of the setlist already known, see CANZONI_NOTE_LABELS; "na" = set but can't recall; absent = not yet defined (future events)
+}
+
+// A festival: one ticket/trip, several concerts. Per-concert fields are
+// banned at the event level so they can't drift out of sync with `sets`.
+export interface FestivalEvent extends EventBase {
+  sets: ConcertSet[]; // one entry per full set watched, in lineup order
+  with?: never;
+  vicinanza?: never;
+  voto?: never;
+  canzoniNote?: never;
+}
+
+export type Concert = SingleConcertEvent | FestivalEvent;
+
+/* A concert flattened out of its event: per-concert fields plus the event
+   context (place, date, posto). Ticket/trip fields are present only when
+   the concert IS the whole event — a festival set has no price or km of
+   its own, so cost-based stats naturally skip it. `ev` points back to the
+   owning event for anything event-scoped (dedup, money, trips). */
+export interface FlatConcert {
+  y: number;
+  date: string; // the set's own day when known, else the event date
   artist: string;
   venue: string;
   city: string;
   posto: Posto;
   with: Person[];
-  cost?: number; // euros
-  gift?: boolean;
-  accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
-  vicinanza?: 1 | 2 | 3 | 4 | 5 | 6 | "na"; // Transenna .. Anello alto; "na" = set but not applicable (e.g. festivals); absent = not yet defined (future events)
   voto?: 1 | 2 | 3 | 4 | 5;
-  canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na"; // "Canzoni note": share of the setlist already known, see CANZONI_NOTE_LABELS; "na" = set but not applicable (festivals, or can't recall); absent = not yet defined (future events)
-  from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; like voto/vicinanza it can be filled in later; absent = not yet defined
-  km?: number; // one-way trip km, precomputed offline (recipe in CLAUDE.md) — set together with `from`; reuse the value of an existing (from, venue) pair. Never derive it in app code: home coordinates must not ship in the bundle.
+  vicinanza?: 1 | 2 | 3 | 4 | 5 | 6;
+  canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na";
+  cost?: number;
+  gift?: boolean;
+  accredito?: boolean;
+  from?: "m" | "g";
+  km?: number;
+  ev: Concert;
 }
+
+export const concertsOf = (d: Concert): FlatConcert[] =>
+  d.sets
+    ? d.sets.map(s => ({ y: d.y, date: s.date || d.date, artist: s.artist, venue: d.venue, city: d.city, posto: d.posto, with: s.with, voto: s.voto, vicinanza: s.vicinanza, canzoniNote: s.canzoniNote, ev: d }))
+    : [{ y: d.y, date: d.date, artist: d.artist, venue: d.venue, city: d.city, posto: d.posto, with: d.with || [], voto: d.voto, vicinanza: d.vicinanza, canzoniNote: d.canzoniNote, cost: d.cost, gift: d.gift, accredito: d.accredito, from: d.from, km: d.km, ev: d }];
+
+export const flatConcerts = (data: Concert[]): FlatConcert[] => data.flatMap(concertsOf);
 
 export const CANZONI_NOTE_LABELS = { 1: "Nessuna", 2: "Poche", 3: "Circa metà", 4: "Quasi tutte", 5: "Tutte" } as const;
 
@@ -52,7 +125,11 @@ export const ALLDATA: Concert[] = [
   {y:2023,date:"18/03/2023",artist:"Emma Nolde",venue:"Giardini Luzzati",city:"Genova",posto:"Prato/Parterre",with:["Espi"],vicinanza:1,voto:4,canzoniNote:4,from:"g",km:2},
   {y:2023,date:"22/03/2023",artist:"Eugenio in Via di Gioia",venue:"Teatro della Concordia",city:"Venaria Reale",posto:"Prato/Parterre",with:["Anna M"],cost:36.81,vicinanza:3,voto:3,canzoniNote:2,from:"g",km:150},
   {y:2023,date:"26/03/2023",artist:"Emma Nolde",venue:"Apollo Club",city:"Milano",posto:"Prato/Parterre",with:["Katarina"],vicinanza:2,voto:2,canzoniNote:4,from:"m",km:3},
-  {y:2023,date:"27/05/2023",artist:"MI AMI 2023",venue:"Circolo Magnolia",city:"Milano",posto:"Prato/Parterre",with:["Espi"],cost:40,vicinanza:"na",voto:4,canzoniNote:"na",from:"m",km:13},
+  {y:2023,date:"27/05/2023",artist:"MI AMI 2023",venue:"Circolo Magnolia",city:"Milano",posto:"Prato/Parterre",cost:40,from:"m",km:13,sets:[
+    {artist:"Emma Nolde",with:["Espi"],voto:4,vicinanza:1,canzoniNote:4},
+    {artist:"Fulminacci",with:[],voto:3,vicinanza:3,canzoniNote:3},
+    {artist:"Coez e Frah Quintale",with:["Elena B","Matilde M"],voto:3,vicinanza:2,canzoniNote:2},
+  ]},
   {y:2023,date:"25/06/2023",artist:"Coldplay",venue:"Stadio San Siro",city:"Milano",posto:"Gradinata",with:["Silvia C","Alessia P"],cost:110,vicinanza:6,voto:3,canzoniNote:3,from:"m",km:6},
   {y:2023,date:"12/07/2023",artist:"Pinguini Tattici Nucleari",venue:"Stadio San Siro",city:"Milano",posto:"Pit/Gold",with:["Giorgia D","Matteo A"],cost:73.63,vicinanza:1,voto:4,canzoniNote:4,from:"m",km:6},
   {y:2023,date:"21/07/2023",artist:"Emma Nolde",venue:"Orto di San Matteo",city:"Castelfranco di Sotto",posto:"Prato/Parterre",with:["Espi"],cost:10,vicinanza:2,voto:4,canzoniNote:4,from:"g",km:209},
@@ -89,7 +166,14 @@ export const ALLDATA: Concert[] = [
   {y:2026,date:"05/02/2026",artist:"Giovanni Ti Amo",venue:"Arci Bellezza",city:"Milano",posto:"Prato/Parterre",with:["Espi","Cate"],cost:13.8,vicinanza:2,voto:3,canzoniNote:3,from:"m",km:3},
   {y:2026,date:"10/04/2026",artist:"Nitro",venue:"Crazy Bull Café",city:"Genova",posto:"Prato/Parterre",with:["Cami <3"],gift:true,vicinanza:3,voto:4,canzoniNote:2,from:"g",km:7},
   {y:2026,date:"15/04/2026",artist:"Fulminacci",venue:"Unipol Forum",city:"Assago",posto:"Prato/Parterre",with:["Perla","Waitz"],cost:41.62,vicinanza:2,voto:4,canzoniNote:4,from:"m",km:10},
-  {y:2026,date:"21–24/05/2026",artist:"MI AMI 2026",venue:"Idroscalo",city:"Milano",posto:"Prato/Parterre",with:["Cami <3","Perla","Waitz","Giorgia G"],cost:147.25,vicinanza:"na",voto:3,canzoniNote:"na",from:"m",km:13},
+  {y:2026,date:"21–24/05/2026",artist:"MI AMI 2026",venue:"Idroscalo",city:"Milano",posto:"Prato/Parterre",cost:147.25,from:"m",km:13,sets:[
+    {artist:"Rares",date:"22/05/2026",with:["Perla","Waitz","Giorgia G"],voto:3,vicinanza:1,canzoniNote:1},
+    {artist:"Paragarri",date:"22/05/2026",with:["Perla","Waitz","Giorgia G"],voto:3,vicinanza:2,canzoniNote:2},
+    {artist:"Dutch Nazari",date:"22/05/2026",with:[],voto:3,vicinanza:3,canzoniNote:4},
+    {artist:"Faccianuvola",date:"22/05/2026",with:[],voto:3,vicinanza:4,canzoniNote:2},
+    {artist:"Angelica Bove",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:2,canzoniNote:2},
+    {artist:"Labadessa",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:4,canzoniNote:2},
+  ]},
   {y:2026,date:"17/06/2026",artist:"Lewis Capaldi",venue:"Fiera Milano Live",city:"Rho",posto:"Pit/Gold",with:["Cami <3","Ludo","Marco D"],cost:105.84,vicinanza:3,voto:3,canzoniNote:3,from:"m",km:13},
   {y:2026,date:"18/06/2026",artist:"Olly",venue:"Stadio Luigi Ferraris",city:"Genova",posto:"Prato/Parterre",with:["Fra M","Ludo","Marco D","Dicce","Fede"],cost:63.13,vicinanza:4,voto:4,canzoniNote:4,from:"g",km:3},
   {y:2026,date:"01/07/2026",artist:"Bresh",venue:"Arena del Mare",city:"Genova",posto:"Prato/Parterre",with:["Cami <3","Giulia","Bianca"],cost:47.99,vicinanza:4,voto:2,canzoniNote:3,from:"g",km:4},
