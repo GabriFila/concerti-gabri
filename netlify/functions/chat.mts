@@ -32,7 +32,7 @@ import { geminiText } from "@tanstack/ai-gemini";
 import { z } from "zod";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { ALLDATA, flatConcerts } from "../../src/data.ts";
+import { ALLDATA, flatConcerts, isFestival } from "../../src/data.ts";
 import { ALLOWED_ORIGINS, type ChatLogKeys, chatLogKeys, chatLogNamespace, chatTitle, isThreadWritable, isValidThreadId, pruneExpiredChatLog, sanitizeAuthor, THREAD_ID_RE } from "../../src/chat/chatlog.ts";
 import { chatToolDefs, COMPANIONS, queryConcertsDef, reportUnsupportedDef, runConcertQuery, SECTIONS } from "../../src/chat/tools.ts";
 
@@ -267,7 +267,7 @@ function systemPrompt(): string {
   const today = new Date().toISOString().slice(0, 10);
   const sections = SECTIONS.map(s => `- ${s.id}: "${s.label}"`).join("\n");
   const artists = [...new Set(flatConcerts(ALLDATA).map(c => c.artist))].sort().join(", ");
-  const festivals = [...new Set(ALLDATA.filter(d => d.sets).map(d => d.artist))].sort().join(", ");
+  const festivals = [...new Set(ALLDATA.filter(isFestival).map(d => d.name))].sort().join(", ");
   const years = [...new Set(ALLDATA.map(d => d.y))].sort((a, b) => a - b);
   return `You are the assistant of "Gabri ai concerti" (concerti.gabrifila.me), a public dashboard where Gabri tracks every concert he has attended or plans to attend. Today is ${today}.
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import Fuse from "fuse.js";
-import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts } from "./data.ts";
+import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget from "./chat/ChatWidget.tsx";
 
@@ -63,6 +63,11 @@ const CHRON=[...ALLDATA].sort((a,b)=>sortKey(a)-sortKey(b));
 // Money/trip/posto stats stay on events; artist/voto/vicinanza/canzoni/
 // compagni stats run on concerts.
 const FLAT_ALL=flatConcerts(ALLDATA);
+// Display label for a row: a standalone concert shows its artist, a festival its name.
+const labelOf=e=>isFestival(e)?e.name:e.artist;
+// Festival name of a concert's row (empty for a standalone concert). The type
+// guard narrows here, so callers don't have to.
+const festName=e=>isFestival(e)?e.name:"";
 const counter=(arr,k)=>{const m={};arr.forEach(x=>{const v=typeof k==="function"?k(x):x[k];m[v]=(m[v]||0)+1});return m;};
 // like counter, but for array-valued fields (e.g. "with"): counts each element
 const multiCounter=(arr,k)=>{const m={};arr.forEach(x=>{(x[k]||[]).forEach(v=>{m[v]=(m[v]||0)+1});});return m;};
@@ -237,10 +242,10 @@ function applyFilters(data,f){
     }
     // per-concert criteria: a festival stays if at least one set matches, and
     // is narrowed to the matching sets so every card downstream sees only those
-    if(d.sets){
-      const keep=hasConcertFilters(f)?d.sets.filter(s=>concertMatches(f,s)):d.sets;
+    if(isFestival(d)){
+      const keep=hasConcertFilters(f)?d.concerts.filter(s=>concertMatches(f,s)):d.concerts;
       if(!keep.length) continue;
-      out.push(keep.length===d.sets.length?d:{...d,sets:keep});
+      out.push(keep.length===d.concerts.length?d:{...d,concerts:keep});
     }else{
       if(hasConcertFilters(f) && !concertMatches(f,d)) continue;
       out.push(d);
@@ -341,7 +346,8 @@ function YearChart(){
 
 function Timeline(){
   const DATA=useData();
-  const CHRON=useMemo(()=>[...DATA].sort((a,b)=>sortKey(a)-sortKey(b)),[DATA]);
+  // per concerto: i set dei festival compaiono singolarmente sulla linea
+  const CHRON=useMemo(()=>DATA.flatMap(concertsOf).sort((a,b)=>sortKey(a)-sortKey(b)),[DATA]);
   let lastYear=null;
   return (
     <div>
@@ -372,7 +378,7 @@ function ChartCard(){
   const swipe=useSwipeToggle(()=>setView("year"),()=>setView("time"));
   const meta = view==="year"
     ? {t:"Concerti per anno",d:"La frequenza nel tempo. Gli anni vuoti (2018, 2021) segnano lo stop dei live; dal 2024 la curva esplode."}
-    : {t:"Timeline",d:"Ogni evento in ordine cronologico lungo una linea orizzontale scorrevole."};
+    : {t:"Timeline",d:"Ogni concerto in ordine cronologico lungo una linea orizzontale scorrevole."};
   return (
     <section className="panel full" {...swipe}>
       <div className="paneltop">
@@ -681,7 +687,7 @@ function TopSpend(){
       <h2><Icon name="euro" size={22} className="h2ic"/>Quando ho speso di più</h2>
       <div className="rank">{top.map((d,i)=>(
         <div className="rrow" key={i}>
-          <div className="rtop"><span className="name">{d.artist} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)}</span></span><span className="val"><span className="vneu">{eur2(d.cost)}</span></span></div>
+          <div className="rtop"><span className="name">{labelOf(d)} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)}</span></span><span className="val"><span className="vneu">{eur2(d.cost)}</span></span></div>
           <div className="track"><div className="fill" style={{width:Math.round(d.cost/max*100)+"%",background:isPlanned(d)?"var(--planned)":"var(--lamp)"}}></div></div>
         </div>
       ))}</div>
@@ -917,38 +923,44 @@ function hl(text,q){
   return <>{text.slice(0,i)}<mark>{text.slice(i,i+q.length)}</mark>{text.slice(i+q.length)}</>;
 }
 
+// Does a festival match the free-text query? (name, any concert artist/companion, place)
+function festMatches(ev,q){
+  const n=q.trim().toLowerCase();
+  if(!n) return true;
+  if(ev.name.toLowerCase().includes(n)||ev.venue.toLowerCase().includes(n)||ev.city.toLowerCase().includes(n)) return true;
+  return ev.concerts.some(c=>c.artist.toLowerCase().includes(n)||(c.with||[]).some(p=>p.toLowerCase().includes(n)));
+}
+
 function ArchiveTable(){
   const DATA=useData();
   const [q,setQ]=useState("");
   const DEFAULT_SORT={col:"date",dir:"desc"}; // default: newest first, shown in the Data column
   const [sort,setSort]=useState(DEFAULT_SORT); // col:null => relevance order (only while searching)
 
-  const fuse=useMemo(()=>new Fuse(DATA,{
-    keys:["artist","venue","city","with","sets.artist","sets.with"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
-  }),[DATA]);
+  // The archive is an archive of CONCERTS: every row is one concert, festival
+  // sets included as first-class rows. Fuse also indexes the festival name
+  // (ev.name) so searching "mi ami" surfaces its concerts.
+  const CONC=useMemo(()=>flatConcerts(DATA),[DATA]);
+  const fuse=useMemo(()=>new Fuse(CONC,{
+    keys:["artist","venue","city","with","ev.name"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
+  }),[CONC]);
 
   const searching=!!q.trim();
   // base order: Fuse relevance when searching, else newest-first by date
-  let rows = searching ? fuse.search(q.trim()).map(r=>r.item) : [...DATA].sort((a,b)=>sortKey(b)-sortKey(a));
+  let rows = searching ? fuse.search(q.trim()).map(r=>r.item) : [...CONC].sort((a,b)=>sortKey(b)-sortKey(a));
 
   // apply an explicit column sort only when the user has picked one; otherwise keep base order (relevance/date)
   if(sort.col){
     const dir=sort.dir==="asc"?1:-1;
-    // per-concert columns: a festival row sorts on its best set value in the
-    // sort direction (asc → min, desc → max); missing values sink like before
-    const best=(d,has,get)=>{
-      const vs=concertsOf(d).filter(has).map(get) as number[];
-      return vs.length?(dir===1?Math.min(...vs):Math.max(...vs)):-Infinity;
-    };
     rows=[...rows].sort((a,b)=>{
       let av,bv;
       if(sort.col==="date"){av=sortKey(a);bv=sortKey(b);}
-      else if(sort.col==="cost"){av=hasCost(a)?a.cost:-Infinity;bv=hasCost(b)?b.cost:-Infinity;} // unknown prices sink to the bottom
-      else if(sort.col==="voto"){av=best(a,hasVoto,c=>c.voto);bv=best(b,hasVoto,c=>c.voto);} // unrated (planned) sink like unknown prices
-      else if(sort.col==="vicinanza"){av=best(a,hasVic,c=>c.vicinanza);bv=best(b,hasVic,c=>c.vicinanza);} // missing sink like unknown prices
-      else if(sort.col==="canzoniNote"){av=best(a,hasCN,c=>c.canzoniNote);bv=best(b,hasCN,c=>c.canzoniNote);} // "na"/missing sink like unknown prices
-      else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // unknown origins sink like unknown prices
-      else if(sort.col==="with"){av=concertsOf(a).flatMap(c=>c.with||[]).join(", ").toLowerCase();bv=concertsOf(b).flatMap(c=>c.with||[]).join(", ").toLowerCase();}
+      else if(sort.col==="cost"){av=hasCost(a)?a.cost:-Infinity;bv=hasCost(b)?b.cost:-Infinity;} // festival sets & unknown prices sink to the bottom
+      else if(sort.col==="voto"){av=hasVoto(a)?a.voto:-Infinity;bv=hasVoto(b)?b.voto:-Infinity;} // unrated (planned) sink like unknown prices
+      else if(sort.col==="vicinanza"){av=hasVic(a)?a.vicinanza:-Infinity;bv=hasVic(b)?b.vicinanza:-Infinity;} // missing sink like unknown prices
+      else if(sort.col==="canzoniNote"){av=hasCN(a)?a.canzoniNote:-Infinity;bv=hasCN(b)?b.canzoniNote:-Infinity;} // "na"/missing sink like unknown prices
+      else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // festival sets & unknown origins sink like unknown prices
+      else if(sort.col==="with"){av=(a.with||[]).join(", ").toLowerCase();bv=(b.with||[]).join(", ").toLowerCase();}
       else{av=(a[sort.col]||"").toLowerCase();bv=(b[sort.col]||"").toLowerCase();}
       return av<bv?-dir:av>bv?dir:0;
     });
@@ -979,6 +991,9 @@ function ArchiveTable(){
   const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["canzoniNote","Canzoni note"],["city","Città"],["km","Viaggio"],["posto","Posto"],["vicinanza","Vicinanza"]];
   const orderNote = sort.col ? null : (searching ? "Ordinati per pertinenza" : null);
 
+  // Second table: the festivals (the only multi-concert events), newest first.
+  const fests=DATA.filter(isFestival).filter(ev=>festMatches(ev,q)).sort((a,b)=>sortKey(b)-sortKey(a));
+
   return (
     <section className="panel full">
       <div className="paneltop"><div><h2><Icon name="list" size={22} className="h2ic"/>Archivio</h2></div></div>
@@ -995,70 +1010,57 @@ function ArchiveTable(){
             <th key={c} className={sort.col===c?"act":""} onClick={()=>setCol(c)}>{l}<SortIcon col={c}/></th>
           ))}</tr></thead>
           <tbody>
-            {rows.flatMap((d,i)=>{
-              const pl=isPlanned(d);
-              const dateCell=<td className="date">{pl?<span className="d-planned">{d.date}</span>:<span className="d-past">{d.date}</span>}</td>;
-              const costCell=<td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>;
-              const kmCell=<td className="km">{distKm(d)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>;
-              const postoCell=<td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>;
-              if(!d.sets) return [(
-                <tr key={i}>
-                  <td className="artist">{hl(d.artist,q)}</td>
-                  {dateCell}
-                  <td>{hl(d.venue,q)}</td>
-                  <td className="with">{(d.with&&d.with.length)?d.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  {costCell}
-                  <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="cn">{hasCN(d)?<span className="viccell">{CANZONI_NOTE_LABELS[d.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="city"><b>{hl(d.city,q)}</b></td>
-                  {kmCell}
-                  {postoCell}
-                  <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                </tr>
-              )];
-              // festival: an event header row (shared facts: date, venue, ticket,
-              // trip, posto) with its concerts nested underneath (per-set facts)
-              return [
-                <tr key={i} className="evrow">
-                  <td className="artist"><span className="evname">{hl(d.artist,q)}</span><span className="evcount">{d.sets.length} concerti</span></td>
-                  {dateCell}
-                  <td>{hl(d.venue,q)}</td>
-                  <td className="with"></td>
-                  {costCell}
-                  <td className="voto"></td>
-                  <td className="cn"></td>
-                  <td className="city"><b>{hl(d.city,q)}</b></td>
-                  {kmCell}
-                  {postoCell}
-                  <td className="vic"></td>
-                </tr>,
-                ...d.sets.map((s,si)=>(
-                  <tr key={i+"-"+si} className="setrow">
-                    <td className="artist setartist">{hl(s.artist,q)}</td>
-                    <td className="date">{s.date?<span className="setdate">{s.date}</span>:null}</td>
-                    <td></td>
-                    <td className="with">{(s.with&&s.with.length)?s.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                    <td className="cost"></td>
-                    <td className="voto">{hasVoto(s)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{s.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                    <td className="cn">{hasCN(s)?<span className="viccell">{CANZONI_NOTE_LABELS[s.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                    <td className="city"></td>
-                    <td className="km"></td>
-                    <td className="posto"></td>
-                    <td className="vic">{hasVic(s)?<span className="viccell">{VIC_LABELS[s.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  </tr>
-                )),
-              ];
-            })}
+            {rows.map((c,i)=>{const pl=isPlanned(c);const fest=isFestival(c.ev);return (
+              <tr key={i}>
+                <td className="artist">{hl(c.artist,q)}{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}</td>
+                <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
+                <td>{hl(c.venue,q)}</td>
+                <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isGift(c)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cn">{hasCN(c)?<span className="viccell">{CANZONI_NOTE_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="city"><b>{hl(c.city,q)}</b></td>
+                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[c.from]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="posto">{c.posto?<span className="postocell">{c.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="vic">{hasVic(c)?<span className="viccell">{VIC_LABELS[c.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+              </tr>
+            );})}
             {rows.length===0&&<tr><td colSpan={11} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
           </tbody>
         </table>
       </div>
       <div className="resn">
-        {(()=>{const n=rows.reduce((s,d)=>s+(d.sets?d.sets.length:1),0);const tot=DATA.reduce((s,d)=>s+(d.sets?d.sets.length:1),0);
-          return <>{n} concert{n===1?"o":"i"} {q?"su "+tot:""}</>;})()}
+        {rows.length} concert{rows.length===1?"o":"i"} {q?"su "+CONC.length:""}
         {orderNote && <span className="ordn"> · {orderNote}</span>}
         {sort.col && searching && <button className="relink" onClick={()=>setSort({col:null,dir:"desc"})}>torna alla pertinenza</button>}
       </div>
+
+      {/* Second table: the events that bundle several concerts under one ticket. */}
+      {fests.length>0&&(<>
+        <div className="archsub"><Icon name="ticket" size={18} className="h2ic"/><h3>Eventi</h3><span className="archsub-d">un biglietto, più concerti</span></div>
+        <div className="tablewrap">
+          <table>
+            <thead><tr>
+              <th>Festival</th><th>Data</th><th>Venue</th><th>Città</th><th>Costo</th><th>Viaggio</th><th>Posto</th><th>Concerti</th>
+            </tr></thead>
+            <tbody>
+              {fests.map((ev,i)=>{const pl=isPlanned(ev);return (
+                <tr key={i}>
+                  <td className="artist">{hl(ev.name,q)}</td>
+                  <td className="date">{pl?<span className="d-planned">{ev.date}</span>:<span className="d-past">{ev.date}</span>}</td>
+                  <td>{hl(ev.venue,q)}</td>
+                  <td className="city"><b>{hl(ev.city,q)}</b></td>
+                  <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="posto">{ev.posto?<span className="postocell">{ev.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="evconc"><span className="evconc-n">{ev.concerts.length}</span><span className="evconc-l">{ev.concerts.map(c=>c.artist).join(", ")}</span></td>
+                </tr>
+              );})}
+            </tbody>
+          </table>
+        </div>
+        <div className="resn">{fests.length} event{fests.length===1?"o":"i"}{q?" trovat"+(fests.length===1?"o":"i"):""}</div>
+      </>)}
     </section>
   );
 }
@@ -1094,9 +1096,12 @@ function MapCard(){
       // equal-RADIUS split: inner amber radius = attended share of the total
       const attendedShare = total ? attended/total : 1;
       const innerFactor = mixed ? Math.min(attendedShare, 0.78) : 1;
+      // the marker count is per-event (a festival is one venue visit), but the
+      // popup lists the concerts, so a festival contributes each of its acts
       const items=group
         .sort((a,b)=>sortKey(b)-sortKey(a))
-        .map(d=>({artist:d.artist,year:d.y,planned:isPlanned(d)}));
+        .flatMap(concertsOf)
+        .map(c=>({artist:c.artist,year:c.y,planned:isPlanned(c)}));
       return {type:"Feature",geometry:{type:"Point",coordinates:c},
         properties:{name:k, city:m==="venue"?sample.city:k, count:counts[k],
           attended, planned, mixed, onlyPlanned, attendedShare, innerFactor,
@@ -1726,9 +1731,9 @@ function FromAlert(){
   return (
     <div className="vicalert">
       <Icon name="map" size={17} className="vicalert-ic"/>
-      <span><b>{missing.length}</b> {missing.length===1?"concerto passato è":"concerti passati sono"} senza città di partenza:
+      <span><b>{missing.length}</b> {missing.length===1?"evento passato è":"eventi passati sono"} senza città di partenza:
         <ul className="vicalert-list">{missing.map((d,i)=>(
-          <li key={i}>{d.artist} '{String(d.y).slice(2)}</li>
+          <li key={i}>{labelOf(d)} '{String(d.y).slice(2)}</li>
         ))}</ul>
       </span>
     </div>
