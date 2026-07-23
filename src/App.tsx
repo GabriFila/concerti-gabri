@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from "react";
 import Fuse from "fuse.js";
-import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS } from "./data.ts";
+import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget from "./chat/ChatWidget.tsx";
 
@@ -57,6 +57,12 @@ const todayKey=()=>{const t=new Date();return t.getFullYear()*10000+(t.getMonth(
 const isPlanned=d=>sortKey(d)>=todayKey();
 const monthOf=d=>parseInt(d.date.split("/")[1],10)-1;
 const CHRON=[...ALLDATA].sort((a,b)=>sortKey(a)-sortKey(b));
+// Event vs concert: an ALLDATA row is an EVENT (ticket/trip/evening); a
+// festival row contains several CONCERTS in `sets`. FLAT_ALL is every
+// concert, with its event context spread in (see concertsOf in data.ts).
+// Money/trip/posto stats stay on events; artist/voto/vicinanza/canzoni/
+// compagni stats run on concerts.
+const FLAT_ALL=flatConcerts(ALLDATA);
 const counter=(arr,k)=>{const m={};arr.forEach(x=>{const v=typeof k==="function"?k(x):x[k];m[v]=(m[v]||0)+1});return m;};
 // like counter, but for array-valued fields (e.g. "with"): counts each element
 const multiCounter=(arr,k)=>{const m={};arr.forEach(x=>{(x[k]||[]).forEach(v=>{m[v]=(m[v]||0)+1});});return m;};
@@ -111,25 +117,24 @@ const keyToISO=k=>{const s=String(k).padStart(8,"0");return s.slice(0,4)+"-"+s.s
 const DATE_LO=keyToISO(Math.min(...ALLDATA.map(sortKey)));
 const DATE_HI=keyToISO(Math.max(...ALLDATA.map(sortKey)));
 const ALL_CITIES=[...new Set(ALLDATA.map(d=>d.city))].sort((a,b)=>a.localeCompare(b,"it"));
-const ALL_PEOPLE=[...new Set(ALLDATA.flatMap(d=>d.with||[]))].sort((a,b)=>a.localeCompare(b,"it"));
+const ALL_PEOPLE=[...new Set(FLAT_ALL.flatMap(c=>c.with||[]))].sort((a,b)=>a.localeCompare(b,"it"));
 // posto = dove ero nella venue. Ordine fisso e sensato (vicino→lontano, in piedi→seduto).
 const POSTO_ORDER=["Pit/Gold","Prato/Parterre","Platea","Gradinata"];
 const ALL_POSTI=POSTO_ORDER.filter(p=>ALLDATA.some(d=>d.posto===p));
 // ---- Vicinanza (vantaggio sul palco): scala ordinale 1..6 -------------------
 // 1 Transenna, 2 Sottopalco, 3 Centro = "vicino"; 4 Fondo, 5 Tribuna, 6 Anello alto = "lontano".
-// d.vicinanza assente = non ancora definita (eventi futuri); "na" = non applicabile (impostata ma fuori dal recap).
+// Per-CONCERTO: nei festival ogni set ha la sua. Assente = non ancora definita (eventi futuri).
 const VIC_LABELS={1:"Transenna",2:"Sottopalco",3:"Centro",4:"Fondo",5:"Tribuna",6:"Anello alto"};
 const VIC_ORDER=[1,2,3,4,5,6];
 const hasVic=d=>typeof d.vicinanza==="number";        // valore vero, entra nel recap
-const vicSet=d=>d.vicinanza!==undefined;              // impostata (numero o "na")
-const vicMissing=d=>!isPlanned(d)&&!vicSet(d);        // passato senza valore -> da segnalare
-const votoMissing=d=>!isPlanned(d)&&!hasVoto(d);      // passato senza voto -> da segnalare
-// canzoniNote ("Canzoni note"): scala ordinale 1..5, stesse semantiche di vicinanza
-// (assente = non ancora definita, "na" = non applicabile e fuori dal recap).
+const vicMissing=c=>!isPlanned(c)&&!hasVic(c);        // concerto passato senza valore -> da segnalare
+const votoMissing=c=>!isPlanned(c)&&!hasVoto(c);      // concerto passato senza voto -> da segnalare
+// canzoniNote ("Canzoni note"): scala ordinale 1..5, per-concerto come vicinanza
+// (assente = non ancora definita, "na" = non ricordo e fuori dal recap).
 const hasCN=d=>typeof d.canzoniNote==="number";
-const ALL_VIC=VIC_ORDER.filter(v=>ALLDATA.some(d=>d.vicinanza===v));
+const ALL_VIC=VIC_ORDER.filter(v=>FLAT_ALL.some(c=>c.vicinanza===v));
 const CN_ORDER=[1,2,3,4,5];
-const ALL_CN=CN_ORDER.filter(v=>ALLDATA.some(d=>d.canzoniNote===v));
+const ALL_CN=CN_ORDER.filter(v=>FLAT_ALL.some(c=>c.canzoniNote===v));
 const COST_MIN=0;
 const COST_MAX=Math.ceil(Math.max(...ALLDATA.filter(hasCost).map(d=>d.cost))/10)*10;
 const KM_MIN=0;
@@ -191,38 +196,57 @@ function mergeToolFilters(cur,input){
   return next;
 }
 
+// Per-concert criteria, checked against anything with with/vicinanza/canzoniNote
+// (a single-concert event or one festival set).
+const concertMatches=(f,c)=>{
+  if(f.people.length && !(c.with||[]).some(p=>f.people.includes(p))) return false;
+  if(f.solo && (c.with&&c.with.length)) return false;
+  if(f.vicinanze.length && !(hasVic(c)&&f.vicinanze.includes(c.vicinanza))) return false;
+  if(f.canzoni.length && !(hasCN(c)&&f.canzoni.includes(c.canzoniNote))) return false;
+  return true;
+};
+const hasConcertFilters=f=>f.people.length>0||f.solo||f.vicinanze.length>0||f.canzoni.length>0;
+
 function applyFilters(data,f){
   const from=isoKey(f.dateFrom), to=isoKey(f.dateTo);
-  return data.filter(d=>{
+  const out=[];
+  for(const d of data){
+    // event-level criteria: the whole row passes or fails
     const dk=sortKey(d);
-    if(from!=null && dk<from) return false;
-    if(to!=null && dk>to) return false;
-    if(f.cities.length && !f.cities.includes(d.city)) return false;
-    if(f.people.length && !(d.with||[]).some(p=>f.people.includes(p))) return false;
-    if(f.posti.length && !f.posti.includes(d.posto)) return false;
-    if(f.vicinanze.length && !(hasVic(d)&&f.vicinanze.includes(d.vicinanza))) return false;
-    if(f.canzoni.length && !(hasCN(d)&&f.canzoni.includes(d.canzoniNote))) return false;
-    if(f.solo && (d.with&&d.with.length)) return false;
-    if(f.status==="attended" && isPlanned(d)) return false;
-    if(f.status==="planned" && !isPlanned(d)) return false;
-    if(f.price==="paid" && !hasCost(d)) return false;
-    if(f.price==="gift" && !isGift(d)) return false;
-    if(f.price==="accredito" && !isAccredito(d)) return false;
-    if(f.price==="unknown" && (hasCost(d)||isGift(d)||isAccredito(d))) return false;
-    // cost range: only constrains concerts with a known price; gifts/accrediti/unknowns pass through
+    if(from!=null && dk<from) continue;
+    if(to!=null && dk>to) continue;
+    if(f.cities.length && !f.cities.includes(d.city)) continue;
+    if(f.posti.length && !f.posti.includes(d.posto)) continue;
+    if(f.status==="attended" && isPlanned(d)) continue;
+    if(f.status==="planned" && !isPlanned(d)) continue;
+    if(f.price==="paid" && !hasCost(d)) continue;
+    if(f.price==="gift" && !isGift(d)) continue;
+    if(f.price==="accredito" && !isAccredito(d)) continue;
+    if(f.price==="unknown" && (hasCost(d)||isGift(d)||isAccredito(d))) continue;
+    // cost range: only constrains events with a known price; gifts/accrediti/unknowns pass through
     // unless the range is narrowed from the default, in which case only priced ones in range qualify
     if(!isDefaultCost(f)){
-      if(!hasCost(d)) return false;
-      if(d.cost<f.costMin || d.cost>f.costMax) return false;
+      if(!hasCost(d)) continue;
+      if(d.cost<f.costMin || d.cost>f.costMax) continue;
     }
     // km range: like the cost range, it only kicks in when narrowed from the
-    // default, and then admits only concerts with a known trip distance
+    // default, and then admits only events with a known trip distance
     if(!isDefaultKm(f)){
       const k=distKm(d);
-      if(k===null || k<f.kmMin || k>f.kmMax) return false;
+      if(k===null || k<f.kmMin || k>f.kmMax) continue;
     }
-    return true;
-  });
+    // per-concert criteria: a festival stays if at least one set matches, and
+    // is narrowed to the matching sets so every card downstream sees only those
+    if(d.sets){
+      const keep=hasConcertFilters(f)?d.sets.filter(s=>concertMatches(f,s)):d.sets;
+      if(!keep.length) continue;
+      out.push(keep.length===d.sets.length?d:{...d,sets:keep});
+    }else{
+      if(hasConcertFilters(f) && !concertMatches(f,d)) continue;
+      out.push(d);
+    }
+  }
+  return out;
 }
 
 const FilterContext=React.createContext<any>({data:ALLDATA,filters:EMPTY_FILTERS,setFilters:()=>{}});
@@ -231,49 +255,52 @@ const useFilters=()=>React.useContext(FilterContext);
 
 function KPIs(){
   const DATA=useData();
+  // events (tickets/trips) vs concerts (sets watched): each stat picks its unit
   const ATTENDED=DATA.filter(d=>!isPlanned(d));
   const PLANNED=DATA.filter(isPlanned);
-  const total=ATTENDED.length;
-  const planned=PLANNED.length;
-  const artists=new Set(ATTENDED.map(d=>d.artist)).size;
+  const CONC=DATA.flatMap(concertsOf);
+  const ATT_C=CONC.filter(c=>!isPlanned(c));
+  const PL_C=CONC.filter(isPlanned);
+  const total=ATT_C.length;          // concerti visti (un festival ne conta uno per set)
+  const planned=PL_C.length;
+  const artists=new Set(ATT_C.map(c=>c.artist)).size;
   const cities=new Set(ATTENDED.map(d=>d.city)).size;
-  const venues=new Set(ATTENDED.map(d=>d.venue)).size;
-  const companions=new Set(ATTENDED.flatMap(d=>d.with||[])).size;
-  const activeY=new Set(ATTENDED.map(d=>d.y)).size;
-  const milano=total?Math.round(ATTENDED.filter(d=>d.city==="Milano").length/total*100):0;
+  const companions=new Set(ATT_C.flatMap(c=>c.with||[])).size;
+  const evTotal=ATTENDED.length;
+  const milano=evTotal?Math.round(ATTENDED.filter(d=>d.city==="Milano").length/evTotal*100):0;
   const since=2022;
-  const dataSince=ATTENDED.filter(d=>d.y>=since);
-  // continuous-time rate: attended ÷ years elapsed since 1 Jan 2022, so a barely-started
-  // current year doesn't weigh like a full one in the denominator
+  const dataSince=ATT_C.filter(c=>c.y>=since);
+  // continuous-time rate: attended concerts ÷ years elapsed since 1 Jan 2022, so a
+  // barely-started current year doesn't weigh like a full one in the denominator
   const elapsedYSince=(Date.now()-new Date(since,0,1).getTime())/(365.25*24*3600*1000);
   const avgSince=(dataSince.length/elapsedYSince).toFixed(1);
-  // most frequent companion across attended concerts
-  const topMate=ranked(counter(ATTENDED.flatMap(d=>d.with||[]),x=>x))[0]||["—",0];
-  // concerts attended alone (no companions)
-  const solo=ATTENDED.filter(d=>!(d.with&&d.with.length)).length;
-  // voto — average over rated (attended) concerts only
-  const voted=ATTENDED.filter(hasVoto);
-  const avgVoto=voted.length?sum(voted.map(d=>d.voto))/voted.length:0;
-  // money — only over concerts with a known price (gifts/unknowns excluded), no greyed hint, no amber
+  // most frequent companion across attended concerts (per set: who's actually next to me)
+  const topMate=ranked(counter(ATT_C.flatMap(c=>c.with||[]),x=>x))[0]||["—",0];
+  // concerts watched alone (a festival set counts even if I had company earlier that day)
+  const solo=ATT_C.filter(c=>!(c.with&&c.with.length)).length;
+  // voto — per concerto: average over rated (attended) sets
+  const voted=ATT_C.filter(hasVoto);
+  const avgVoto=voted.length?sum(voted.map(c=>c.voto))/voted.length:0;
+  // money — per biglietto (event): only events with a known price (gifts/unknowns excluded)
   const priced=DATA.filter(hasCost);
   const totalSpent=sum(priced.map(d=>d.cost));
   const avgSpent=priced.length?totalSpent/priced.length:0;
-  // km — round trip from the origin city, only over attended concerts with a known `from`
+  // km — round trip from the origin city, per event, only attended with a known `from`
   // (planned trips haven't happened yet, so they don't belong in a "km traveled" total)
   const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null);
   const totalKm=sum(trips)*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
   // alla cieca — concerti visti conoscendo nessuna o poche canzoni; il "su M"
   // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi)
-  const cnKnown=DATA.filter(hasCN).length;
-  const cieca=DATA.filter(d=>hasCN(d)&&d.canzoniNote<=2).length;
+  const cnKnown=CONC.filter(hasCN).length;
+  const cieca=CONC.filter(c=>hasCN(c)&&c.canzoniNote<=2).length;
   const items:any[]=[
     {num:total,lbl:"Concerti",hint:"sino ad oggi",ic:"ticket",accent:"amber"},
     {num:planned,lbl:"In programma",ic:"calendar",accent:"planned",hint:nextPlanned?"prossimo "+nextPlanned.date:undefined},
     {num:avgSince,lbl:"media per anno",hint:"dal 2022 a oggi",ic:"repeat"},
     {num:voted.length?<>{voto1(avgVoto)}<span className="star" style={{fontSize:"0.58em"}}>★</span></>:"—",lbl:"Voto medio",hint:voted.length+" concerti votati",ic:"star"},
-    {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" concerti",ic:"coins"},
-    {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" concerti",ic:"wallet"},
+    {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" biglietti",ic:"coins"},
+    {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" biglietti",ic:"wallet"},
     {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin"},
     {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
@@ -288,8 +315,10 @@ function KPIs(){
 
 function YearChart(){
   const DATA=useData();
-  const att=counter(DATA.filter(d=>!isPlanned(d)),"y");
-  const pl=counter(DATA.filter(isPlanned),"y");
+  // per concerto: un festival contribuisce con un'unità per set visto
+  const CONC=DATA.flatMap(concertsOf);
+  const att=counter(CONC.filter(c=>!isPlanned(c)),"y");
+  const pl=counter(CONC.filter(isPlanned),"y");
   const yc:Record<number,number>={};const span:number[]=[];const endY=Math.max(2026,...DATA.map(d=>d.y));for(let y=2017;y<=endY;y++){span.push(y);yc[y]=(att[y]||0)+(pl[y]||0);}
   const max=Math.max(...Object.values(yc),1);
   // glow goes on the year with the most PAST events (planned excluded)
@@ -401,13 +430,16 @@ const ENT_ARTIST={one:"un altro",noun1:"artista",other:"altri",noun:"artisti"};
 const ENT_PEOPLE={one:"un'altra",noun1:"persona",other:"altre",noun:"persone"};
 const ENT_VENUE={one:"un'altra",noun1:"venue",other:"altre",noun:"venue"};
 const ENT_CONCERT={one:"un altro",noun1:"concerto",other:"altri",noun:"concerti"};
+const ENT_BIGLIETTO={one:"un altro",noun1:"biglietto",other:"altri",noun:"biglietti"};
 
-function RankCard({title,desc,obj,color,min,unit,icon,field,multi,entity}: any){
+function RankCard({title,desc,obj,plObj,color,min,unit,icon,field,multi,entity}: any){
   const DATA=useData();
   const [expanded,setExpanded]=useState(false);
   const m=min||1;
   const f=field||"artist";
-  const plC=multi?multiCounter(DATA.filter(isPlanned),f):counter(DATA.filter(isPlanned),f);
+  // planned split: callers counting per-concert pass their own plObj; the
+  // default keeps the old per-event behaviour
+  const plC=plObj||(multi?multiCounter(DATA.filter(isPlanned),f):counter(DATA.filter(isPlanned),f));
   const all=ranked(obj);
   const eligible=all.filter(e=>e[1]>=m);
   const ent=rankCutoff(eligible);
@@ -553,16 +585,16 @@ function PostoCard(){
 
 function VicinanzaCard(){
   const DATA=useData();
-  // recap solo su valori veri (numerici): "na" e non-definiti restano fuori.
+  // per concerto (ogni set di un festival ha la sua vicinanza); solo valori
+  // veri (numerici): i non-definiti restano fuori.
+  const CONC=DATA.flatMap(concertsOf);
   const rows=VIC_ORDER.map(v=>{
-    const list=DATA.filter(d=>d.vicinanza===v);
+    const list=CONC.filter(c=>c.vicinanza===v);
     const pl=list.filter(isPlanned).length;
     return {v,n:list.length,a:list.length-pl,pl};
   }).filter(r=>r.n>0);
   const total=rows.reduce((s,r)=>s+r.n,0);
   const max=Math.max(1,...rows.map(r=>r.n));
-  const near=DATA.filter(d=>hasVic(d)&&d.vicinanza<=3).length;
-  const far=DATA.filter(d=>hasVic(d)&&d.vicinanza>=4).length;
   return (
     <section className="panel">
       <h2><Icon name="target" size={22} className="h2ic"/>Quanto sono vicino</h2>
@@ -612,7 +644,7 @@ function SpendYearChart({rows}: any){
           {p>0&&<div className="pseg" style={{height:ph+"px"}} title={eur0(p)+" in programma"}></div>}
           {a>0&&<div className="aseg" style={{height:ah+"px"}}></div>}
         </div>
-        {av>0&&<div className="bar avgbar" style={{height:avh+"px"}} title={eur0(av)+" in media a concerto"}>
+        {av>0&&<div className="bar avgbar" style={{height:avh+"px"}} title={eur0(av)+" in media a biglietto"}>
           <span className="avg">{eur0(av)}</span>
           <div className="avseg"></div>
         </div>}
@@ -632,7 +664,7 @@ function CostCard(){
         <div><h2><Icon name="wallet" size={22} className="h2ic"/>Quanto spendo</h2></div>
       </div>
       <SpendYearChart rows={known}/>
-      <div className="ylegend"><span className="lg lg-att">Speso</span><span className="lg lg-pl">In programma (già pagato)</span><span className="lg lg-avg">Media a concerto</span></div>
+      <div className="ylegend"><span className="lg lg-att">Speso</span><span className="lg lg-pl">In programma (già pagato)</span><span className="lg lg-avg">Media a biglietto</span></div>
     </section>
   );
 }
@@ -653,7 +685,7 @@ function TopSpend(){
           <div className="track"><div className="fill" style={{width:Math.round(d.cost/max*100)+"%",background:isPlanned(d)?"var(--planned)":"var(--lamp)"}}></div></div>
         </div>
       ))}</div>
-      {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={full.length-7} entity={ENT_CONCERT}/>}
+      {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={full.length-7} entity={ENT_BIGLIETTO}/>}
     </section>
   );
 }
@@ -698,7 +730,8 @@ function PriceDistribution(){
 
 function VoteDistribution(){
   const DATA=useData();
-  const voted=DATA.filter(hasVoto);
+  // per concerto: i set dei festival votano individualmente
+  const voted=DATA.flatMap(concertsOf).filter(hasVoto);
   const bins=[1,2,3,4,5].map(v=>({v,n:voted.filter(d=>d.voto===v).length}));
   const max=Math.max(...bins.map(b=>b.n),1);
   const peak=bins.slice().sort((a,b)=>b.n-a.n)[0];
@@ -738,10 +771,10 @@ function VoteDistribution(){
 function TopVoted(){
   const DATA=useData();
   const [expanded,setExpanded]=useState(false);
-  // collapsed: best-rated concerts (4★ and up), newest first within the same
-  // rating, with rankCutoff keeping whole ranks (a tie is shown in full or held
-  // back entirely). Expanded: every rated concert, down to 1★.
-  const allVoted=DATA.filter(hasVoto)
+  // collapsed: best-rated concerts (4★ and up, festival sets included), newest
+  // first within the same rating, with rankCutoff keeping whole ranks (a tie is
+  // shown in full or held back entirely). Expanded: every rated concert, down to 1★.
+  const allVoted=DATA.flatMap(concertsOf).filter(hasVoto)
     .sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a))
     .map(d=>[d,d.voto]);
   const eligible=allVoted.filter(([d])=>d.voto>=4);
@@ -776,7 +809,10 @@ function VoteScatter(){
     ()=>setDim(d=>DIMS[Math.min(DIMS.length-1,DIMS.indexOf(d)+1)])
   );
   const hasDim=dim==="cost"?hasCost:dim==="vic"?hasVic:hasCN;
-  const pts=DATA.filter(d=>hasVoto(d)&&hasDim(d));
+  // per concerto. Sui set dei festival il prezzo non è definito (il biglietto è
+  // dell'evento), quindi la vista Prezzo li esclude da sé; Vicinanza e Canzoni
+  // note sono per-concerto e li includono.
+  const pts=DATA.flatMap(concertsOf).filter(c=>hasVoto(c)&&hasDim(c));
   // svg geometry — viewBox scales with the panel width
   const W=720,H=310,ML=48,MR=16,MT=14,MB=42;
   const iw=W-ML-MR,ih=H-MT-MB;
@@ -845,8 +881,9 @@ function CanzoniNoteCard(){
   // "na" e non-definiti restano fuori, come in VicinanzaCard. Ogni riga mostra
   // anche il voto medio dei concerti votati di quel livello: è la statistica
   // interessante — conoscere le canzoni cambia quanto mi godo il concerto?
+  const CONC=DATA.flatMap(concertsOf); // per concerto, come vicinanza
   const rows=[5,4,3,2,1].map(v=>{
-    const list=DATA.filter(d=>d.canzoniNote===v);
+    const list=CONC.filter(c=>c.canzoniNote===v);
     const pl=list.filter(isPlanned).length;
     const voted=list.filter(hasVoto);
     return {v,n:list.length,a:list.length-pl,pl,avg:voted.length?sum(voted.map(d=>d.voto))/voted.length:null};
@@ -887,7 +924,7 @@ function ArchiveTable(){
   const [sort,setSort]=useState(DEFAULT_SORT); // col:null => relevance order (only while searching)
 
   const fuse=useMemo(()=>new Fuse(DATA,{
-    keys:["artist","venue","city","with"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
+    keys:["artist","venue","city","with","sets.artist","sets.with"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
   }),[DATA]);
 
   const searching=!!q.trim();
@@ -897,15 +934,21 @@ function ArchiveTable(){
   // apply an explicit column sort only when the user has picked one; otherwise keep base order (relevance/date)
   if(sort.col){
     const dir=sort.dir==="asc"?1:-1;
+    // per-concert columns: a festival row sorts on its best set value in the
+    // sort direction (asc → min, desc → max); missing values sink like before
+    const best=(d,has,get)=>{
+      const vs=concertsOf(d).filter(has).map(get) as number[];
+      return vs.length?(dir===1?Math.min(...vs):Math.max(...vs)):-Infinity;
+    };
     rows=[...rows].sort((a,b)=>{
       let av,bv;
       if(sort.col==="date"){av=sortKey(a);bv=sortKey(b);}
       else if(sort.col==="cost"){av=hasCost(a)?a.cost:-Infinity;bv=hasCost(b)?b.cost:-Infinity;} // unknown prices sink to the bottom
-      else if(sort.col==="voto"){av=hasVoto(a)?a.voto:-Infinity;bv=hasVoto(b)?b.voto:-Infinity;} // unrated (planned) sink like unknown prices
-      else if(sort.col==="vicinanza"){av=hasVic(a)?a.vicinanza:-Infinity;bv=hasVic(b)?b.vicinanza:-Infinity;} // "na"/missing sink like unknown prices
-      else if(sort.col==="canzoniNote"){av=hasCN(a)?a.canzoniNote:-Infinity;bv=hasCN(b)?b.canzoniNote:-Infinity;} // "na"/missing sink like unknown prices
+      else if(sort.col==="voto"){av=best(a,hasVoto,c=>c.voto);bv=best(b,hasVoto,c=>c.voto);} // unrated (planned) sink like unknown prices
+      else if(sort.col==="vicinanza"){av=best(a,hasVic,c=>c.vicinanza);bv=best(b,hasVic,c=>c.vicinanza);} // missing sink like unknown prices
+      else if(sort.col==="canzoniNote"){av=best(a,hasCN,c=>c.canzoniNote);bv=best(b,hasCN,c=>c.canzoniNote);} // "na"/missing sink like unknown prices
       else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // unknown origins sink like unknown prices
-      else if(sort.col==="with"){av=(a.with||[]).join(", ").toLowerCase();bv=(b.with||[]).join(", ").toLowerCase();}
+      else if(sort.col==="with"){av=concertsOf(a).flatMap(c=>c.with||[]).join(", ").toLowerCase();bv=concertsOf(b).flatMap(c=>c.with||[]).join(", ").toLowerCase();}
       else{av=(a[sort.col]||"").toLowerCase();bv=(b[sort.col]||"").toLowerCase();}
       return av<bv?-dir:av>bv?dir:0;
     });
@@ -952,27 +995,67 @@ function ArchiveTable(){
             <th key={c} className={sort.col===c?"act":""} onClick={()=>setCol(c)}>{l}<SortIcon col={c}/></th>
           ))}</tr></thead>
           <tbody>
-            {rows.map((d,i)=>{const pl=isPlanned(d);return (
-              <tr key={i}>
-                <td className="artist">{hl(d.artist,q)}</td>
-                <td className="date">{pl?<span className="d-planned">{d.date}</span>:<span className="d-past">{d.date}</span>}</td>
-                <td>{hl(d.venue,q)}</td>
-                <td className="with">{(d.with&&d.with.length)?d.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cn">{hasCN(d)?<span className="viccell">{CANZONI_NOTE_LABELS[d.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="city"><b>{hl(d.city,q)}</b></td>
-                <td className="km">{distKm(d)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-              </tr>
-            );})}
+            {rows.flatMap((d,i)=>{
+              const pl=isPlanned(d);
+              const dateCell=<td className="date">{pl?<span className="d-planned">{d.date}</span>:<span className="d-past">{d.date}</span>}</td>;
+              const costCell=<td className="cost">{hasCost(d)?<span className="cval">{eur2(d.cost)}</span>:isGift(d)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(d)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>;
+              const kmCell=<td className="km">{distKm(d)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(d))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[d.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>;
+              const postoCell=<td className="posto">{d.posto?<span className="postocell">{d.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>;
+              if(!d.sets) return [(
+                <tr key={i}>
+                  <td className="artist">{hl(d.artist,q)}</td>
+                  {dateCell}
+                  <td>{hl(d.venue,q)}</td>
+                  <td className="with">{(d.with&&d.with.length)?d.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  {costCell}
+                  <td className="voto">{hasVoto(d)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{d.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="cn">{hasCN(d)?<span className="viccell">{CANZONI_NOTE_LABELS[d.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="city"><b>{hl(d.city,q)}</b></td>
+                  {kmCell}
+                  {postoCell}
+                  <td className="vic">{hasVic(d)?<span className="viccell">{VIC_LABELS[d.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                </tr>
+              )];
+              // festival: an event header row (shared facts: date, venue, ticket,
+              // trip, posto) with its concerts nested underneath (per-set facts)
+              return [
+                <tr key={i} className="evrow">
+                  <td className="artist"><span className="evname">{hl(d.artist,q)}</span><span className="evcount">{d.sets.length} concerti</span></td>
+                  {dateCell}
+                  <td>{hl(d.venue,q)}</td>
+                  <td className="with"></td>
+                  {costCell}
+                  <td className="voto"></td>
+                  <td className="cn"></td>
+                  <td className="city"><b>{hl(d.city,q)}</b></td>
+                  {kmCell}
+                  {postoCell}
+                  <td className="vic"></td>
+                </tr>,
+                ...d.sets.map((s,si)=>(
+                  <tr key={i+"-"+si} className="setrow">
+                    <td className="artist setartist">{hl(s.artist,q)}</td>
+                    <td className="date">{s.date?<span className="setdate">{s.date}</span>:null}</td>
+                    <td></td>
+                    <td className="with">{(s.with&&s.with.length)?s.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
+                    <td className="cost"></td>
+                    <td className="voto">{hasVoto(s)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{s.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                    <td className="cn">{hasCN(s)?<span className="viccell">{CANZONI_NOTE_LABELS[s.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                    <td className="city"></td>
+                    <td className="km"></td>
+                    <td className="posto"></td>
+                    <td className="vic">{hasVic(s)?<span className="viccell">{VIC_LABELS[s.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  </tr>
+                )),
+              ];
+            })}
             {rows.length===0&&<tr><td colSpan={11} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
           </tbody>
         </table>
       </div>
       <div className="resn">
-        {rows.length} concert{rows.length===1?"o":"i"} {q?"su "+DATA.length:""}
+        {(()=>{const n=rows.reduce((s,d)=>s+(d.sets?d.sets.length:1),0);const tot=DATA.reduce((s,d)=>s+(d.sets?d.sets.length:1),0);
+          return <>{n} concert{n===1?"o":"i"} {q?"su "+tot:""}</>;})()}
         {orderNote && <span className="ordn"> · {orderNote}</span>}
         {sort.col && searching && <button className="relink" onClick={()=>setSort({col:null,dir:"desc"})}>torna alla pertinenza</button>}
       </div>
@@ -1600,9 +1683,10 @@ function TocButton(){
 }
 
 function VicinanzaAlert(){
-  // segnala i concerti GIÀ passati a cui non ho ancora assegnato una posizione.
-  // i futuri (planned) sono esclusi: la posizione non è ancora conoscibile.
-  const missing=ALLDATA.filter(vicMissing);
+  // segnala i concerti GIÀ passati a cui non ho ancora assegnato una posizione
+  // (per-concerto: anche i singoli set dei festival). i futuri (planned) sono
+  // esclusi: la posizione non è ancora conoscibile.
+  const missing=FLAT_ALL.filter(vicMissing);
   if(missing.length===0) return null;
   return (
     <div className="vicalert">
@@ -1617,9 +1701,10 @@ function VicinanzaAlert(){
 }
 
 function VotoAlert(){
-  // segnala i concerti GIÀ passati a cui non ho ancora assegnato un voto.
-  // i futuri (planned) sono esclusi: il voto non è ancora conoscibile.
-  const missing=ALLDATA.filter(votoMissing);
+  // segnala i concerti GIÀ passati a cui non ho ancora assegnato un voto
+  // (per-concerto: anche i singoli set dei festival). i futuri (planned)
+  // sono esclusi: il voto non è ancora conoscibile.
+  const missing=FLAT_ALL.filter(votoMissing);
   if(missing.length===0) return null;
   return (
     <div className="vicalert">
@@ -1653,6 +1738,7 @@ function FromAlert(){
 function App(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
+  const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
   const [mode,setMode]=React.useState(()=>{
     try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
@@ -1667,11 +1753,12 @@ function App(){
     applyFilters:(input)=>{
       const next=mergeToolFilters(filtersRef.current,input);
       setFilters(next);
-      return {matchCount:applyFilters(ALLDATA,next).length,summary:describeFilters(next)};
+      // matchCount counts concerts (sets), coherently with the page's stats
+      return {matchCount:flatConcerts(applyFilters(ALLDATA,next)).length,summary:describeFilters(next)};
     },
     clearFilters:()=>{
       setFilters(EMPTY_FILTERS);
-      return {matchCount:ALLDATA.length};
+      return {matchCount:FLAT_ALL.length};
     },
     goToSection:(id)=>{
       const el=document.getElementById(id);
@@ -1781,8 +1868,8 @@ function App(){
         <div id="sec-andamento" className="tocsec"><ChartCard/></div>
         <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
         <div className="grid2">
-          <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(DATA,"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
-          <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(DATA,"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
+          <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
+          <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(CONC,"with")} plObj={multiCounter(CONC.filter(isPlanned),"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
         </div>
         <div className="grid2">
           <div id="sec-venue" className="tocsec full"><VenueCard/></div>

@@ -889,6 +889,18 @@
   }
   .d-planned{color:var(--planned);font-weight:500}
   .d-past{color:var(--lamp)}
+  /* festival nesting: an event header row with its concerts indented below.
+     Set rows drop the row separator so the group reads as one block. */
+  tr.evrow td{border-bottom:none}
+  .evname{display:block}
+  .evcount{display:block;font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500;margin-top:3px}
+  tr.setrow td{border-bottom:none;padding-top:5px;padding-bottom:5px;vertical-align:middle}
+  /* the group's last set row closes the block with the usual separator */
+  tr.setrow:has(+ tr:not(.setrow)) td,tr.setrow:last-child td{border-bottom:1px solid var(--line)}
+  tr.setrow:has(+ tr:not(.setrow)) td,tr.setrow:last-child td{padding-bottom:12px}
+  tr.setrow td.setartist{font-weight:500;color:var(--muted);padding-left:18px;position:relative}
+  tr.setrow td.setartist::before{content:"└";position:absolute;left:2px;top:3px;color:var(--dim);font-size:.8rem}
+  tr.setrow .setdate{color:var(--dim);font-size:.76rem;font-variant-numeric:tabular-nums;white-space:nowrap}
   .ttag{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;font-weight:500;display:inline-flex;align-items:center;gap:7px}
   .tti{flex-shrink:0;opacity:.8;color:var(--lamp)}
   .rtop .name--ico{display:inline-flex;align-items:center;gap:9px}
