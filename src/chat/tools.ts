@@ -10,7 +10,7 @@
 
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { ALLDATA, CANZONI_NOTE_LABELS, flatConcerts, type FlatConcert, type Person } from "../data.ts";
+import { ALLDATA, CANZONI_NOTE_LABELS, flatConcerts, isFestival, type FlatConcert, type Person } from "../data.ts";
 
 // Single source of truth for the page sections (the TOC adds icons on top).
 export const SECTIONS = [
@@ -194,7 +194,7 @@ export function runConcertQuery(q: ConcertQuery) {
     if (q.status === "planned" && !isPlanned(c)) return false;
     if (q.people?.length && !q.people.some(p => (c.with || []).includes(p as Person))) return false;
     if (q.solo && (c.with || []).length > 0) return false;
-    if (artist && !c.artist.toLowerCase().includes(artist) && !(c.ev.sets && c.ev.artist.toLowerCase().includes(artist))) return false;
+    if (artist && !c.artist.toLowerCase().includes(artist) && !(isFestival(c.ev) && c.ev.name.toLowerCase().includes(artist))) return false;
     if (q.cities?.length && !q.cities.includes(c.city)) return false;
     if (q.years?.length && !q.years.includes(c.y)) return false;
     if (q.gift !== undefined && !!c.ev.gift !== q.gift) return false;
@@ -252,7 +252,7 @@ export function runConcertQuery(q: ConcertQuery) {
     ...costVotoStats(matches),
     ...(groups ? { groups } : {}),
     concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(c =>
-      `${c.date} · ${c.artist}${c.ev.sets ? ` (${c.ev.artist})` : ""} · ${c.venue} (${c.city})` +
+      `${c.date} · ${c.artist}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
       ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
       (typeof c.cost === "number" ? ` · ${c.cost}€` : "") +
       (c.gift ? " · regalo" : "") +
