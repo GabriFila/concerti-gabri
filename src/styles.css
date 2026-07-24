@@ -678,6 +678,48 @@
   .kpi .pnote{font-size:.8rem;color:var(--planned);margin-top:4px;font-weight:500;display:flex;align-items:center;gap:6px}
   .kpi .pnote::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--planned);flex-shrink:0}
 
+  /* ============ ASK HERO — the Oracolo-first homepage ============ */
+  .askhero{position:relative;z-index:1;padding:0 clamp(20px,5vw,80px);
+    display:flex;flex-direction:column;align-items:center;text-align:center}
+  /* inline Oracolo: the chat engine rendered as the page's primary ask surface */
+  .oracolo-inline{
+    width:100%;max-width:760px;text-align:left;
+    margin:clamp(22px,3.5vw,40px) auto 0;
+    display:flex;flex-direction:column;overflow:hidden;
+    background:var(--panel);border:1px solid var(--line-2);border-radius:18px;
+    box-shadow:0 22px 60px rgba(0,0,0,.28);
+  }
+  [data-theme="light"] .oracolo-inline{box-shadow:0 18px 46px rgba(30,25,15,.12)}
+  .oracolo-inline .chat-body{max-height:min(52vh,520px);min-height:0}
+  .oracolo-inline .chat-empty{margin:0}
+  /* the hero ask bar: bigger, more inviting than the modal's input */
+  .oracolo-inline .chat-inputrow{padding:14px 16px;border-top:1px solid var(--line)}
+  .oracolo-inline .chat-inputrow textarea{min-height:48px;font-size:1rem;border-radius:24px;padding:12px 18px}
+  .oracolo-inline .chat-send{width:48px;height:48px}
+  .oracolo-inline .chat-send svg{width:20px;height:20px}
+  @media (pointer:coarse){ .oracolo-inline .chat-inputrow textarea{font-size:16px} }
+
+  .askfacets{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;
+    max-width:760px;margin:clamp(15px,2vw,20px) auto 0}
+  .askfacets-l{font-size:.85rem;color:var(--muted);margin-right:2px}
+
+  .kpistrip{display:flex;flex-wrap:wrap;justify-content:center;gap:clamp(18px,4vw,46px);
+    max-width:760px;margin:clamp(24px,3.2vw,36px) auto 0}
+  .kps{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .kps-n{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(1.5rem,4.4vw,2.2rem);line-height:1;
+    color:var(--text);font-variant-numeric:lining-nums tabular-nums}
+  .kps-n.acc-planned{color:var(--planned)}
+  .kps-n .star{color:var(--lamp)}
+  .kps-l{font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500}
+
+  .scrollcue{display:inline-flex;align-items:center;gap:7px;
+    margin:clamp(26px,3.6vw,42px) auto 0;padding:8px 6px;
+    background:none;border:none;cursor:pointer;color:var(--muted);
+    font:inherit;font-size:.9rem;letter-spacing:.02em;transition:color .15s ease}
+  .scrollcue:hover{color:var(--text)}
+  .scrollcue svg{width:16px;height:16px;animation:cuebob 1.9s infinite ease-in-out}
+  @keyframes cuebob{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+
   /* ============ MAIN / PANELS ============ */
   main{position:relative;z-index:1;padding:clamp(26px,4vw,52px) clamp(12px,3.4vw,48px) 0;display:grid;gap:clamp(18px,2.6vw,30px)}
 

@@ -318,6 +318,39 @@ function KPIs(){
   ))}</section>;
 }
 
+/* Compact headline strip under the ask bar — proof-of-life. Reacts to the active
+   filters (same FilterContext as the dashboard), so a question that filters the
+   page nudges these numbers too. */
+function KpiStrip(){
+  const DATA=useData();
+  const CONC=DATA.flatMap(concertsOf);
+  const attended=CONC.filter(c=>!isPlanned(c)).length;
+  const planned=CONC.filter(isPlanned).length;
+  const voted=CONC.filter(c=>!isPlanned(c)&&hasVoto(c));
+  const avgVoto=voted.length?sum(voted.map(c=>c.voto))/voted.length:0;
+  const trips=DATA.filter(d=>!isPlanned(d)).map(distKm).filter(k=>k!==null);
+  const totalKm=sum(trips)*2;
+  const items:any[]=[
+    {num:attended,lbl:"Concerti"},
+    {num:planned,lbl:"In programma",acc:"planned"},
+    {num:voted.length?<>{voto1(avgVoto)}<span className="star" style={{fontSize:"0.62em"}}>★</span></>:"—",lbl:"Voto medio"},
+    {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi"},
+  ];
+  return <div className="kpistrip">{items.map((k,i)=>(
+    <div className="kps" key={i}><span className={"kps-n"+(k.acc?" acc-"+k.acc:"")}>{k.num}</span><span className="kps-l">{k.lbl}</span></div>
+  ))}</div>;
+}
+
+/* Starter questions for the inline Oracolo hero (second-person, inviting). */
+const HERO_SUGGESTIONS=[
+  "Qual è stato il concerto più costoso?",
+  "Chi hai visto di più?",
+  "Quanto hai viaggiato per la musica?",
+  "Il miglior concerto di sempre?",
+  "Quanti concerti quest'anno?",
+  "Cosa c'è in programma?",
+];
+
 function YearChart(){
   const DATA=useData();
   // per concerto: un festival contribuisce con un'unità per set visto
@@ -1742,6 +1775,14 @@ function FromAlert(){
 
 function App(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
+  // Owner-only maintenance alerts stay hidden from the public. `?owner` in the
+  // URL unlocks them and remembers it on this device.
+  const isOwner=React.useMemo(()=>{
+    try{
+      if(location.search.includes("owner")) localStorage.setItem("owner","1");
+      return localStorage.getItem("owner")==="1";
+    }catch(e){ return false; }
+  },[]);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
   const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
@@ -1776,6 +1817,13 @@ function App(){
       return {ok:true,theme:t};
     },
   }),[]);
+  // One-tap facets in the hero: drive the dashboard directly (no AI round-trip)
+  // through the same ctx, then scroll down so "ask" and "tap" both navigate.
+  const thisYear=new Date().getFullYear();
+  const facetBest=()=>{ chatCtx.clearFilters(); chatCtx.goToSection("sec-voti-migliori"); };
+  const facetYear=()=>{ chatCtx.applyFilters({replace:true,dateFrom:thisYear+"-01-01",dateTo:thisYear+"-12-31"}); chatCtx.goToSection("sec-andamento"); };
+  const facetPlanned=()=>{ chatCtx.applyFilters({replace:true,status:"planned"}); chatCtx.goToSection("sec-andamento"); };
+  const scrollTo=id=>{ const el=document.getElementById(id); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); };
   React.useEffect(()=>{
     const mq=window.matchMedia("(prefers-color-scheme: dark)");
     const apply=()=>{
@@ -1862,11 +1910,23 @@ function App(){
         <span className="spot"></span>
         <header>
           <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
-          <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
-          <VicinanzaAlert/>
-          <VotoAlert/>
-          <FromAlert/>
+          <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo. Non sfogliare: <b>chiedi</b>. Ci pensa L'Oracolo.</p>
+          {isOwner&&<><VicinanzaAlert/><VotoAlert/><FromAlert/></>}
         </header>
+        <section id="sec-ask" className="askhero">
+          <ChatWidget ctx={chatCtx} mode="inline" suggestions={HERO_SUGGESTIONS}/>
+          <div className="askfacets">
+            <span className="askfacets-l">Poca voglia di scrivere?</span>
+            <button type="button" className="fchip" onClick={facetBest}>I migliori</button>
+            <button type="button" className="fchip" onClick={facetYear}>Quest'anno</button>
+            <button type="button" className="fchip" onClick={facetPlanned}>Da vedere</button>
+          </div>
+          <KpiStrip/>
+          <button type="button" className="scrollcue" onClick={()=>scrollTo("sec-kpis")}>
+            oppure esplora i dati
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+          </button>
+        </section>
         <div id="sec-kpis" className="tocsec"><KPIs/></div>
       </div>
       <main>
@@ -1895,7 +1955,12 @@ function App(){
       </footer>
       <div className="bottombar">
         <TocButton/>
-        <ChatWidget ctx={chatCtx}/>
+        <div className="chatdock">
+          <button type="button" className="chatbtn" onClick={()=>scrollTo("sec-ask")} aria-label="Vai a L'Oracolo e chiedi qualcosa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+            <span className="filterbtn-lbl">Chiedi</span>
+          </button>
+        </div>
         <FilterButton/>
       </div>
     </FilterContext.Provider>

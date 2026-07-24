@@ -56,6 +56,10 @@ const SUGGESTIONS = [
   "Portami alla mappa",
 ];
 
+/* true when the chat engine is rendered as the inline hero (not the floating
+   modal): a few hints change wording since the dashboard is right there. */
+const InlineCtx = React.createContext(false);
+
 const SECTION_LABEL = Object.fromEntries(SECTIONS.map(s => [s.id, s.label]));
 
 // randomUUID needs a secure context (https/localhost); fall back to the
@@ -123,6 +127,7 @@ function friendlyError(err: Error | undefined): string | null {
 const THEME_LABEL: Record<string, string> = { dark: "Scuro", light: "Chiaro", system: "Sistema" };
 
 function ToolChip({ part }: { part: any }) {
+  const inline = React.useContext(InlineCtx);
   const done = part.output != null;
   let icon = "✓", text = "", hint = true;
   if (part.name === "set_filters") {
@@ -159,7 +164,7 @@ function ToolChip({ part }: { part: any }) {
     <div className={"chat-tool" + (done ? " done" : "")}>
       <span className="chat-tool-ic" aria-hidden="true">{done ? icon : "…"}</span>
       <span>{text}</span>
-      {done && hint && <span className="chat-tool-hint">Chiudi la chat per vedere la pagina.</span>}
+      {done && hint && <span className="chat-tool-hint">{inline ? "La dashboard qui sotto si è aggiornata ↓" : "Chiudi la chat per vedere la pagina."}</span>}
     </div>
   );
 }
@@ -220,7 +225,10 @@ function Message({ message }: { message: any }) {
   );
 }
 
-export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
+export default function ChatWidget({ ctx, mode = "float", suggestions }: { ctx: ChatSiteContext; mode?: "float" | "inline"; suggestions?: string[] }) {
+  const inline = mode === "inline";
+  const sugg = suggestions ?? SUGGESTIONS;
+  // inline hero is always "open"; the floating widget toggles a modal
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -419,127 +427,165 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     </button>
   );
 
+  const inputForm = (
+    <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
+      <textarea
+        ref={inputRef}
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        placeholder={inline ? "Chiedi a Gabri…" : "Scrivi un messaggio…"}
+        maxLength={1500}
+        rows={1}
+        aria-label="Messaggio"
+      />
+      <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
+      </button>
+    </form>
+  );
+
+  const chatBody = (
+    <div className="chat-body" ref={bodyRef}>
+      {messages.length === 0 && histBusy && (
+        <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
+      )}
+      {messages.length === 0 && histError && <div className="chat-error">{histError}</div>}
+      {messages.length === 0 && !histBusy && (
+        <div className="chat-empty">
+          <p>{inline
+            ? "Sono L'Oracolo. Chiedimi qualsiasi cosa sui concerti di Gabri: rispondo sui dati, filtro e navigo la dashboard qui sotto, e cerco sul web curiosità musicali."
+            : "Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema."}</p>
+          <div className="chat-sugg">
+            {sugg.map(s => (
+              <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
+            ))}
+          </div>
+          <label className="chat-name">
+            <span>Firma le tue chat (facoltativo)</span>
+            <input
+              value={name}
+              onChange={e => { setName(e.target.value); saveName(e.target.value); }}
+              placeholder="Il tuo nome"
+              maxLength={MAX_NAME}
+              aria-label="Il tuo nome (facoltativo)"
+            />
+          </label>
+        </div>
+      )}
+      {messages.map((m: any) => <Message key={m.id} message={m} />)}
+      {isLoading && <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>}
+      {uiError && <div className="chat-error">{uiError}</div>}
+    </div>
+  );
+
+  const chatNote = (
+    <div className="chat-note">Risposte generate dall'AI: possono contenere errori. Le chat sono pubbliche: gli altri visitatori potranno leggerle{author ? ` (firmate come “${author}”)` : ""}.</div>
+  );
+
+  const head = (
+    <div className="fp-head">
+      <span className="fp-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+        L'Oracolo
+      </span>
+      <div className="fp-headactions">
+        <button type="button" className={"fp-clear" + (messages.length || view === "viewer" ? "" : " dis")}
+          disabled={!messages.length && view !== "viewer"}
+          onClick={startNewChat}>Nuova chat</button>
+        {shareId && (
+          <button type="button" className={"fp-close fp-share" + (shared ? " ok" : "")} onClick={shareChat}
+            aria-label={shared ? "Link copiato" : "Condividi chat: copia il link"}
+            title={shared ? "Link copiato!" : "Condividi chat (copia il link)"}>
+            {shared
+              ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 3.98M15.4 6.5l-6.8 3.98"/></svg>}
+          </button>
+        )}
+        <button type="button" className={"fp-close" + (view === "history" ? " on" : "")}
+          onClick={() => { if (view === "history") setView(viewer ? "viewer" : "chat"); else showHistory(histTab); }}
+          aria-label="Cronologia chat" aria-pressed={view === "history"} title="Cronologia chat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
+        </button>
+        {!inline && (
+          <button type="button" className="fp-close" onClick={() => setOpen(false)} aria-label="Chiudi">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const historyView = (
+    <div className="chat-body" ref={bodyRef}>
+      <div className="chat-sugg">
+        <button type="button" className={"fchip" + (histTab === "mine" ? " on" : "")}
+          onClick={() => showHistory("mine")}>Le mie</button>
+        <button type="button" className={"fchip" + (histTab === "all" ? " on" : "")}
+          onClick={() => showHistory("all")}>Tutte</button>
+      </div>
+      {histError && <div className="chat-error">{histError}</div>}
+      {histTab === "mine" ? (
+        <>
+          {owned.length === 0 && (
+            <div className="chat-empty"><p>Non hai ancora chat su questo dispositivo.</p></div>
+          )}
+          {owned.map(t => histItem(t, true))}
+        </>
+      ) : (
+        <>
+          {publicThreads === null && !histError && (
+            <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
+          )}
+          {publicThreads?.length === 0 && (
+            <div className="chat-empty"><p>Ancora nessuna chat: inizia tu la prima!</p></div>
+          )}
+          {publicThreads?.map(t => histItem(t, owned.some(o => o.id === t.id)))}
+        </>
+      )}
+      <div className="chat-note">
+        {histTab === "mine"
+          ? "Le chat che hai iniziato da questo dispositivo: puoi continuarle. Restano per 90 giorni."
+          : "Cronologia pubblica di tutti i visitatori (90 giorni): puoi leggerle, ma continuare solo le tue."}
+      </div>
+    </div>
+  );
+
+  const viewerView = viewer && (
+    <>
+      <div className="chat-body" ref={bodyRef}>
+        {viewer.messages.map((m: any) => <Message key={m.id} message={m} />)}
+      </div>
+      <div className="chat-note">Chat di {viewer.author || "un altro visitatore"}, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
+    </>
+  );
+
+  const panel = (
+    <>
+      {head}
+      {view === "history" ? historyView
+        : view === "viewer" && viewer ? viewerView
+        : inline
+          ? <>{inputForm}{chatBody}{chatNote}</>
+          : <>{chatBody}{inputForm}{chatNote}</>}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <InlineCtx.Provider value={true}>
+        <div className="oracolo-inline" role="region" aria-label="L'Oracolo — chiedi qualcosa">
+          {panel}
+        </div>
+      </InlineCtx.Provider>
+    );
+  }
+
   return (
     <div className="chatdock">
       {open && (
         <div className="chatmodal" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div className="chatpop" role="dialog" aria-modal="true" aria-label="L'Oracolo — chat AI">
-            <div className="fp-head">
-              <span className="fp-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
-                L'Oracolo
-              </span>
-              <div className="fp-headactions">
-                <button type="button" className={"fp-clear" + (messages.length || view === "viewer" ? "" : " dis")}
-                  disabled={!messages.length && view !== "viewer"}
-                  onClick={startNewChat}>Nuova chat</button>
-                {shareId && (
-                  <button type="button" className={"fp-close fp-share" + (shared ? " ok" : "")} onClick={shareChat}
-                    aria-label={shared ? "Link copiato" : "Condividi chat: copia il link"}
-                    title={shared ? "Link copiato!" : "Condividi chat (copia il link)"}>
-                    {shared
-                      ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                      : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 3.98M15.4 6.5l-6.8 3.98"/></svg>}
-                  </button>
-                )}
-                <button type="button" className={"fp-close" + (view === "history" ? " on" : "")}
-                  onClick={() => { if (view === "history") setView(viewer ? "viewer" : "chat"); else showHistory(histTab); }}
-                  aria-label="Cronologia chat" aria-pressed={view === "history"} title="Cronologia chat">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
-                </button>
-                <button type="button" className="fp-close" onClick={() => setOpen(false)} aria-label="Chiudi">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                </button>
-              </div>
-            </div>
-            {view === "history" ? (
-              <div className="chat-body" ref={bodyRef}>
-                <div className="chat-sugg">
-                  <button type="button" className={"fchip" + (histTab === "mine" ? " on" : "")}
-                    onClick={() => showHistory("mine")}>Le mie</button>
-                  <button type="button" className={"fchip" + (histTab === "all" ? " on" : "")}
-                    onClick={() => showHistory("all")}>Tutte</button>
-                </div>
-                {histError && <div className="chat-error">{histError}</div>}
-                {histTab === "mine" ? (
-                  <>
-                    {owned.length === 0 && (
-                      <div className="chat-empty"><p>Non hai ancora chat su questo dispositivo.</p></div>
-                    )}
-                    {owned.map(t => histItem(t, true))}
-                  </>
-                ) : (
-                  <>
-                    {publicThreads === null && !histError && (
-                      <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
-                    )}
-                    {publicThreads?.length === 0 && (
-                      <div className="chat-empty"><p>Ancora nessuna chat: inizia tu la prima!</p></div>
-                    )}
-                    {publicThreads?.map(t => histItem(t, owned.some(o => o.id === t.id)))}
-                  </>
-                )}
-                <div className="chat-note">
-                  {histTab === "mine"
-                    ? "Le chat che hai iniziato da questo dispositivo: puoi continuarle. Restano per 90 giorni."
-                    : "Cronologia pubblica di tutti i visitatori (90 giorni): puoi leggerle, ma continuare solo le tue."}
-                </div>
-              </div>
-            ) : view === "viewer" && viewer ? (
-              <>
-                <div className="chat-body" ref={bodyRef}>
-                  {viewer.messages.map((m: any) => <Message key={m.id} message={m} />)}
-                </div>
-                <div className="chat-note">Chat di {viewer.author || "un altro visitatore"}, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
-              </>
-            ) : (
-              <>
-                <div className="chat-body" ref={bodyRef}>
-                  {messages.length === 0 && histBusy && (
-                    <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
-                  )}
-                  {messages.length === 0 && histError && <div className="chat-error">{histError}</div>}
-                  {messages.length === 0 && !histBusy && (
-                    <div className="chat-empty">
-                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
-                      <div className="chat-sugg">
-                        {SUGGESTIONS.map(s => (
-                          <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
-                        ))}
-                      </div>
-                      <label className="chat-name">
-                        <span>Firma le tue chat (facoltativo)</span>
-                        <input
-                          value={name}
-                          onChange={e => { setName(e.target.value); saveName(e.target.value); }}
-                          placeholder="Il tuo nome"
-                          maxLength={MAX_NAME}
-                          aria-label="Il tuo nome (facoltativo)"
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {messages.map((m: any) => <Message key={m.id} message={m} />)}
-                  {isLoading && <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>}
-                  {uiError && <div className="chat-error">{uiError}</div>}
-                </div>
-                <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    placeholder="Scrivi un messaggio…"
-                    maxLength={1500}
-                    rows={1}
-                    aria-label="Messaggio"
-                  />
-                  <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
-                  </button>
-                </form>
-                <div className="chat-note">Risposte generate dall'AI: possono contenere errori. Le chat sono pubbliche: gli altri visitatori potranno leggerle{author ? ` (firmate come “${author}”)` : ""}.</div>
-              </>
-            )}
+            {panel}
           </div>
         </div>
       )}
