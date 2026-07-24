@@ -101,7 +101,7 @@ export const concertsOf = (e: Entry): FlatConcert[] =>
 
 export const flatConcerts = (data: Entry[]): FlatConcert[] => data.flatMap(concertsOf);
 
-export const CANZONI_NOTE_LABELS = { 1: "Nessuna", 2: "Poche", 3: "Circa metà", 4: "Quasi tutte", 5: "Tutte" } as const;
+export const CANZONI_NOTE_LABELS = { 1: "Nessuna", 2: "Poche", 3: "Circa metà", 4: "Molte", 5: "Tutte" } as const;
 
 export const ALLDATA: Entry[] = [
   {y:2017,date:"30/03/2017",artist:"2CELLOS",venue:"Mediolanum Forum",city:"Assago",posto:"Gradinata",with:["Alessia P","Enrico A","Davide B"],vicinanza:6,voto:3,canzoniNote:"na",from:"g",km:133},

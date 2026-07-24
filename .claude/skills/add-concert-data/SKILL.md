@@ -69,7 +69,7 @@ CANZONI NOTE (share of setlist you already knew):
   [ ] 1  Nessuna     (none)
   [ ] 2  Poche       (few)
   [ ] 3  Circa metà  (about half)
-  [ ] 4  Quasi tutte (almost all)
+  [ ] 4  Molte       (many)
   [ ] 5  Tutte       (all)
   [ ] na  can't recall
 
