@@ -1090,27 +1090,29 @@
      ============================================================ */
   .modeswitch{
     position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:55;
-    display:flex;gap:2px;padding:4px;border-radius:999px;
+    display:flex;padding:4px;border-radius:999px;
     background:var(--panel);border:1px solid var(--line-2);
     box-shadow:0 6px 22px rgba(0,0,0,.30);
     -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   }
+  /* highlight anchored with left/right to the exact 50% midpoint where the two
+     equal flex buttons meet — so it always covers the selected segment precisely */
   .modeswitch-slide{
-    position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);
+    position:absolute;top:4px;bottom:4px;left:4px;right:50%;
     border-radius:999px;background:var(--lamp);z-index:0;
-    transition:transform .28s cubic-bezier(.4,.1,.2,1);
+    transition:left .28s cubic-bezier(.4,.1,.2,1),right .28s cubic-bezier(.4,.1,.2,1);
   }
-  .modeswitch-slide[data-view="ritratto"]{transform:translateX(0)}
-  .modeswitch-slide[data-view="dati"]{transform:translateX(100%)}
+  .modeswitch-slide[data-view="dati"]{left:50%;right:4px}
   .ms-btn{
-    position:relative;z-index:1;flex:1;text-align:center;white-space:nowrap;
+    position:relative;z-index:1;flex:1 1 0;min-width:0;
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;
     appearance:none;border:none;background:none;cursor:pointer;
     font:inherit;font-size:.86rem;font-weight:600;letter-spacing:.01em;
-    padding:7px 18px;border-radius:999px;color:var(--muted);
+    padding:7px 20px;border-radius:999px;color:var(--muted);
     transition:color .22s ease;
   }
   .ms-btn.on{color:#171106}
-  @media(max-width:560px){ .modeswitch{top:12px} .ms-btn{padding:7px 15px;font-size:.82rem} }
+  @media(max-width:560px){ .modeswitch{top:12px} .ms-btn{padding:7px 16px;font-size:.82rem} }
 
   /* ============================================================
      RITRATTO — the curated, editorial, scroll-based portrait
@@ -1140,7 +1142,6 @@
   .rt-hero-inner > :nth-child(2){animation-delay:.3s}
   .rt-hero-inner > :nth-child(3){animation-delay:.52s}
   @keyframes rt-rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
-  .rt-eyebrow{font-size:.74rem;letter-spacing:.34em;text-transform:uppercase;color:var(--lamp);font-weight:600}
   .rt-h1{
     font-family:'Fraunces',Georgia,serif;font-weight:400;line-height:.88;letter-spacing:-.03em;
     color:var(--text);font-optical-sizing:auto;
@@ -1169,7 +1170,7 @@
   /* Act II — numbers */
   .rt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(26px,5vw,60px);margin-top:clamp(24px,4vw,44px)}
   @media(min-width:760px){ .rt-grid{grid-template-columns:repeat(4,1fr)} }
-  .rt-stat{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .rt-stat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;min-width:0}
   .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.02em;
     font-size:clamp(2.9rem,10vw,5.4rem);font-variant-numeric:lining-nums tabular-nums}
   .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600}
@@ -1207,11 +1208,6 @@
   .rt-oracoloact{align-items:flex-start;text-align:left}
   .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
   .rt-oracolo-pitch b{color:var(--text)}
-  .rt-starters{display:flex;flex-wrap:wrap;gap:10px;margin-top:clamp(22px,3.5vw,34px)}
-  .rt-starter{font:inherit;font-size:.92rem;font-weight:500;color:var(--text);cursor:pointer;text-align:left;
-    padding:11px 18px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line-2);
-    transition:border-color .2s ease,color .2s ease,transform .15s ease}
-  .rt-starter:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
   .rt-oracolo-cta{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;margin-top:clamp(24px,4vw,38px);
     font:inherit;font-size:1rem;font-weight:700;cursor:pointer;color:#171106;
     padding:15px 28px;border-radius:999px;background:var(--lamp);border:1px solid var(--lamp);

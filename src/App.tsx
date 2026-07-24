@@ -1812,12 +1812,6 @@ function Act({className,threshold,children}: any){
   );
 }
 
-const RT_STARTERS=[
-  "Qual è il concerto che Gabri ha amato di più?",
-  "Quanto ha speso in biglietti in totale?",
-  "Con chi va più spesso ai concerti?",
-];
-
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
   // the KPIs use, so the two views agree by construction.
@@ -1878,9 +1872,8 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         </div>
         <span className="spot"></span>
         <div className="rt-hero-inner">
-          <span className="rt-eyebrow">Dal vivo</span>
           <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
-          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: si alza il sipario.</p>
+          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: inizia lo show.</p>
         </div>
         {nextCue()}
       </section>
@@ -1891,7 +1884,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         <div className="rt-grid">
           <CountStat value={P.total} label="Concerti" hint={P.firstYear?"dal "+P.firstYear:undefined} start={seen}/>
           <CountStat value={P.artists} label="Artisti diversi" start={seen}/>
-          <CountStat value={P.km} label="Km percorsi" prefix="~" hint="andata e ritorno" start={seen}/>
+          <CountStat value={P.km} label="Km percorsi" hint="andata e ritorno" start={seen}/>
           <CountStat value={P.cities} label="Città" start={seen}/>
         </div>
         {nextCue()}
@@ -1958,12 +1951,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {/* ── Final Act — L'Oracolo ── */}
       <Act className="rt-oracoloact" threshold={0.15}>
         <div className="rt-head"><h2 className="rt-h2">Chiedi a L'Oracolo</h2></div>
-        <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto: band, tour, curiosità. Falle una domanda — risponde, filtra la pagina, ti porta dove serve.</p>
-        <div className="rt-starters">
-          {RT_STARTERS.map(q=>(
-            <button key={q} type="button" className="rt-starter" onClick={()=>openChat(q)}>{q}</button>
-          ))}
-        </div>
+        <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto:</p>
         <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
           Apri L'Oracolo
@@ -1971,7 +1959,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       </Act>
 
       <footer className="rt-footer">
-        <button type="button" className="rt-explore" onClick={onExplore}>Vuoi tutti i numeri? Apri la dashboard completa →</button>
+        <button type="button" className="rt-explore" onClick={onExplore}>Vuoi tutti i numeri?<br/>Apri la dashboard completa →</button>
         <p>Creato con il fondamentale supporto di Cami</p>
       </footer>
     </div>
