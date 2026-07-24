@@ -1843,6 +1843,8 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
     };
   },[]);
   const soloPct=P.total?Math.round(P.solo/P.total*100):0;
+  // hero "next" button: glide down to the first act below the fold
+  const scrollNext=()=>document.querySelector(".rt-numbers")?.scrollIntoView({behavior:"smooth",block:"start"});
 
   return (
     <div className="rt">
@@ -1864,19 +1866,19 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         </div>
         <span className="spot"></span>
         <div className="rt-hero-inner">
-          <span className="rt-eyebrow">Il ritratto</span>
+          <span className="rt-eyebrow">Dal vivo</span>
           <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
           <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: si alza il sipario.</p>
         </div>
-        <div className="rt-scrollcue" aria-hidden="true">
-          <span className="rt-scrollcue-l">Scorri</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
-        </div>
+        <button type="button" className="rt-scrollcue" onClick={scrollNext} aria-label="Vai avanti">
+          <span className="rt-scrollcue-l">Avanti</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        </button>
       </section>
 
       {/* ── Act II — the headline numbers, counting up ── */}
       <Act className="rt-numbers">{(seen:boolean)=>(<>
-        <div className="rt-head"><span className="rt-kicker">Uno</span><h2 className="rt-h2">In numeri</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">In numeri</h2></div>
         <div className="rt-grid">
           <CountStat value={P.total} label="Concerti" hint={P.firstYear?"dal "+P.firstYear:undefined} start={seen}/>
           <CountStat value={P.artists} label="Artisti diversi" start={seen}/>
@@ -1887,7 +1889,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
 
       {/* ── Act III — the map ── */}
       <Act className="rt-mapact" threshold={0.05}>
-        <div className="rt-head"><span className="rt-kicker">Due</span><h2 className="rt-h2">Dove</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">Dove</h2></div>
         <p className="rt-lead">Ogni luce è un palco calcato almeno una volta.</p>
         <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
       </Act>
@@ -1895,7 +1897,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {/* ── Act IV — the best shows ── */}
       {P.topBest.length>0&&(
       <Act className="rt-bestact">
-        <div className="rt-head"><span className="rt-kicker">Tre</span><h2 className="rt-h2">I migliori</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">I migliori</h2></div>
         <p className="rt-lead">Le serate che varrebbe la pena rivivere all'infinito{P.avgVoto?<> — la media sta a <b>{voto1(P.avgVoto)}<span className="star">★</span></b></>:null}.</p>
         <ol className="rt-bestlist">
           {P.topBest.map((c,i)=>(
@@ -1912,7 +1914,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {/* ── Act V — who they go with ── */}
       {P.mates.length>0&&(
       <Act className="rt-peopleact">
-        <div className="rt-head"><span className="rt-kicker">Quattro</span><h2 className="rt-h2">Con chi</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
         <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e il <b>{soloPct}%</b> delle serate in perfetta solitudine.</p>
         <ol className="rt-peoplelist">
           {P.mates.map(([name,n]: any,i:number)=>(
@@ -1929,7 +1931,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {/* ── Act VI — what's next ── */}
       {P.next&&(
       <Act className="rt-nextact">
-        <div className="rt-head"><span className="rt-kicker">Cinque</span><h2 className="rt-h2">E adesso?</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">E adesso?</h2></div>
         <div className="rt-nextcard">
           <span className="rt-next-tag">Prossimo concerto</span>
           <span className="rt-next-art">{labelOf(P.next)}</span>
@@ -1941,7 +1943,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
 
       {/* ── Final Act — L'Oracolo ── */}
       <Act className="rt-oracoloact" threshold={0.15}>
-        <div className="rt-head"><span className="rt-kicker">Il finale</span><h2 className="rt-h2">Chiedi a L'Oracolo</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">Chiedi a L'Oracolo</h2></div>
         <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto: band, tour, curiosità. Falle una domanda — risponde, filtra la pagina, ti porta dove serve.</p>
         <div className="rt-starters">
           {RT_STARTERS.map(q=>(
@@ -2119,7 +2121,7 @@ function App(){
       <div className="modeswitch" role="tablist" aria-label="Modalità di visualizzazione">
         <span className="modeswitch-slide" data-view={view} aria-hidden="true"></span>
         <button type="button" role="tab" aria-selected={view==="ritratto"}
-          className={"ms-btn"+(view==="ritratto"?" on":"")} onClick={()=>switchView("ritratto")}>Ritratto</button>
+          className={"ms-btn"+(view==="ritratto"?" on":"")} onClick={()=>switchView("ritratto")}>In scena</button>
         <button type="button" role="tab" aria-selected={view==="dati"}
           className={"ms-btn"+(view==="dati"?" on":"")} onClick={()=>switchView("dati")}>I dati</button>
       </div>
@@ -2150,11 +2152,13 @@ function App(){
       {view==="ritratto"
         ? <Ritratto openChat={(q)=>chatApi.current?.open(q)} onExplore={()=>switchView("dati")}/>
         : <FullDashboard owner={owner}/>}
-      <div className={"bottombar"+(view==="dati"?"":" bottombar--solo")}>
-        {view==="dati"&&<TocButton key="toc"/>}
-        <ChatWidget key="chat" ctx={chatCtx} apiRef={chatApi}/>
-        {view==="dati"&&<FilterButton key="filter"/>}
-      </div>
+      <ChatWidget ctx={chatCtx} apiRef={chatApi} corner/>
+      {view==="dati"&&(
+        <div className="bottombar">
+          <TocButton/>
+          <FilterButton/>
+        </div>
+      )}
     </FilterContext.Provider>
   );
 }

@@ -224,7 +224,7 @@ function Message({ message }: { message: any }) {
    open the chat and, optionally, submit a starter question. */
 export interface ChatApi { open(question?: string): void }
 
-export default function ChatWidget({ ctx, apiRef }: { ctx: ChatSiteContext; apiRef?: React.MutableRefObject<ChatApi | null> }) {
+export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteContext; apiRef?: React.MutableRefObject<ChatApi | null>; corner?: boolean }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -437,7 +437,7 @@ export default function ChatWidget({ ctx, apiRef }: { ctx: ChatSiteContext; apiR
   );
 
   return (
-    <div className="chatdock">
+    <div className={"chatdock" + (corner ? " chatdock--corner" : "")}>
       {open && (
         <div className="chatmodal" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
           <div className="chatpop" role="dialog" aria-modal="true" aria-label="L'Oracolo — chat AI">
