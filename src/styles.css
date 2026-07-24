@@ -1086,3 +1086,75 @@
     80%{opacity:.72}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* ============ STORY MODE ("Wrapped") ============ */
+  .story{position:fixed;inset:0;z-index:200;background:var(--bg);color:var(--text);display:flex;justify-content:center;overflow:hidden;touch-action:none;-webkit-tap-highlight-color:transparent}
+  .story-col{position:relative;width:100%;max-width:560px;height:100%;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+  @media(min-width:600px){ .story-col{box-shadow:0 0 140px rgba(0,0,0,.55)} }
+  .story-bg{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+  .story-bg .beams{position:absolute;inset:0}
+  .story-bg .spot{position:absolute;top:-30%;left:50%;transform:translateX(-50%);width:120%;height:80%;
+    background:radial-gradient(60% 60% at 50% 0%,var(--lamp-faint),transparent 70%);pointer-events:none}
+  .story-nav{position:absolute;inset:0;z-index:2}
+  .story-content{position:absolute;inset:0;z-index:3;pointer-events:none;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;padding:clamp(28px,7vw,64px)}
+  .story-content button{pointer-events:auto}
+  .story-bars{position:absolute;top:14px;left:0;right:0;z-index:5;display:flex;gap:4px;padding:0 14px;
+    padding-top:env(safe-area-inset-top,0px)}
+  .story-bar{flex:1;height:3px;border-radius:3px;background:var(--line-2);overflow:hidden}
+  .story-bar-fill{height:100%;width:0;background:var(--text);border-radius:3px}
+  .story-bar.done .story-bar-fill{width:100%}
+  .story-bar.active .story-bar-fill{animation:story-fill var(--story-dur,5.2s) linear forwards}
+  .story-bar.active.static .story-bar-fill{width:100%;animation:none}
+  .story.paused .story-bar.active .story-bar-fill{animation-play-state:paused}
+  @keyframes story-fill{from{width:0}to{width:100%}}
+
+  .story-topbar{position:absolute;top:30px;left:0;right:0;z-index:6;display:flex;align-items:center;
+    justify-content:space-between;padding:0 16px;padding-top:env(safe-area-inset-top,0px);pointer-events:none}
+  .story-topbar button{pointer-events:auto}
+  .story-ctl{width:40px;height:40px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;
+    background:var(--panel);border:1px solid var(--line-2);color:var(--text);cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.2);transition:border-color .2s ease,color .2s ease}
+  .story-skip{font-family:'Inter',sans-serif;font-size:.85rem;font-weight:500;height:40px;padding:0 16px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line-2);color:var(--text);
+    cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.2);transition:border-color .2s ease,color .2s ease}
+  .story-ctl:hover,.story-skip:hover{border-color:var(--lamp);color:var(--lamp)}
+
+  .story-card{display:flex;flex-direction:column;align-items:center;max-width:100%}
+  .story-anim-in{animation:story-rise .55s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes story-rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  .story-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.82rem;letter-spacing:.05em;
+    color:var(--muted);text-transform:uppercase;margin-bottom:clamp(20px,4.5vw,34px);max-width:30ch}
+  .story-eyebrow svg{color:var(--lamp);flex-shrink:0}
+  .story-hero{display:flex;align-items:baseline;justify-content:center;gap:.1em;flex-wrap:wrap}
+  .story-bignum{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(4.5rem,27vw,9.5rem);
+    line-height:.88;letter-spacing:-.035em;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
+  .story-unit{font-family:'Fraunces',Georgia,serif;font-size:clamp(2.2rem,10vw,3.6rem);color:var(--lamp);line-height:1}
+  .story-bigname{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.6rem,12vw,5.2rem);
+    line-height:1;letter-spacing:-.02em;color:var(--text);text-wrap:balance}
+  .story-label{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.2rem,4.6vw,1.75rem);color:var(--text);
+    margin-top:clamp(16px,3.5vw,26px);text-wrap:balance;max-width:22ch}
+  .story-caption{font-size:clamp(.95rem,3.6vw,1.08rem);color:var(--muted);margin-top:13px;max-width:34ch}
+  .story-caption .star{color:var(--lamp)}
+
+  .story-final .story-finaltitle{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.4rem,10vw,3.8rem);
+    line-height:1.02;letter-spacing:-.02em;margin-bottom:18px;text-wrap:balance}
+  .story-summary{font-size:clamp(1.05rem,4.2vw,1.3rem);color:var(--muted);margin-bottom:clamp(28px,6.5vw,44px);
+    font-variant-numeric:tabular-nums}
+  .story-cta{font-family:'Fraunces',Georgia,serif;font-size:1.2rem;padding:15px 30px;border-radius:999px;
+    background:var(--lamp);color:#171106;border:1px solid var(--lamp);cursor:pointer;
+    box-shadow:0 6px 30px var(--lamp-soft);transition:filter .15s ease,transform .15s ease}
+  .story-cta:hover{filter:brightness(1.07);transform:translateY(-1px)}
+
+  /* the replay control that lives in the dashboard header */
+  .story-replay{margin-top:22px;font-family:'Inter',sans-serif;font-size:.85rem;font-weight:500;
+    display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--panel);
+    border:1px solid var(--line-2);color:var(--muted);cursor:pointer;transition:border-color .2s ease,color .2s ease}
+  .story-replay:hover{border-color:var(--lamp);color:var(--lamp)}
+  .story-replay svg{color:var(--lamp)}
+
+  /* reduced motion: no auto-advance timer — the active bar reads as full and the
+     visitor taps through at their own pace (overrides the global animation kill) */
+  @media (prefers-reduced-motion:reduce){
+    .story-bar.active .story-bar-fill{width:100%}
+  }

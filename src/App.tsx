@@ -1740,7 +1740,219 @@ function FromAlert(){
   );
 }
 
+/* ============================================================
+   STORY MODE ("Wrapped") — a full-screen, tappable, auto-advancing
+   card experience for casual visitors. All the numbers below reuse the
+   same helpers the dashboard KPIs use (no divergent stat logic): stats
+   are per the same unit (concerti = flat concerts, km = per event · 2).
+   ============================================================ */
+const STORY = (()=>{
+  const ATTENDED=ALLDATA.filter(d=>!isPlanned(d));
+  const PLANNED=ALLDATA.filter(isPlanned);
+  const ATT_C=FLAT_ALL.filter(c=>!isPlanned(c));
+  const total=ATT_C.length;
+  const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null) as number[];
+  const totalKm=Math.round(sum(trips)*2);                 // andata e ritorno
+  const topArtist=ranked(counter(ATT_C,"artist"))[0]||["—",0];
+  const topMate=ranked(counter(ATT_C.flatMap(c=>c.with||[]),x=>x))[0]||["—",0];
+  const cities=new Set(ATTENDED.map(d=>d.city)).size;
+  const venues=new Set(ATTENDED.map(d=>d.venue)).size;
+  const voted=ATT_C.filter(hasVoto);
+  const avgVoto=voted.length?sum(voted.map(c=>c.voto))/voted.length:0;
+  const year=new Date().getFullYear();
+  const thisYear=ATT_C.filter(c=>c.y===year).length;
+  const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
+  // best show: the standout — highest rating, most recent among ties
+  const best=[...voted].sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a))[0];
+  return {total,totalKm,topArtist,topMate,cities,venues,voted,avgVoto,year,thisYear,nextPlanned,best};
+})();
+
+const intIt=(n:number)=>Math.round(n).toLocaleString("it-IT");
+const STORY_CARDS=[
+  {icon:"ticket",eyebrow:"La storia di Gabri ai concerti",hero:{n:STORY.total,fmt:intIt},label:"concerti visti dal vivo",caption:"dal 2017 a oggi"},
+  {icon:"map",eyebrow:"Sempre in viaggio",hero:{n:STORY.totalKm,fmt:intIt},label:"chilometri percorsi",caption:"andata e ritorno, per raggiungere i palchi"},
+  {icon:"mic",eyebrow:"Il numero uno",hero:{text:STORY.topArtist[0]},label:"l'artista visto più volte",caption:STORY.topArtist[1]+(STORY.topArtist[1]===1?" volta sul palco":" volte sul palco")},
+  STORY.best?{icon:"trophy",eyebrow:"Serata da ricordare",hero:{text:STORY.best.artist},label:"il concerto migliore",caption:<span><span className="star">{"★".repeat(STORY.best.voto)}</span> · {STORY.best.city} '{String(STORY.best.y).slice(2)}</span>}:null,
+  {icon:"users",eyebrow:"Mai (quasi) da solo",hero:{text:STORY.topMate[0]},label:"il compagno di concerti",caption:STORY.topMate[1]+" concerti insieme"},
+  {icon:"pin",eyebrow:"In giro per l'Italia e oltre",hero:{n:STORY.cities,fmt:intIt},label:STORY.cities===1?"città diversa":"città diverse",caption:STORY.venues+" venue in tutto"},
+  {icon:"calendar",eyebrow:"Quest'anno, finora",hero:{n:STORY.thisYear,fmt:intIt},label:"concerti nel "+STORY.year,caption:STORY.nextPlanned?("Prossimo: "+labelOf(STORY.nextPlanned)+" · "+STORY.nextPlanned.date):"e la lista continua a crescere"},
+  STORY.voted.length?{icon:"star",eyebrow:"Il giudizio",hero:{n:STORY.avgVoto,fmt:(v:number)=>voto1(v),unit:"★"},label:"voto medio",caption:STORY.voted.length+" concerti votati"}:null,
+  {icon:"trophy",final:true},
+].filter(Boolean) as any[];
+const STORY_SUMMARY=intIt(STORY.total)+" concerti · "+STORY.cities+" città · ~"+intIt(STORY.totalKm)+" km";
+
+function usePrefersReducedMotion(){
+  const [r,setR]=useState(()=>typeof window!=="undefined"&&!!window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  React.useEffect(()=>{
+    if(!window.matchMedia) return;
+    const mq=window.matchMedia("(prefers-reduced-motion: reduce)");
+    const on=()=>setR(mq.matches); mq.addEventListener("change",on);
+    return ()=>mq.removeEventListener("change",on);
+  },[]);
+  return r;
+}
+
+// Count from 0 to `target` when the card mounts; jumps straight to target when
+// reduced motion is requested.
+function useCountUp(target,reduced,dur=1100){
+  const [v,setV]=useState(reduced?target:0);
+  React.useEffect(()=>{
+    if(reduced){ setV(target); return; }
+    let raf; const t0=performance.now();
+    const tick=now=>{
+      const p=Math.min(1,(now-t0)/dur);
+      const e=1-Math.pow(1-p,3);
+      setV(target*e);
+      if(p<1) raf=requestAnimationFrame(tick); else setV(target);
+    };
+    raf=requestAnimationFrame(tick);
+    return ()=>cancelAnimationFrame(raf);
+  },[target,reduced,dur]);
+  return v;
+}
+
+function StoryCard({card,reduced,onExit}: any){
+  const isNum=!card.final && card.hero && "n" in card.hero;
+  const v=useCountUp(isNum?card.hero.n:0,reduced);
+  if(card.final) return (
+    <div className="story-card story-final story-anim-in">
+      <div className="story-eyebrow"><Icon name="star" size={16}/>E questo è solo l'inizio</div>
+      <div className="story-finaltitle">Il resto è tutto qui.</div>
+      <div className="story-summary">{STORY_SUMMARY}</div>
+      <button className="story-cta"
+        onClick={onExit}
+        onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}>
+        Esplora tutti i dati →
+      </button>
+    </div>
+  );
+  return (
+    <div className="story-card story-anim-in">
+      <div className="story-eyebrow"><Icon name={card.icon} size={16}/>{card.eyebrow}</div>
+      {isNum
+        ? <div className="story-hero"><span className="story-bignum">{card.hero.fmt(v)}</span>{card.hero.unit&&<span className="story-unit">{card.hero.unit}</span>}</div>
+        : <div className="story-hero"><span className="story-bigname">{card.hero.text}</span></div>}
+      <div className="story-label">{card.label}</div>
+      {card.caption&&<div className="story-caption">{card.caption}</div>}
+    </div>
+  );
+}
+
+function StoryMode({onExit}: any){
+  const cards=STORY_CARDS;
+  const N=cards.length;
+  const [i,setI]=useState(0);
+  const [paused,setPaused]=useState(false);
+  const reduced=usePrefersReducedMotion();
+  const navRef=useRef<any>(null);
+  const holdRef=useRef<any>(null);
+  const heldRef=useRef(false);
+  const isLast=i===N-1;
+
+  const go=React.useCallback((d)=>{
+    setI(v=>{
+      const n=v+d;
+      if(n<0) return 0;
+      if(n>=N){ onExit(); return v; }
+      return n;
+    });
+  },[N,onExit]);
+
+  React.useEffect(()=>{
+    const onKey=e=>{
+      if(e.key==="ArrowRight"){ e.preventDefault(); go(1); }
+      else if(e.key==="ArrowLeft"){ e.preventDefault(); go(-1); }
+      else if(e.key===" "){ e.preventDefault(); setPaused(p=>!p); }
+      else if(e.key==="Escape"){ e.preventDefault(); onExit(); }
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[go,onExit]);
+
+  React.useEffect(()=>{
+    const prev=document.body.style.overflow;
+    document.body.style.overflow="hidden";
+    return ()=>{ document.body.style.overflow=prev; };
+  },[]);
+
+  const onPointerDown=()=>{
+    heldRef.current=false;
+    holdRef.current=setTimeout(()=>{ heldRef.current=true; setPaused(true); },220);
+  };
+  const endHold=(nav,e)=>{
+    clearTimeout(holdRef.current);
+    if(heldRef.current){ heldRef.current=false; setPaused(false); return; }
+    if(!nav||!navRef.current) return;
+    const rect=navRef.current.getBoundingClientRect();
+    (e.clientX-rect.left < rect.width*0.4) ? go(-1) : go(1);
+  };
+
+  return (
+    <div className={"story"+(paused?" paused":"")} role="dialog" aria-modal="true" aria-label="La storia di Gabri ai concerti">
+      <div className="story-col">
+        <div className="story-bg" aria-hidden="true">
+          <div className="beams">
+            <span className="beam b1"></span><span className="beam b2"></span><span className="beam b3"></span>
+            <span className="beam b4"></span><span className="beam b5"></span><span className="beam b6"></span>
+          </div>
+          <span className="spot"></span>
+        </div>
+        <div className="story-bars" aria-hidden="true">
+          {cards.map((_,idx)=>(
+            <div key={idx} className={"story-bar"+(idx<i?" done":idx===i?" active"+(isLast?" static":""):"")}>
+              <div className="story-bar-fill" onAnimationEnd={idx===i&&!isLast?()=>go(1):undefined}></div>
+            </div>
+          ))}
+        </div>
+        <div className="story-nav" ref={navRef}
+          onPointerDown={onPointerDown}
+          onPointerUp={e=>endHold(true,e)}
+          onPointerCancel={e=>endHold(false,e)}
+          onPointerLeave={e=>endHold(false,e)}
+        ></div>
+        <div className="story-content">
+          <StoryCard card={cards[i]} reduced={reduced} onExit={onExit} key={i}/>
+        </div>
+        <div className="story-topbar">
+          {!reduced
+            ? <button className="story-ctl" onClick={()=>setPaused(p=>!p)}
+                onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
+                aria-label={paused?"Riprendi":"Pausa"} title={paused?"Riprendi":"Pausa"}>
+                {paused
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8V4z"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>}
+              </button>
+            : <span></span>}
+          <button className="story-skip" onClick={onExit}
+            onPointerDown={e=>e.stopPropagation()} onPointerUp={e=>e.stopPropagation()}
+            aria-label="Salta e vai ai dati">
+            Salta →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Owner flag: private maintenance alerts are for Gabri only. `?owner` in the URL
+// unlocks and persists it; everyone else never sees the to-do lists.
+const isOwner=()=>{
+  try{
+    if(typeof location!=="undefined" && location.search.includes("owner")) localStorage.setItem("owner","1");
+    return localStorage.getItem("owner")==="1";
+  }catch(e){ return false; }
+};
+
 function App(){
+  const [owner]=React.useState(isOwner);
+  const [showStory,setShowStory]=React.useState(()=>{
+    try{ return localStorage.getItem("storySeen")!=="1"; }catch(e){ return true; }
+  });
+  const finishStory=React.useCallback(()=>{
+    try{ localStorage.setItem("storySeen","1"); }catch(e){}
+    setShowStory(false);
+  },[]);
+  const replayStory=React.useCallback(()=>setShowStory(true),[]);
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
   const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
@@ -1863,9 +2075,11 @@ function App(){
         <header>
           <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
           <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
-          <VicinanzaAlert/>
-          <VotoAlert/>
-          <FromAlert/>
+          {owner&&<><VicinanzaAlert/><VotoAlert/><FromAlert/></>}
+          <button className="story-replay" onClick={replayStory} aria-label="Rivedi la storia">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Rivedi la storia
+          </button>
         </header>
         <div id="sec-kpis" className="tocsec"><KPIs/></div>
       </div>
@@ -1898,6 +2112,7 @@ function App(){
         <ChatWidget ctx={chatCtx}/>
         <FilterButton/>
       </div>
+      {showStory&&<StoryMode onExit={finishStory}/>}
     </FilterContext.Provider>
   );
 }
