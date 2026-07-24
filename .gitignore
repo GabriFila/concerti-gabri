@@ -11,3 +11,6 @@ dist/
 .DS_Store
 *.local
 *.tsbuildinfo
+
+# Claude Code agent worktrees (transient, harness-managed)
+.claude/worktrees/
