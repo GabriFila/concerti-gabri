@@ -1162,9 +1162,20 @@
   .rt-scrollcue-l{font-size:.66rem;letter-spacing:.28em;text-transform:uppercase}
   .rt-scrollcue svg{width:22px;height:22px;animation:rt-bob 1.8s ease-in-out infinite}
   @keyframes rt-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(6px);opacity:1}}
+  /* hero "inizia lo show!" — a filled CTA that scrolls into the portrait */
+  .rt-startbtn{
+    position:absolute;bottom:clamp(24px,6vh,56px);left:50%;transform:translateX(-50%);z-index:2;
+    display:inline-flex;align-items:center;gap:9px;
+    font:inherit;font-size:1rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
+    color:#171106;padding:14px 26px;border-radius:999px;
+    background:var(--lamp);border:1px solid var(--lamp);box-shadow:0 8px 30px var(--lamp-soft);
+    transition:transform .15s ease,filter .2s ease;
+  }
+  .rt-startbtn:hover{transform:translate(-50%,-2px);filter:brightness(1.06)}
+  .rt-startbtn svg{width:18px;height:18px;animation:rt-bob 1.8s ease-in-out infinite}
 
   /* shared act typography */
-  .rt-head{margin-bottom:clamp(18px,3vw,30px)}
+  .rt-head{margin-bottom:clamp(18px,3vw,30px);text-align:center}
   .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);font-size:clamp(2.4rem,7vw,4.4rem);line-height:1}
   .rt-lead{max-width:46ch;color:var(--muted);font-size:clamp(1rem,2.4vw,1.25rem);line-height:1.6}
   .rt-lead b{color:var(--text);font-weight:600}
@@ -1183,6 +1194,8 @@
   .rt-mapframe{margin-top:clamp(20px,3vw,32px)}
   .rt-mapframe .panel{background:transparent;border:none;padding:0;overflow:visible}
   .rt-mapframe .paneltop{display:none}
+  /* shorter map in the portrait — the full-height one lives in "I dati" */
+  .rt-mapframe .mapwrap{height:clamp(280px,40vh,420px)}
 
   /* Act IV — best shows */
   .rt-bestlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}

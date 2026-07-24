@@ -1879,9 +1879,12 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         <span className="spot"></span>
         <div className="rt-hero-inner">
           <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
-          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: inizia lo show!</p>
+          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco.</p>
         </div>
-        {nextCue()}
+        <button type="button" className="rt-startbtn" onClick={goNext}>
+          inizia lo show!
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        </button>
       </section>
 
       {/* ── Act II — the headline numbers, counting up ── */}
@@ -1956,7 +1959,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
 
       {/* ── Final Act — L'Oracolo ── */}
       <Act className="rt-oracoloact" threshold={0.15}>
-        <div className="rt-head"><h2 className="rt-h2">Chiedi a L'Oracolo</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">Chiedi all'Oracolo</h2></div>
         <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto:</p>
         <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
