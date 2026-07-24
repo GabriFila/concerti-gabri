@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from "react";
 import Fuse from "fuse.js";
 import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
-import ChatWidget from "./chat/ChatWidget.tsx";
+import ChatWidget, { type ChatApi } from "./chat/ChatWidget.tsx";
 
 const MESI=["GEN","FEB","MAR","APR","MAG","GIU","LUG","AGO","SET","OTT","NOV","DIC"];
 /* ── Compagni: enum delle persone con cui vado ai concerti.
@@ -1740,15 +1740,311 @@ function FromAlert(){
   );
 }
 
+/* ============================================================
+   RITRATTO — a curated, editorial, scroll-based portrait for the
+   casual visitor. It reuses the same data helpers as the dashboard
+   so its headline numbers can never diverge from "I dati". Every
+   bit of motion is gated on prefers-reduced-motion.
+   ============================================================ */
+const prefersReducedMotion=()=>typeof matchMedia!=="undefined"&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Reveal-on-scroll. Returns [ref, seen]; seen flips true the first time the
+// element enters the viewport — or immediately when motion is reduced / there
+// is no IntersectionObserver, so content never gets stuck invisible.
+function useReveal(threshold=0.2): [any,boolean]{
+  const ref=useRef<any>(null);
+  const [seen,setSeen]=useState(false);
+  React.useEffect(()=>{
+    if(seen) return;
+    const el=ref.current; if(!el) return;
+    if(prefersReducedMotion()||typeof IntersectionObserver==="undefined"){ setSeen(true); return; }
+    const io=new IntersectionObserver(es=>{
+      es.forEach(e=>{ if(e.isIntersecting){ setSeen(true); io.disconnect(); } });
+    },{threshold,rootMargin:"0px 0px -8% 0px"});
+    io.observe(el);
+    return ()=>io.disconnect();
+  },[seen,threshold]);
+  return [ref,seen];
+}
+
+// Count-up: eases 0 → target once `start` is true. Reduced motion jumps to the
+// final value with no animation.
+function useCountUp(target,start,dur=1500){
+  const [v,setV]=useState(0);
+  const raf=useRef(0);
+  React.useEffect(()=>{
+    if(!start) return;
+    if(prefersReducedMotion()){ setV(target); return; }
+    let t0:number|null=null;
+    const tick=(t:number)=>{
+      if(t0==null)t0=t;
+      const p=Math.min(1,(t-t0)/dur);
+      const e=1-Math.pow(1-p,3);         // easeOutCubic
+      setV(target*e);
+      if(p<1) raf.current=requestAnimationFrame(tick);
+      else setV(target);
+    };
+    raf.current=requestAnimationFrame(tick);
+    return ()=>cancelAnimationFrame(raf.current);
+  },[target,start,dur]);
+  return v;
+}
+
+function CountStat({value,label,hint,prefix,suffix,start}: any){
+  const v=useCountUp(value,start);
+  return (
+    <div className="rt-stat">
+      <div className="rt-stat-n">{prefix}{Math.round(v).toLocaleString("it-IT")}{suffix}</div>
+      <div className="rt-stat-l">{label}</div>
+      {hint&&<div className="rt-stat-h">{hint}</div>}
+    </div>
+  );
+}
+
+// A single "act": a near-full-viewport block that fades/rises in on scroll.
+// children may be a node or a render function receiving `seen` (for count-ups).
+function Act({className,threshold,children}: any){
+  const [ref,seen]=useReveal(threshold);
+  return (
+    <section ref={ref} className={"rt-act "+(className||"")+(seen?" in":"")}>
+      {typeof children==="function"?children(seen):children}
+    </section>
+  );
+}
+
+const RT_STARTERS=[
+  "Qual è il concerto che Gabri ha amato di più?",
+  "Quanto ha speso in biglietti in totale?",
+  "Con chi va più spesso ai concerti?",
+];
+
+function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
+  // Portrait stats — computed once, unfiltered, straight from the same helpers
+  // the KPIs use, so the two views agree by construction.
+  const P=useMemo(()=>{
+    const attEv=ALLDATA.filter(d=>!isPlanned(d));
+    const attC=FLAT_ALL.filter(c=>!isPlanned(c));
+    const rated=FLAT_ALL.filter(c=>!isPlanned(c)&&hasVoto(c)).sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a));
+    const five=rated.filter(c=>c.voto>=5);
+    const topBest=(five.length>=3?five:rated.filter(c=>c.voto>=4)).slice(0,6);
+    const mates=ranked(counter(attC.flatMap(c=>c.with||[]),x=>x)).slice(0,5);
+    const planned=[...ALLDATA.filter(isPlanned)].sort((a,b)=>sortKey(a)-sortKey(b));
+    const voted=attC.filter(hasVoto);
+    return {
+      total:attC.length,
+      artists:new Set(attC.map(c=>c.artist)).size,
+      cities:new Set(attEv.map(d=>d.city)).size,
+      km:Math.round(sum(attEv.map(distKm).filter(k=>k!==null))*2),
+      companions:new Set(attC.flatMap(c=>c.with||[])).size,
+      solo:attC.filter(c=>!(c.with&&c.with.length)).length,
+      firstYear:attEv.length?Math.min(...attEv.map(d=>d.y)):null,
+      avgVoto:voted.length?sum(voted.map(c=>c.voto))/voted.length:0,
+      topBest, mates, next:planned[0], plannedCount:planned.length,
+    };
+  },[]);
+  const soloPct=P.total?Math.round(P.solo/P.total*100):0;
+
+  return (
+    <div className="rt">
+      {/* ── Act I — the showstopper: lights up on a dark stage ── */}
+      <section className="rt-act rt-hero stage in">
+        <div className="beams">
+          <span className="beam b1"></span>
+          <span className="beam b2"></span>
+          <span className="beam b3"></span>
+          <span className="beam b4"></span>
+          <span className="beam b5"></span>
+          <span className="beam b6"></span>
+          <span className="fixture f1"></span>
+          <span className="fixture f2"></span>
+          <span className="fixture f3"></span>
+          <span className="fixture f4"></span>
+          <span className="fixture f5"></span>
+          <span className="fixture f6"></span>
+        </div>
+        <span className="spot"></span>
+        <div className="rt-hero-inner">
+          <span className="rt-eyebrow">Il ritratto</span>
+          <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
+          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: si alza il sipario.</p>
+        </div>
+        <div className="rt-scrollcue" aria-hidden="true">
+          <span className="rt-scrollcue-l">Scorri</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        </div>
+      </section>
+
+      {/* ── Act II — the headline numbers, counting up ── */}
+      <Act className="rt-numbers">{(seen:boolean)=>(<>
+        <div className="rt-head"><span className="rt-kicker">Uno</span><h2 className="rt-h2">In numeri</h2></div>
+        <div className="rt-grid">
+          <CountStat value={P.total} label="Concerti" hint={P.firstYear?"dal "+P.firstYear:undefined} start={seen}/>
+          <CountStat value={P.artists} label="Artisti diversi" start={seen}/>
+          <CountStat value={P.km} label="Km percorsi" prefix="~" hint="andata e ritorno" start={seen}/>
+          <CountStat value={P.cities} label="Città" start={seen}/>
+        </div>
+      </>)}</Act>
+
+      {/* ── Act III — the map ── */}
+      <Act className="rt-mapact" threshold={0.05}>
+        <div className="rt-head"><span className="rt-kicker">Due</span><h2 className="rt-h2">Dove</h2></div>
+        <p className="rt-lead">Ogni luce è un palco calcato almeno una volta.</p>
+        <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
+      </Act>
+
+      {/* ── Act IV — the best shows ── */}
+      {P.topBest.length>0&&(
+      <Act className="rt-bestact">
+        <div className="rt-head"><span className="rt-kicker">Tre</span><h2 className="rt-h2">I migliori</h2></div>
+        <p className="rt-lead">Le serate che varrebbe la pena rivivere all'infinito{P.avgVoto?<> — la media sta a <b>{voto1(P.avgVoto)}<span className="star">★</span></b></>:null}.</p>
+        <ol className="rt-bestlist">
+          {P.topBest.map((c,i)=>(
+            <li className="rt-bestrow" key={i}>
+              <span className="rt-best-art">{c.artist}</span>
+              <span className="rt-best-meta">{c.city} · '{String(c.y).slice(2)}</span>
+              <span className="rt-best-stars" aria-label={c.voto+" stelle"}>{"★".repeat(c.voto)}</span>
+            </li>
+          ))}
+        </ol>
+      </Act>
+      )}
+
+      {/* ── Act V — who they go with ── */}
+      {P.mates.length>0&&(
+      <Act className="rt-peopleact">
+        <div className="rt-head"><span className="rt-kicker">Quattro</span><h2 className="rt-h2">Con chi</h2></div>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e il <b>{soloPct}%</b> delle serate in perfetta solitudine.</p>
+        <ol className="rt-peoplelist">
+          {P.mates.map(([name,n]: any,i:number)=>(
+            <li className="rt-personrow" key={name}>
+              <span className="rt-person-rank">{i+1}</span>
+              <span className="rt-person-name">{name}</span>
+              <span className="rt-person-n">{n} volte</span>
+            </li>
+          ))}
+        </ol>
+      </Act>
+      )}
+
+      {/* ── Act VI — what's next ── */}
+      {P.next&&(
+      <Act className="rt-nextact">
+        <div className="rt-head"><span className="rt-kicker">Cinque</span><h2 className="rt-h2">E adesso?</h2></div>
+        <div className="rt-nextcard">
+          <span className="rt-next-tag">Prossimo concerto</span>
+          <span className="rt-next-art">{labelOf(P.next)}</span>
+          <span className="rt-next-meta">{P.next.date} · {P.next.venue}, {P.next.city}</span>
+        </div>
+        {P.plannedCount>1&&<p className="rt-lead">…e altri <b>{P.plannedCount-1}</b> già segnati sul calendario.</p>}
+      </Act>
+      )}
+
+      {/* ── Final Act — L'Oracolo ── */}
+      <Act className="rt-oracoloact" threshold={0.15}>
+        <div className="rt-head"><span className="rt-kicker">Il finale</span><h2 className="rt-h2">Chiedi a L'Oracolo</h2></div>
+        <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto: band, tour, curiosità. Falle una domanda — risponde, filtra la pagina, ti porta dove serve.</p>
+        <div className="rt-starters">
+          {RT_STARTERS.map(q=>(
+            <button key={q} type="button" className="rt-starter" onClick={()=>openChat(q)}>{q}</button>
+          ))}
+        </div>
+        <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+          Apri L'Oracolo
+        </button>
+      </Act>
+
+      <footer className="rt-footer">
+        <button type="button" className="rt-explore" onClick={onExplore}>Vuoi tutti i numeri? Apri la dashboard completa →</button>
+        <p>Creato con il fondamentale supporto di Cami</p>
+      </footer>
+    </div>
+  );
+}
+
+/* The full analytics dashboard — the original page, intact, now the "I dati"
+   view. Owner-only maintenance notices are gated behind `owner`. */
+function FullDashboard({owner}: {owner:boolean}){
+  const DATA=useData();
+  const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
+  return (<>
+    <div className="stage">
+      <div className="beams">
+        <span className="beam b1"></span>
+        <span className="beam b2"></span>
+        <span className="beam b3"></span>
+        <span className="beam b4"></span>
+        <span className="beam b5"></span>
+        <span className="beam b6"></span>
+        <span className="fixture f1"></span>
+        <span className="fixture f2"></span>
+        <span className="fixture f3"></span>
+        <span className="fixture f4"></span>
+        <span className="fixture f5"></span>
+        <span className="fixture f6"></span>
+      </div>
+      <span className="spot"></span>
+      <header>
+        <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
+        <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
+        {owner&&<><VicinanzaAlert/><VotoAlert/><FromAlert/></>}
+      </header>
+      <div id="sec-kpis" className="tocsec"><KPIs/></div>
+    </div>
+    <main>
+      <div id="sec-andamento" className="tocsec"><ChartCard/></div>
+      <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
+      <div className="grid2">
+        <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
+        <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(CONC,"with")} plObj={multiCounter(CONC.filter(isPlanned),"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
+      </div>
+      <div className="grid2">
+        <div id="sec-venue" className="tocsec full"><VenueCard/></div>
+      </div>
+      <div className="grid2"><div id="sec-posto" className="tocsec"><PostoCard/></div><div id="sec-vicinanza" className="tocsec"><VicinanzaCard/></div></div>
+      <div className="grid2"><div id="sec-stagionalita" className="tocsec"><Months/></div><div id="sec-giorni" className="tocsec"><Weekdays/></div></div>
+      <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
+      <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>
+      <div id="sec-voti-vs" className="tocsec"><VoteScatter/></div>
+      <div id="sec-canzoni" className="tocsec"><CanzoniNoteCard/></div>
+      <div id="sec-spesa" className="tocsec"><CostCard/></div>
+      <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
+      <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
+      <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
+    </main>
+    <footer className="sitefooter">
+      <p>Creato con il fondamentale supporto di Cami</p>
+    </footer>
+  </>);
+}
+
 function App(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
-  const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
   const [mode,setMode]=React.useState(()=>{
     try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
     return "dark";
   });
+  // view: "ritratto" (curated portrait, default) | "dati" (full dashboard)
+  const [view,setView]=React.useState<"ritratto"|"dati">(()=>{
+    try{ const v=localStorage.getItem("viewmode"); if(v==="ritratto"||v==="dati") return v; }catch(e){}
+    return "ritratto";
+  });
+  const switchView=(v:"ritratto"|"dati")=>{ setView(v); try{localStorage.setItem("viewmode",v);}catch(e){} };
+  // owner: unlocks maintenance notices; persisted, unlockable with ?owner
+  const [owner,setOwner]=React.useState(()=>{ try{return localStorage.getItem("owner")==="1";}catch(e){return false;} });
+  React.useEffect(()=>{
+    const p=new URLSearchParams(location.search);
+    if(p.has("owner")){
+      try{ localStorage.setItem("owner","1"); }catch(e){}
+      setOwner(true);
+      p.delete("owner");
+      const qs=p.toString();
+      history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash);
+    }
+  },[]);
+  const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
   // setMode è un setter di useState, quindi stabile anche lui.
@@ -1820,6 +2116,13 @@ function App(){
           ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
           : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
       </button>
+      <div className="modeswitch" role="tablist" aria-label="Modalità di visualizzazione">
+        <span className="modeswitch-slide" data-view={view} aria-hidden="true"></span>
+        <button type="button" role="tab" aria-selected={view==="ritratto"}
+          className={"ms-btn"+(view==="ritratto"?" on":"")} onClick={()=>switchView("ritratto")}>Ritratto</button>
+        <button type="button" role="tab" aria-selected={view==="dati"}
+          className={"ms-btn"+(view==="dati"?" on":"")} onClick={()=>switchView("dati")}>I dati</button>
+      </div>
       <div className="ambient" aria-hidden="true">
         <span className="abeam a1"></span>
         <span className="abeam a2"></span>
@@ -1844,59 +2147,13 @@ function App(){
         <span className="abeam a21"></span>
         <span className="abeam a22"></span>
       </div>
-      <div className="stage">
-        <div className="beams">
-          <span className="beam b1"></span>
-          <span className="beam b2"></span>
-          <span className="beam b3"></span>
-          <span className="beam b4"></span>
-          <span className="beam b5"></span>
-          <span className="beam b6"></span>
-          <span className="fixture f1"></span>
-          <span className="fixture f2"></span>
-          <span className="fixture f3"></span>
-          <span className="fixture f4"></span>
-          <span className="fixture f5"></span>
-          <span className="fixture f6"></span>
-        </div>
-        <span className="spot"></span>
-        <header>
-          <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
-          <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
-          <VicinanzaAlert/>
-          <VotoAlert/>
-          <FromAlert/>
-        </header>
-        <div id="sec-kpis" className="tocsec"><KPIs/></div>
-      </div>
-      <main>
-        <div id="sec-andamento" className="tocsec"><ChartCard/></div>
-        <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
-        <div className="grid2">
-          <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
-          <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(CONC,"with")} plObj={multiCounter(CONC.filter(isPlanned),"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
-        </div>
-        <div className="grid2">
-          <div id="sec-venue" className="tocsec full"><VenueCard/></div>
-        </div>
-        <div className="grid2"><div id="sec-posto" className="tocsec"><PostoCard/></div><div id="sec-vicinanza" className="tocsec"><VicinanzaCard/></div></div>
-        <div className="grid2"><div id="sec-stagionalita" className="tocsec"><Months/></div><div id="sec-giorni" className="tocsec"><Weekdays/></div></div>
-        <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
-        <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>
-        <div id="sec-voti-vs" className="tocsec"><VoteScatter/></div>
-        <div id="sec-canzoni" className="tocsec"><CanzoniNoteCard/></div>
-        <div id="sec-spesa" className="tocsec"><CostCard/></div>
-        <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
-        <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
-        <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
-      </main>
-      <footer className="sitefooter">
-        <p>Creato con il fondamentale supporto di Cami</p>
-      </footer>
-      <div className="bottombar">
-        <TocButton/>
-        <ChatWidget ctx={chatCtx}/>
-        <FilterButton/>
+      {view==="ritratto"
+        ? <Ritratto openChat={(q)=>chatApi.current?.open(q)} onExplore={()=>switchView("dati")}/>
+        : <FullDashboard owner={owner}/>}
+      <div className={"bottombar"+(view==="dati"?"":" bottombar--solo")}>
+        {view==="dati"&&<TocButton key="toc"/>}
+        <ChatWidget key="chat" ctx={chatCtx} apiRef={chatApi}/>
+        {view==="dati"&&<FilterButton key="filter"/>}
       </div>
     </FilterContext.Provider>
   );

@@ -220,7 +220,11 @@ function Message({ message }: { message: any }) {
   );
 }
 
-export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
+/* Optional imperative handle: lets the page (e.g. the Ritratto's final act)
+   open the chat and, optionally, submit a starter question. */
+export interface ChatApi { open(question?: string): void }
+
+export default function ChatWidget({ ctx, apiRef }: { ctx: ChatSiteContext; apiRef?: React.MutableRefObject<ChatApi | null> }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -394,6 +398,19 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     setInput("");
     setHistError(null);
   };
+
+  // Expose an imperative opener to the page. Re-run every render so the
+  // captured `send`/`sendMessage` closures stay fresh.
+  useEffect(() => {
+    if (!apiRef) return;
+    apiRef.current = {
+      open: (question?: string) => {
+        setOpen(true);
+        if (question && !isLoading) { setView("chat"); sendMessage(question); }
+      },
+    };
+    return () => { if (apiRef) apiRef.current = null; };
+  });
 
   // grow the textarea with its content (capped in CSS via max-height)
   useEffect(() => {

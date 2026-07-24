@@ -1085,4 +1085,148 @@
     55%{opacity:.55}
     80%{opacity:.72}
   }
+  /* ============================================================
+     MODE SWITCH — segmented control (Ritratto / I dati), top center
+     ============================================================ */
+  .modeswitch{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:55;
+    display:flex;gap:2px;padding:4px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--line-2);
+    box-shadow:0 6px 22px rgba(0,0,0,.30);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  .modeswitch-slide{
+    position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);
+    border-radius:999px;background:var(--lamp);z-index:0;
+    transition:transform .28s cubic-bezier(.4,.1,.2,1);
+  }
+  .modeswitch-slide[data-view="ritratto"]{transform:translateX(0)}
+  .modeswitch-slide[data-view="dati"]{transform:translateX(100%)}
+  .ms-btn{
+    position:relative;z-index:1;flex:1;text-align:center;white-space:nowrap;
+    appearance:none;border:none;background:none;cursor:pointer;
+    font:inherit;font-size:.86rem;font-weight:600;letter-spacing:.01em;
+    padding:7px 18px;border-radius:999px;color:var(--muted);
+    transition:color .22s ease;
+  }
+  .ms-btn.on{color:#171106}
+  @media(max-width:560px){ .modeswitch{top:12px} .ms-btn{padding:7px 15px;font-size:.82rem} }
+
+  /* ============================================================
+     RITRATTO — the curated, editorial, scroll-based portrait
+     ============================================================ */
+  .rt{position:relative;z-index:1;overflow:hidden}
+  .rt-act{
+    position:relative;max-width:1100px;margin:0 auto;
+    padding:clamp(64px,12vh,140px) clamp(22px,6vw,64px);
+    min-height:88vh;min-height:88svh;
+    display:flex;flex-direction:column;justify-content:center;
+    opacity:0;transform:translateY(34px);
+    transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1);
+  }
+  .rt-act.in{opacity:1;transform:none}
+
+  /* Act I — the showstopper */
+  .rt-hero{
+    min-height:100vh;min-height:100svh;
+    align-items:center;text-align:center;overflow:hidden;
+    padding-top:clamp(96px,16vh,190px);
+  }
+  .rt-hero .beams{z-index:0}
+  .rt-hero-inner{position:relative;z-index:2;width:min(760px,100%);margin-inline:auto;text-align:center}
+  .rt-hero-inner > * + *{margin-top:clamp(16px,3vw,28px)}
+  .rt-hero-inner > *{animation:rt-rise .9s both cubic-bezier(.2,.7,.2,1)}
+  .rt-hero-inner > :nth-child(1){animation-delay:.15s}
+  .rt-hero-inner > :nth-child(2){animation-delay:.3s}
+  .rt-hero-inner > :nth-child(3){animation-delay:.52s}
+  @keyframes rt-rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  .rt-eyebrow{font-size:.74rem;letter-spacing:.34em;text-transform:uppercase;color:var(--lamp);font-weight:600}
+  .rt-h1{
+    font-family:'Fraunces',Georgia,serif;font-weight:400;line-height:.88;letter-spacing:-.03em;
+    color:var(--text);font-optical-sizing:auto;
+    font-size:clamp(2.3rem,9.2vw,10.5rem);width:100%;display:flex;flex-direction:column;align-items:center;
+  }
+  .rt-h1-2{font-weight:500;font-style:italic}
+  .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6}
+  .rt-scrollcue{
+    position:absolute;bottom:clamp(18px,5vh,44px);left:50%;transform:translateX(-50%);z-index:2;
+    display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--muted);
+  }
+  .rt-scrollcue-l{font-size:.66rem;letter-spacing:.28em;text-transform:uppercase}
+  .rt-scrollcue svg{width:22px;height:22px;animation:rt-bob 1.8s ease-in-out infinite}
+  @keyframes rt-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(6px);opacity:1}}
+
+  /* shared act typography */
+  .rt-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px 16px;margin-bottom:clamp(18px,3vw,30px)}
+  .rt-kicker{font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--lamp);font-weight:600;flex-shrink:0}
+  .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);font-size:clamp(2.4rem,7vw,4.4rem);line-height:1}
+  .rt-lead{max-width:46ch;color:var(--muted);font-size:clamp(1rem,2.4vw,1.25rem);line-height:1.6}
+  .rt-lead b{color:var(--text);font-weight:600}
+  .rt-act .star{color:var(--lamp)}
+
+  /* Act II — numbers */
+  .rt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(26px,5vw,60px);margin-top:clamp(24px,4vw,44px)}
+  @media(min-width:760px){ .rt-grid{grid-template-columns:repeat(4,1fr)} }
+  .rt-stat{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.02em;
+    font-size:clamp(2.9rem,10vw,5.4rem);font-variant-numeric:lining-nums tabular-nums}
+  .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600}
+  .rt-stat-h{font-size:.82rem;color:var(--muted)}
+
+  /* Act III — map (strip the panel chrome; keep just the map) */
+  .rt-mapframe{margin-top:clamp(20px,3vw,32px)}
+  .rt-mapframe .panel{background:transparent;border:none;padding:0;overflow:visible}
+  .rt-mapframe .paneltop{display:none}
+
+  /* Act IV — best shows */
+  .rt-bestlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-bestrow{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 18px;padding:clamp(14px,2.4vw,22px) 0;border-bottom:1px solid var(--line)}
+  .rt-bestrow:last-child{border-bottom:none}
+  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.5rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-best-meta{grid-row:2;color:var(--muted);font-size:.86rem}
+  .rt-best-stars{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);font-size:clamp(.85rem,2.3vw,1.15rem);letter-spacing:2px;white-space:nowrap}
+
+  /* Act V — companions */
+  .rt-peoplelist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-personrow{display:flex;align-items:baseline;gap:clamp(14px,3vw,26px);padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
+  .rt-personrow:last-child{border-bottom:none}
+  .rt-person-rank{font-family:'Fraunces',serif;color:var(--lamp);font-size:1.1rem;width:1.4em;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.3rem,4vw,2rem);line-height:1.1}
+  .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* Act VI — next show */
+  .rt-nextcard{margin-top:clamp(22px,4vw,40px);display:flex;flex-direction:column;gap:10px;padding:clamp(24px,4vw,42px);border-radius:18px;background:var(--planned-faint);border:1px solid var(--planned-soft)}
+  .rt-next-tag{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--planned);font-weight:600}
+  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.8rem,6vw,3.2rem);line-height:1.05;letter-spacing:-.02em}
+  .rt-next-meta{color:var(--muted);font-size:clamp(.9rem,2.2vw,1.05rem)}
+  .rt-nextact .rt-lead{margin-top:20px}
+
+  /* Final Act — L'Oracolo */
+  .rt-oracoloact{align-items:flex-start;text-align:left}
+  .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
+  .rt-oracolo-pitch b{color:var(--text)}
+  .rt-starters{display:flex;flex-wrap:wrap;gap:10px;margin-top:clamp(22px,3.5vw,34px)}
+  .rt-starter{font:inherit;font-size:.92rem;font-weight:500;color:var(--text);cursor:pointer;text-align:left;
+    padding:11px 18px;border-radius:999px;background:var(--panel-2);border:1px solid var(--line-2);
+    transition:border-color .2s ease,color .2s ease,transform .15s ease}
+  .rt-starter:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
+  .rt-oracolo-cta{display:inline-flex;align-items:center;gap:10px;align-self:flex-start;margin-top:clamp(24px,4vw,38px);
+    font:inherit;font-size:1rem;font-weight:700;cursor:pointer;color:#171106;
+    padding:15px 28px;border-radius:999px;background:var(--lamp);border:1px solid var(--lamp);
+    box-shadow:0 8px 30px var(--lamp-soft);transition:transform .15s ease,filter .2s ease}
+  .rt-oracolo-cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .rt-oracolo-cta svg{display:block}
+
+  /* Ritratto footer */
+  .rt-footer{position:relative;z-index:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:22px;
+    padding:clamp(36px,7vw,84px) 24px calc(120px + env(safe-area-inset-bottom,0px))}
+  .rt-explore{font:inherit;font-size:.95rem;font-weight:600;color:var(--text);cursor:pointer;
+    padding:13px 24px;border-radius:999px;background:var(--panel);border:1px solid var(--line-2);
+    transition:border-color .2s ease,color .2s ease,transform .15s ease}
+  .rt-explore:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
+  .rt-footer p{margin:0;font-size:.9rem;color:var(--muted)}
+
+  /* bottom bar with only the chat button (Ritratto mode) */
+  .bottombar--solo{justify-content:center}
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
