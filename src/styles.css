@@ -661,7 +661,7 @@
   .kpis{position:relative;z-index:1;display:grid;grid-template-columns:repeat(6,1fr);
     gap:clamp(12px,1.6vw,18px);margin-top:clamp(28px,3vw,40px);
     padding-inline:clamp(20px,5vw,80px)}
-  @media(max-width:1160px){ .kpis{grid-template-columns:repeat(4,1fr)} }
+  @media(max-width:1450px){ .kpis{grid-template-columns:repeat(4,1fr)} }
   @media(max-width:760px){ .kpis{grid-template-columns:repeat(3,1fr)} }
   @media(max-width:620px){ .kpis{grid-template-columns:repeat(2,1fr)} }
   @media(max-width:360px){ .kpis{grid-template-columns:1fr} }
