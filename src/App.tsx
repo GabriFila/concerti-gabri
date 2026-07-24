@@ -1843,8 +1843,20 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
     };
   },[]);
   const soloPct=P.total?Math.round(P.solo/P.total*100):0;
-  // hero "next" button: glide down to the first act below the fold
-  const scrollNext=()=>document.querySelector(".rt-numbers")?.scrollIntoView({behavior:"smooth",block:"start"});
+  // "Avanti" cue on every act but the last: glide to the next act below (found
+  // via the DOM so it stays correct even when some acts are conditionally hidden).
+  const goNext=(e:any)=>{
+    const act=e.currentTarget.closest(".rt-act");
+    let n=act?act.nextElementSibling:null;
+    while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
+    (n||document.querySelector(".rt-footer"))?.scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  const nextCue=()=>(
+    <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
+      <span className="rt-scrollcue-l">Avanti</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+    </button>
+  );
 
   return (
     <div className="rt">
@@ -1870,10 +1882,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
           <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: si alza il sipario.</p>
         </div>
-        <button type="button" className="rt-scrollcue" onClick={scrollNext} aria-label="Vai avanti">
-          <span className="rt-scrollcue-l">Avanti</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
-        </button>
+        {nextCue()}
       </section>
 
       {/* ── Act II — the headline numbers, counting up ── */}
@@ -1885,6 +1894,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <CountStat value={P.km} label="Km percorsi" prefix="~" hint="andata e ritorno" start={seen}/>
           <CountStat value={P.cities} label="Città" start={seen}/>
         </div>
+        {nextCue()}
       </>)}</Act>
 
       {/* ── Act III — the map ── */}
@@ -1892,6 +1902,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         <div className="rt-head"><h2 className="rt-h2">Dove</h2></div>
         <p className="rt-lead">Ogni luce è un palco calcato almeno una volta.</p>
         <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
+        {nextCue()}
       </Act>
 
       {/* ── Act IV — the best shows ── */}
@@ -1908,6 +1919,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             </li>
           ))}
         </ol>
+        {nextCue()}
       </Act>
       )}
 
@@ -1925,6 +1937,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             </li>
           ))}
         </ol>
+        {nextCue()}
       </Act>
       )}
 
@@ -1938,6 +1951,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <span className="rt-next-meta">{P.next.date} · {P.next.venue}, {P.next.city}</span>
         </div>
         {P.plannedCount>1&&<p className="rt-lead">…e altri <b>{P.plannedCount-1}</b> già segnati sul calendario.</p>}
+        {nextCue()}
       </Act>
       )}
 
