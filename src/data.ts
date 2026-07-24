@@ -22,7 +22,7 @@
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
-export const PEOPLE=["Alessia P","Amed","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio G","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
+export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio G","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
 export type Posto = "Gradinata" | "Pit/Gold" | "Platea" | "Prato/Parterre";
@@ -178,7 +178,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"17/07/2026",artist:"Mannarino",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:54.14,vicinanza:1,voto:3,canzoniNote:2,from:"g",km:4},
   {y:2026,date:"18/07/2026",artist:"Sayf",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:50.03,vicinanza:4,voto:3,canzoniNote:2,from:"g",km:4},
   {y:2026,date:"22/07/2026",artist:"Emma Nolde",venue:"Arena del Mare",city:"Genova",posto:"Prato/Parterre",with:["Espi","Cate"],accredito:true,vicinanza:1,voto:4,canzoniNote:4,from:"g",km:4},
-  {y:2026,date:"24/07/2026",artist:"Caparezza",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3"],cost:60.99},
+  {y:2026,date:"24/07/2026",artist:"Caparezza",venue:"Arena del Mare",city:"Genova",posto:"Pit/Gold",with:["Cami <3","Anna DF","Richi"],cost:60.99,vicinanza:2,voto:5,canzoniNote:4,from:"g",km:4},
   {y:2026,date:"25/07/2026",artist:"I Cani",venue:"Arena del Mare",city:"Genova",posto:"Prato/Parterre",with:["Cami <3"],cost:44.28},
   {y:2026,date:"05/09/2026",artist:"Dov'è Liana",venue:"Castello Sforzesco",city:"Milano",posto:"Prato/Parterre",with:["Waitz"],cost:25},
   {y:2026,date:"01/10/2026",artist:"Dargen D'Amico",venue:"Alcatraz",city:"Milano",posto:"Prato/Parterre",with:["Anna M"],cost:37.45},
