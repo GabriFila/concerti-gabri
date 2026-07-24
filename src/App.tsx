@@ -1790,11 +1790,12 @@ function useCountUp(target,start,dur=1500){
   return v;
 }
 
-function CountStat({value,label,hint,prefix,suffix,start}: any){
+function CountStat({value,label,hint,prefix,suffix,start,decimals}: any){
   const v=useCountUp(value,start);
+  const shown=decimals!=null?v.toFixed(decimals):Math.round(v).toLocaleString("it-IT");
   return (
     <div className="rt-stat">
-      <div className="rt-stat-n">{prefix}{Math.round(v).toLocaleString("it-IT")}{suffix}</div>
+      <div className="rt-stat-n">{prefix}{shown}{suffix}</div>
       <div className="rt-stat-l">{label}</div>
       {hint&&<div className="rt-stat-h">{hint}</div>}
     </div>
@@ -1821,17 +1822,22 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
     const rated=FLAT_ALL.filter(c=>!isPlanned(c)&&hasVoto(c)).sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a));
     const five=rated.filter(c=>c.voto>=5);
     const topBest=(five.length>=3?five:rated.filter(c=>c.voto>=4)).slice(0,6);
-    const mates=ranked(counter(attC.flatMap(c=>c.with||[]),x=>x)).slice(0,5);
+    // same cutoff the dashboard's compagni card uses (people met ≥2 times, whole
+    // ranks kept), just capped harder at 6
+    const mates=rankCutoff(ranked(counter(attC.flatMap(c=>c.with||[]),x=>x)).filter(([,n])=>n>=2),6,6).slice(0,6);
     const planned=[...ALLDATA.filter(isPlanned)].sort((a,b)=>sortKey(a)-sortKey(b));
     const voted=attC.filter(hasVoto);
+    // concerts/year — identical to the dashboard's "media per anno" KPI
+    const since=2022;
+    const dataSince=attC.filter(c=>c.y>=since);
+    const elapsedY=(Date.now()-new Date(since,0,1).getTime())/(365.25*24*3600*1000);
     return {
       total:attC.length,
       artists:new Set(attC.map(c=>c.artist)).size,
-      cities:new Set(attEv.map(d=>d.city)).size,
+      perYear:elapsedY>0?dataSince.length/elapsedY:0,
       km:Math.round(sum(attEv.map(distKm).filter(k=>k!==null))*2),
       companions:new Set(attC.flatMap(c=>c.with||[])).size,
       solo:attC.filter(c=>!(c.with&&c.with.length)).length,
-      firstYear:attEv.length?Math.min(...attEv.map(d=>d.y)):null,
       avgVoto:voted.length?sum(voted.map(c=>c.voto))/voted.length:0,
       topBest, mates, next:planned[0], plannedCount:planned.length,
     };
@@ -1873,19 +1879,19 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         <span className="spot"></span>
         <div className="rt-hero-inner">
           <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
-          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: inizia lo show.</p>
+          <p className="rt-lede">Una vita contata in luci, viaggi e serate sotto un palco. Scorri: inizia lo show!</p>
         </div>
         {nextCue()}
       </section>
 
       {/* ── Act II — the headline numbers, counting up ── */}
       <Act className="rt-numbers">{(seen:boolean)=>(<>
-        <div className="rt-head"><h2 className="rt-h2">In numeri</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">I numeri</h2></div>
         <div className="rt-grid">
-          <CountStat value={P.total} label="Concerti" hint={P.firstYear?"dal "+P.firstYear:undefined} start={seen}/>
+          <CountStat value={P.total} label="Concerti" start={seen}/>
           <CountStat value={P.artists} label="Artisti diversi" start={seen}/>
-          <CountStat value={P.km} label="Km percorsi" hint="andata e ritorno" start={seen}/>
-          <CountStat value={P.cities} label="Città" start={seen}/>
+          <CountStat value={P.km} label="Km percorsi" start={seen}/>
+          <CountStat value={P.perYear} label="Media per anno" decimals={1} start={seen}/>
         </div>
         {nextCue()}
       </>)}</Act>
@@ -1902,7 +1908,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.topBest.length>0&&(
       <Act className="rt-bestact">
         <div className="rt-head"><h2 className="rt-h2">I migliori</h2></div>
-        <p className="rt-lead">Le serate che varrebbe la pena rivivere all'infinito{P.avgVoto?<> — la media sta a <b>{voto1(P.avgVoto)}<span className="star">★</span></b></>:null}.</p>
+        <p className="rt-lead">Le serate che varrebbe la pena rivivere all'infinito,{P.avgVoto?<> la media di tutti i concerti è a <b>{voto1(P.avgVoto)}<span className="star">★</span></b></>:null}.</p>
         <ol className="rt-bestlist">
           {P.topBest.map((c,i)=>(
             <li className="rt-bestrow" key={i}>
@@ -1972,7 +1978,7 @@ function FullDashboard({owner}: {owner:boolean}){
   const DATA=useData();
   const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
   return (<>
-    <div className="stage">
+    <div className="stage stage--data">
       <div className="beams">
         <span className="beam b1"></span>
         <span className="beam b2"></span>
@@ -1988,11 +1994,7 @@ function FullDashboard({owner}: {owner:boolean}){
         <span className="fixture f6"></span>
       </div>
       <span className="spot"></span>
-      <header>
-        <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
-        <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
-        {owner&&<><VicinanzaAlert/><VotoAlert/><FromAlert/></>}
-      </header>
+      {owner&&<header><VicinanzaAlert/><VotoAlert/><FromAlert/></header>}
       <div id="sec-kpis" className="tocsec"><KPIs/></div>
     </div>
     <main>

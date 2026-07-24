@@ -650,7 +650,10 @@
     0%,100%{opacity:.5} 25%{opacity:.62} 45%{opacity:.42} 70%{opacity:.58} 88%{opacity:.48}
   }
 
-  header{position:relative;z-index:1;padding:clamp(48px,9vw,120px) clamp(20px,5vw,80px) clamp(30px,5vw,56px)}
+  header{position:relative;z-index:1;padding:0 clamp(20px,5vw,80px) clamp(20px,3vw,28px)}
+  /* "I dati" opens straight onto the KPIs now (no title): lit stage room up top
+     so the data clears the fixed switch/toggle */
+  .stage--data{padding-top:clamp(72px,11vw,104px)}
   h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.9rem,11vw,7.5rem);line-height:.96;letter-spacing:-.025em;color:var(--text);font-optical-sizing:auto}
   h1 .t2{font-style:normal;font-weight:500;color:var(--text)}
   .sub{margin-top:26px;max-width:50ch;color:var(--muted);font-size:clamp(.95rem,2.3vw,1.1rem);line-height:1.65}
@@ -1147,7 +1150,7 @@
     color:var(--text);font-optical-sizing:auto;
     font-size:clamp(2.3rem,9.2vw,10.5rem);width:100%;display:flex;flex-direction:column;align-items:center;
   }
-  .rt-h1-2{font-weight:500;font-style:italic}
+  .rt-h1-2{font-weight:500}
   .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6}
   .rt-scrollcue{
     position:absolute;bottom:clamp(18px,5vh,44px);left:50%;transform:translateX(-50%);z-index:2;
@@ -1198,7 +1201,7 @@
   .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 
   /* Act VI — next show */
-  .rt-nextcard{margin-top:clamp(22px,4vw,40px);display:flex;flex-direction:column;gap:10px;padding:clamp(24px,4vw,42px);border-radius:18px;background:var(--planned-faint);border:1px solid var(--planned-soft)}
+  .rt-nextcard{margin-top:clamp(20px,3vw,32px);display:flex;flex-direction:column;gap:12px}
   .rt-next-tag{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--planned);font-weight:600}
   .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.8rem,6vw,3.2rem);line-height:1.05;letter-spacing:-.02em}
   .rt-next-meta{color:var(--muted);font-size:clamp(.9rem,2.2vw,1.05rem)}
