@@ -220,7 +220,7 @@ function Message({ message }: { message: any }) {
   );
 }
 
-export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
+export default function ChatWidget({ ctx, apiRef }: { ctx: ChatSiteContext; apiRef?: React.MutableRefObject<any> }) {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -394,6 +394,22 @@ export default function ChatWidget({ ctx }: { ctx: ChatSiteContext }) {
     setInput("");
     setHistError(null);
   };
+
+  // Imperative handle for the parent (e.g. the "Ritratto" Oracolo act): open the
+  // chat, optionally sending a suggested question straight away.
+  useEffect(() => {
+    if (!apiRef) return;
+    apiRef.current = {
+      open: () => { setOpen(true); setView("chat"); },
+      ask: (q?: string) => {
+        setOpen(true);
+        setView("chat");
+        const t = (q || "").trim();
+        if (t && !isLoading) sendMessage(t);
+      },
+    };
+    return () => { if (apiRef) apiRef.current = null; };
+  });
 
   // grow the textarea with its content (capped in CSS via max-height)
   useEffect(() => {

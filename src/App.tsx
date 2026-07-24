@@ -55,6 +55,8 @@ const GIORNI=["LUN","MAR","MER","GIO","VEN","SAB","DOM"];
 const weekdayOf=d=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(new Date(+m[3],+m[2]-1,+m[1]).getDay()+6)%7:0;};
 const todayKey=()=>{const t=new Date();return t.getFullYear()*10000+(t.getMonth()+1)*100+t.getDate();};
 const isPlanned=d=>sortKey(d)>=todayKey();
+// giorni interi da oggi al concerto (>=0 per i futuri); null se la data non si legge
+const daysUntil=d=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);if(!m)return null;const dt=new Date(+m[3],+m[2]-1,+m[1]);const now=new Date();now.setHours(0,0,0,0);return Math.round((dt.getTime()-now.getTime())/86400000);};
 const monthOf=d=>parseInt(d.date.split("/")[1],10)-1;
 const CHRON=[...ALLDATA].sort((a,b)=>sortKey(a)-sortKey(b));
 // Event vs concert: an ALLDATA row is an EVENT (ticket/trip/evening); a
@@ -1640,7 +1642,7 @@ function FilterButton(){
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
 const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
-function TocButton(){
+function TocButton({onBeforeGo}: any){
   const [open,setOpen]=useState(false);
   const popRef=useRef(null);
   const btnRef=useRef(null);
@@ -1655,8 +1657,8 @@ function TocButton(){
     return ()=>{ document.removeEventListener("mousedown",onDocDown); document.removeEventListener("keydown",onKey); };
   },[open]);
   const go=id=>{
-    const el=document.getElementById(id);
-    if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
+    if(onBeforeGo) onBeforeGo();
+    setTimeout(()=>{ const el=document.getElementById(id); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); },70);
     setOpen(false);
   };
   return (
@@ -1740,6 +1742,181 @@ function FromAlert(){
   );
 }
 
+/* Fasci di luce del palco — condivisi tra la dashboard e il Ritratto. */
+function StageFx(){
+  return (<>
+    <div className="beams">
+      <span className="beam b1"></span>
+      <span className="beam b2"></span>
+      <span className="beam b3"></span>
+      <span className="beam b4"></span>
+      <span className="beam b5"></span>
+      <span className="beam b6"></span>
+      <span className="fixture f1"></span>
+      <span className="fixture f2"></span>
+      <span className="fixture f3"></span>
+      <span className="fixture f4"></span>
+      <span className="fixture f5"></span>
+      <span className="fixture f6"></span>
+    </div>
+    <span className="spot"></span>
+  </>);
+}
+
+/* Segmented control: "Ritratto" (racconto curato) vs "I dati" (dashboard piena). */
+function ViewToggle({mode,setMode}: any){
+  return (
+    <div className="viewtoggle" role="tablist" aria-label="Modalità di visualizzazione">
+      <button role="tab" aria-selected={mode==="ritratto"} className={"vt"+(mode==="ritratto"?" on":"")} onClick={()=>setMode("ritratto")}>Ritratto</button>
+      <button role="tab" aria-selected={mode==="dati"} className={"vt"+(mode==="dati"?" on":"")} onClick={()=>setMode("dati")}>I dati</button>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   "Il Ritratto" — vista editoriale, scroll narrativo per chi arriva
+   la prima volta. Riusa dati/helper e i componenti già esistenti
+   (YearChart, MapCard, dati dei "migliori"); la dashboard completa
+   resta a un tocco di distanza ("I dati"). Legge i dati filtrati via
+   useData(), così le lenti casual cambiano davvero il ritratto.
+   ══════════════════════════════════════════════════════════════ */
+function Ritratto({onOpenData,chatApiRef}: any){
+  const DATA=useData();
+  const {filters,setFilters}=useFilters();
+  const CONC=useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
+  const attended=CONC.filter(c=>!isPlanned(c));
+  const total=attended.length;
+  const nArtists=new Set(attended.map(c=>c.artist)).size;
+  const nCities=new Set(DATA.filter(d=>!isPlanned(d)).map(d=>d.city)).size;
+
+  // artisti già visti, in ordine di frequenza e senza doppioni
+  const artistRank=ranked(counter(attended,"artist"));
+  const marquee=artistRank.map(([n])=>n);
+
+  // hook in avanti: prossimo concerto in programma (da tutti i dati, non filtrato)
+  const nextC=[...FLAT_ALL].filter(isPlanned).sort((a,b)=>sortKey(a)-sortKey(b))[0];
+  const nextDays=nextC?daysUntil(nextC):null;
+
+  // km percorsi (andata e ritorno), coerente con la KPI "Km di viaggi"
+  const trips=DATA.filter(d=>!isPlanned(d)).map(d=>distKm(d)).filter(k=>k!==null);
+  const totalKm=sum(trips)*2;
+
+  // muro degli artisti: dimensione tipografica per frequenza
+  const wall=artistRank.slice(0,42);
+  const wallMax=wall[0]?wall[0][1]:1;
+
+  // hall of fame: i migliori concerti votati (stessa logica di TopVoted)
+  const best=CONC.filter(hasVoto).sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a)).slice(0,5);
+
+  // compagno #1
+  const topMate=ranked(counter(attended.flatMap(c=>c.with||[]),x=>x))[0];
+
+  // ── lenti casual: agiscono sullo stato filtri reale ──
+  const curYear=new Date().getFullYear();
+  const yF=curYear+"-01-01", yT=curYear+"-12-31";
+  const yearActive=filters.dateFrom===yF&&filters.dateTo===yT;
+  const plannedActive=filters.status==="planned";
+  const soloActive=!!filters.solo;
+  const anyActive=!isEmptyFilters(filters);
+  const toggleYear=()=>setFilters(f=>yearActive?{...f,dateFrom:"",dateTo:""}:{...f,dateFrom:yF,dateTo:yT});
+  const togglePlanned=()=>setFilters(f=>({...f,status:plannedActive?"all":"planned"}));
+  const toggleSolo=()=>setFilters(f=>({...f,solo:!f.solo}));
+
+  const nf=n=>Math.round(n).toLocaleString("it-IT");
+  const askOracolo=q=>{ if(chatApiRef&&chatApiRef.current) chatApiRef.current.ask(q); };
+
+  return (
+    <div className="ritratto">
+      {/* ACT 1 — HERO */}
+      <section className="rit-act rit-hero">
+        <div className="stage rit-stage" aria-hidden="true"><StageFx/></div>
+        <div className="rit-hero-in">
+          <p className="rit-kicker">Gabri, ai concerti</p>
+          <div className="rit-hero-num"><span className="rit-bignum">{nf(total)}</span><span className="rit-bigword">concerti</span></div>
+          <p className="rit-hero-sub">{nf(nArtists)} artisti diversi · {nf(nCities)} città{topMate?<> · più spesso con {topMate[0]}</>:null}</p>
+          {nextC&&nextDays!=null&&(
+            <p className="rit-next">Prossimo · <b>{nextC.artist}</b> · {nextDays<=0?"oggi":nextDays===1?"domani":"tra "+nextDays+" giorni"}</p>
+          )}
+          {marquee.length>0&&(
+            <div className="rit-marquee" aria-hidden="true">
+              <div className="rit-mq-track" style={{"--n":marquee.length}}>
+                {[...marquee,...marquee].map((n,i)=><span className="rit-mq-item" key={i}>{n}<span className="rit-mq-dot">·</span></span>)}
+              </div>
+            </div>
+          )}
+          <div className="rit-lenses">
+            <button type="button" className={"rit-chip"+(yearActive?" on":"")} onClick={toggleYear}>Quest'anno</button>
+            <button type="button" className={"rit-chip"+(plannedActive?" on":"")} onClick={togglePlanned}>Da vedere</button>
+            <button type="button" className={"rit-chip"+(soloActive?" on":"")} onClick={toggleSolo}>Da solo</button>
+            {anyActive&&<button type="button" className="rit-chip rit-chip-clear" onClick={()=>setFilters(EMPTY_FILTERS)}>Tutto ×</button>}
+          </div>
+        </div>
+        <div className="rit-scrollcue" aria-hidden="true"><span></span></div>
+      </section>
+
+      {/* ACT 2 — IL RITMO */}
+      <section className="rit-act">
+        <div className="rit-act-head">
+          <h2 className="rit-h">Il ritmo</h2>
+          <p className="rit-lead">Un anno dopo l'altro. Dopo lo stop dei live, la curva è tornata a salire — forte.</p>
+        </div>
+        <div className="rit-chart"><YearChart/>{DATA.some(isPlanned)&&<div className="ylegend"><span className="lg lg-att">Già visti</span><span className="lg lg-pl">In programma</span></div>}</div>
+      </section>
+
+      {/* ACT 3 — LA GEOGRAFIA */}
+      <section className="rit-act rit-geo">
+        <div className="rit-act-head">
+          <h2 className="rit-h">La geografia</h2>
+          <p className="rit-lead">{totalKm>0?"~"+nf(totalKm)+" km percorsi per la musica.":"Le città dove la musica lo ha portato."}</p>
+        </div>
+        <div className="rit-map"><MapBoundary><MapCard/></MapBoundary></div>
+      </section>
+
+      {/* ACT 4 — VOLTI & GUSTI */}
+      <section className="rit-act">
+        <div className="rit-act-head">
+          <h2 className="rit-h">Volti &amp; gusti</h2>
+          <p className="rit-lead">Chi torna sul palco più spesso — e le serate che restano.</p>
+        </div>
+        {wall.length>0&&(
+          <div className="rit-wall">
+            {wall.map(([name,n])=>{
+              const t=(n-1)/Math.max(1,wallMax-1);
+              return <span className="rit-wall-name" key={name} style={{"--t":t.toFixed(3)}} title={n+(n===1?" concerto":" concerti")}>{name}</span>;
+            })}
+          </div>
+        )}
+        {best.length>0&&(<>
+          <h3 className="rit-h3">I migliori</h3>
+          <div className="rit-hof">
+            {best.map((c,i)=>(
+              <div className="rit-hof-card" key={c.date+c.artist+i}>
+                <div className="rit-hof-stars">{"★".repeat(c.voto)}</div>
+                <div className="rit-hof-artist">{c.artist}</div>
+                <div className="rit-hof-meta">{c.city} · '{String(c.y).slice(2)}</div>
+              </div>
+            ))}
+          </div>
+        </>)}
+      </section>
+
+      {/* ACT 5 — L'ORACOLO */}
+      <section className="rit-act rit-oracolo">
+        <div className="rit-act-head">
+          <h2 className="rit-h">L'Oracolo</h2>
+          <p className="rit-lead">Un'AI che ha letto tutto l'archivio. Chiedile quello che vuoi sui concerti di Gabri.</p>
+        </div>
+        <div className="rit-qs">
+          {["Qual è il concerto più bello che ha visto Gabri?","Quanto ha speso in concerti nel 2025?","Dove ha viaggiato di più?","Chi vedrà nei prossimi concerti?"].map(q=>(
+            <button type="button" className="rit-q" key={q} onClick={()=>askOracolo(q)}>{q}</button>
+          ))}
+        </div>
+        <button type="button" className="rit-datalink" onClick={onOpenData}>Vuoi tutti i numeri? <span>I dati →</span></button>
+      </section>
+    </div>
+  );
+}
+
 function App(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
@@ -1749,6 +1926,29 @@ function App(){
     try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
     return "dark";
   });
+  // vista di primo livello: "ritratto" (racconto curato) o "dati" (dashboard piena)
+  const [pmode,setPmode]=React.useState(()=>{
+    try{ return localStorage.getItem("viewmode")==="dati"?"dati":"ritratto"; }catch(e){ return "ritratto"; }
+  });
+  React.useEffect(()=>{ try{ localStorage.setItem("viewmode",pmode); }catch(e){} },[pmode]);
+  // owner flag: gli alert di manutenzione sono roba privata di Gabri. Sbloccabile
+  // con ?owner nell'URL (persistito), altrimenti nascosto al pubblico.
+  const [owner]=React.useState(()=>{
+    try{
+      if(location.search.indexOf("owner")>=0) localStorage.setItem("owner","1");
+      return localStorage.getItem("owner")==="1";
+    }catch(e){ return false; }
+  });
+  // handle imperativo verso la chat (l'atto Oracolo del Ritratto la apre/interroga)
+  const chatApiRef=React.useRef<any>(null);
+  // navigazione a una sezione: passa alla dashboard, poi scrolla (le sezioni
+  // esistono solo lì). Condivisa da TOC e dal tool della chat.
+  const goSection=React.useCallback((id)=>{
+    setPmode("dati");
+    setTimeout(()=>{ const el=document.getElementById(id); if(el) el.scrollIntoView({behavior:"smooth",block:"start"}); },70);
+    const s=SECTIONS.find(x=>x.id===id);
+    return {ok:true,label:s?s.label:id};
+  },[]);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
   // setMode è un setter di useState, quindi stabile anche lui.
@@ -1765,12 +1965,7 @@ function App(){
       setFilters(EMPTY_FILTERS);
       return {matchCount:FLAT_ALL.length};
     },
-    goToSection:(id)=>{
-      const el=document.getElementById(id);
-      if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
-      const s=SECTIONS.find(x=>x.id===id);
-      return {ok:!!el,label:s?s.label:id};
-    },
+    goToSection:(id)=>goSection(id),
     setTheme:(t)=>{
       setMode(t);
       return {ok:true,theme:t};
@@ -1844,28 +2039,17 @@ function App(){
         <span className="abeam a21"></span>
         <span className="abeam a22"></span>
       </div>
+      <ViewToggle mode={pmode} setMode={setPmode}/>
+      {pmode==="ritratto" && <Ritratto onOpenData={()=>{setPmode("dati");window.scrollTo({top:0});}} chatApiRef={chatApiRef}/>}
+      {pmode==="dati" && (<>
       <div className="stage">
-        <div className="beams">
-          <span className="beam b1"></span>
-          <span className="beam b2"></span>
-          <span className="beam b3"></span>
-          <span className="beam b4"></span>
-          <span className="beam b5"></span>
-          <span className="beam b6"></span>
-          <span className="fixture f1"></span>
-          <span className="fixture f2"></span>
-          <span className="fixture f3"></span>
-          <span className="fixture f4"></span>
-          <span className="fixture f5"></span>
-          <span className="fixture f6"></span>
-        </div>
-        <span className="spot"></span>
+        <StageFx/>
         <header>
           <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
           <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
-          <VicinanzaAlert/>
-          <VotoAlert/>
-          <FromAlert/>
+          {owner&&<VicinanzaAlert/>}
+          {owner&&<VotoAlert/>}
+          {owner&&<FromAlert/>}
         </header>
         <div id="sec-kpis" className="tocsec"><KPIs/></div>
       </div>
@@ -1893,9 +2077,10 @@ function App(){
       <footer className="sitefooter">
         <p>Creato con il fondamentale supporto di Cami</p>
       </footer>
+      </>)}
       <div className="bottombar">
-        <TocButton/>
-        <ChatWidget ctx={chatCtx}/>
+        <TocButton onBeforeGo={()=>setPmode("dati")}/>
+        <ChatWidget ctx={chatCtx} apiRef={chatApiRef}/>
         <FilterButton/>
       </div>
     </FilterContext.Provider>
