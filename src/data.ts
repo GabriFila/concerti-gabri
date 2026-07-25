@@ -27,6 +27,18 @@ export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bian
 export type Person = (typeof PEOPLE)[number];
 export type Posto = "Gradinata" | "Pit/Gold" | "Platea" | "Prato/Parterre";
 
+/* Link to the photos/videos of an evening: a Google Drive folder shared as
+   "chiunque abbia il link". The site only links out — nothing is embedded,
+   hotlinked or proxied, so Drive's download quotas and missing CORS/range
+   support never come into play.
+   The template literal makes a wrong URL fail `pnpm build` (a Photos album, a
+   `/file/d/` single file or a bare id won't compile).
+   PRIVACY: the folder serves the ORIGINALS, EXIF included. Venue coordinates
+   are already public in VENUE_COORDS, but a shot taken at home would leak the
+   home point that `km` is jittered to protect — keep the camera's geotagging
+   off, and check the folder before sharing it. */
+export type MediaFolderUrl = `https://drive.google.com/drive/folders/${string}`;
+
 // The per-concert facts — what makes a concert a concert, independent of the
 // ticket/trip/place. A standalone show carries these inline (see Concert); a
 // festival carries one of these per set in its `concerts` array.
@@ -50,6 +62,7 @@ interface EventInfo {
   accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
   from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
   km?: number; // one-way trip km, precomputed offline (recipe in CLAUDE.md) — set together with `from`; reuse the value of an existing (from, venue) pair. Never derive it in app code: home coordinates must not ship in the bundle.
+  media?: MediaFolderUrl; // photos/videos of the evening (see MediaFolderUrl). Event-scoped: one dump per ticket, so a festival's sets all share its folder.
 }
 
 // The unit. A single concert that is also its own event: it carries both the
@@ -78,8 +91,10 @@ export const isFestival = (e: Entry): e is Festival => "concerts" in e;
 /* A concert flattened out of its row: per-concert facts plus the event context
    (place, date, posto). Ticket/trip fields are present only when the concert IS
    its own event — a festival concert has no price or km of its own, so
-   cost-based stats skip it. `ev` points back to the owning row (a Concert is
-   its own event) for anything event-scoped (dedup, money, trips). */
+   cost-based stats skip it. `media` is the exception: unlike money, the
+   evening's folder legitimately covers every set played that evening, so a
+   festival's concerts inherit it. `ev` points back to the owning row (a
+   Concert is its own event) for anything event-scoped (dedup, money, trips). */
 export interface FlatConcert extends ConcertFacts {
   y: number;
   date: string; // the concert's own day when known, else the row date
@@ -91,13 +106,14 @@ export interface FlatConcert extends ConcertFacts {
   accredito?: boolean;
   from?: "m" | "g";
   km?: number;
+  media?: MediaFolderUrl;
   ev: Entry;
 }
 
 export const concertsOf = (e: Entry): FlatConcert[] =>
   isFestival(e)
-    ? e.concerts.map(c => ({ y: e.y, date: c.date || e.date, artist: c.artist, venue: e.venue, city: e.city, posto: e.posto, with: c.with, voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, ev: e }))
-    : [{ y: e.y, date: e.date, artist: e.artist, venue: e.venue, city: e.city, posto: e.posto, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, accredito: e.accredito, from: e.from, km: e.km, ev: e }];
+    ? e.concerts.map(c => ({ y: e.y, date: c.date || e.date, artist: c.artist, venue: e.venue, city: e.city, posto: e.posto, with: c.with, voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, media: e.media, ev: e }))
+    : [{ y: e.y, date: e.date, artist: e.artist, venue: e.venue, city: e.city, posto: e.posto, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, accredito: e.accredito, from: e.from, km: e.km, media: e.media, ev: e }];
 
 export const flatConcerts = (data: Entry[]): FlatConcert[] => data.flatMap(concertsOf);
 
