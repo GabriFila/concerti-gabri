@@ -1053,7 +1053,7 @@ function ArchiveTable(){
                   <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="posto">{ev.posto?<span className="postocell">{ev.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="evconc"><span className="evconc-n">{ev.concerts.length}</span><span className="evconc-l">{ev.concerts.map(c=>c.artist).join(", ")}</span></td>
+                  <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                 </tr>
               );})}
             </tbody>
@@ -1815,7 +1815,6 @@ function Act({className,threshold,children}: any){
 
 // Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
 const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
-const LOOP_CODE="XXXXX"; // TODO: Gabri's actual discount code
 
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
@@ -1828,7 +1827,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
     const topBest=(five.length>=3?five:rated.filter(c=>c.voto>=4)).slice(0,6);
     // same cutoff the dashboard's compagni card uses (people met ≥2 times, whole
     // ranks kept), just capped harder at 6
-    const mates=rankCutoff(ranked(counter(attC.flatMap(c=>c.with||[]),x=>x)).filter(([,n])=>n>=2),6,6).slice(0,6);
+    const mates=rankCutoff(ranked(counter(attC.flatMap(c=>c.with||[]),x=>x)).filter(([,n])=>n>=2),5,5).slice(0,5);
     const planned=[...ALLDATA.filter(isPlanned)].sort((a,b)=>sortKey(a)-sortKey(b));
     const voted=attC.filter(hasVoto);
     // concerts/year — identical to the dashboard's "media per anno" KPI
@@ -1844,6 +1843,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       solo:attC.filter(c=>!(c.with&&c.with.length)).length,
       avgVoto:voted.length?sum(voted.map(c=>c.voto))/voted.length:0,
       topBest, mates, upcoming:planned, plannedCount:planned.length,
+      plannedConcerts:FLAT_ALL.filter(isPlanned).length,
     };
   },[]);
   // "Avanti" cue on every act but the last: glide to the next act below (found
@@ -1900,7 +1900,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       </section>
 
       {/* ── Act II — the headline numbers, counting up ── */}
-      <Act className="rt-numbers">{(seen:boolean)=>(<>
+      <Act className="rt-numbers" threshold={0.4}>{(seen:boolean)=>(<>
         <div className="rt-head"><h2 className="rt-h2">I numeri</h2></div>
         <div className="rt-grid">
           <CountStat value={P.total} label="Concerti" start={seen}/>
@@ -1914,7 +1914,6 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {/* ── Act III — the map ── */}
       <Act className="rt-mapact" threshold={0.05}>
         <div className="rt-head"><h2 className="rt-h2">Dove</h2></div>
-        <p className="rt-lead">Ogni luce è un palco calcato almeno una volta.</p>
         <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
         {nextCue()}
       </Act>
@@ -1941,7 +1940,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.mates.length>0&&(
       <Act className="rt-peopleact">
         <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
-        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e <b>{P.solo}</b> serate vissute da solo.</p>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e <b>{P.solo}</b> concerti vissuti da solo.</p>
         <ol className="rt-peoplelist">
           {P.mates.map(([name,n]: any,i:number)=>(
             <li className="rt-personrow" key={name}>
@@ -1959,11 +1958,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.upcoming.length>0&&(
       <Act className="rt-nextact">
         <div className="rt-head"><h2 className="rt-h2">E adesso?</h2></div>
-        <p className="rt-lead">{P.plannedCount>3
-          ? (P.plannedCount-3===1
-              ? <>Un altro concerto programmato, ecco i prossimi.</>
-              : <>Altri <b>{P.plannedCount-3}</b> concerti programmati, ecco i prossimi.</>)
-          : "Ecco i prossimi concerti in programma."}</p>
+        <p className="rt-lead"><b>{P.plannedConcerts}</b> concerti programmati, ecco i prossimi.</p>
         <ol className="rt-nextlist">
           {P.upcoming.slice(0,3).map((ev,i)=>(
             <li className="rt-nextrow" key={i}>
@@ -1975,10 +1970,10 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         <div className="rt-earplugs">
           <p className="rt-earplugs-note">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 3.5-2 4.5-3.2 5.7C13.6 14.9 13 15.7 13 17a3 3 0 0 1-6 0"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
-            <span>Un consiglio dal palco: <b>proteggi le orecchie</b>. Ai concerti Gabri non rinuncia mai ai tappi.</span>
+            <span>Un consiglio: <b>proteggi l'udito</b>. Porto sempre i tappi con me.</span>
           </p>
           <a className="rt-earplugs-cta" href={LOOP_LINK} target="_blank" rel="noopener noreferrer">
-            <span>Compra i tappi Loop con il mio codice sconto {LOOP_CODE}</span>
+            <span>Compra i tappi Loop con il mio link referral</span>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
         </div>
@@ -1988,16 +1983,16 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
 
       {/* ── Final Act — L'Oracolo ── */}
       <Act className="rt-oracoloact" threshold={0.15}>
-        <div className="rt-head"><h2 className="rt-h2">Chiedi all'Oracolo</h2></div>
+        <div className="rt-head"><h2 className="rt-h2">L'Oracolo</h2></div>
         <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto:</p>
-        <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
-          Apri L'Oracolo
-        </button>
-        <div className="rt-endcredits">
-          <button type="button" className="rt-explore" onClick={onExplore}>Sei un po' nerd?<br/>Guarda tutti i numeri!</button>
-          <p className="rt-endcredits-note">Creato con il fondamentale supporto di Cami</p>
+        <div className="rt-finalctas">
+          <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+            Chiedi all'Oracolo
+          </button>
+          <button type="button" className="rt-explore" onClick={onExplore}>Vuoi i dati da nerd? Clicca qui</button>
         </div>
+        <p className="rt-endcredits-note">Creato con il fondamentale supporto di Cami</p>
       </Act>
     </div>
   );
@@ -2126,6 +2121,14 @@ function App(){
   },[mode]);
   const cycleMode=()=>setMode(m=>m==="dark"?"light":m==="light"?"system":"dark");
   const modeLabel={dark:"Scuro",light:"Chiaro",system:"Sistema"}[mode];
+  // on a phone, the "system" theme icon is a smartphone rather than a monitor
+  const [isPhone,setIsPhone]=React.useState(()=>{try{return matchMedia("(max-width:820px) and (pointer:coarse)").matches;}catch(e){return false;}});
+  React.useEffect(()=>{
+    let mq:MediaQueryList; try{ mq=matchMedia("(max-width:820px) and (pointer:coarse)"); }catch(e){ return; }
+    const on=()=>setIsPhone(mq.matches);
+    mq.addEventListener("change",on);
+    return ()=>mq.removeEventListener("change",on);
+  },[]);
   React.useEffect(()=>{
     const root=document.getElementById("root");
     if(!root) return;
@@ -2153,6 +2156,8 @@ function App(){
           ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           : mode==="light"
           ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          : isPhone
+          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
           : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
       </button>
       <div className="modeswitch" role="tablist" aria-label="Modalità di visualizzazione">
