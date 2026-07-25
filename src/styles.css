@@ -1121,6 +1121,9 @@
      RITRATTO — the curated, editorial, scroll-based portrait
      ============================================================ */
   .rt{position:relative;z-index:1;overflow:hidden}
+  /* magnetic scroll: acts gently snap to centre, only in "In scena" */
+  :root[data-view="ritratto"]{scroll-snap-type:y proximity}
+  .rt-act{scroll-snap-align:center}
   .rt-act{
     position:relative;max-width:1100px;margin:0 auto;
     padding:clamp(64px,12vh,140px) clamp(22px,6vw,64px);
@@ -1231,14 +1234,13 @@
   .rt-oracolo-cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
   .rt-oracolo-cta svg{display:block}
 
-  /* Ritratto footer */
-  .rt-footer{position:relative;z-index:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:22px;
-    padding:clamp(36px,7vw,84px) 24px calc(120px + env(safe-area-inset-bottom,0px))}
+  /* end credits — dashboard link + thanks, living inside the Oracolo act */
+  .rt-endcredits{align-self:center;margin-top:clamp(40px,9vh,84px);display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
   .rt-explore{font:inherit;font-size:.95rem;font-weight:600;color:var(--text);cursor:pointer;
     padding:13px 24px;border-radius:999px;background:var(--panel);border:1px solid var(--line-2);
     transition:border-color .2s ease,color .2s ease,transform .15s ease}
   .rt-explore:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
-  .rt-footer p{margin:0;font-size:.9rem;color:var(--muted)}
+  .rt-endcredits-note{margin:0;font-size:.9rem;color:var(--muted)}
 
   /* chat trigger docked in the top-left corner (both modes) */
   .chatdock--corner{position:fixed;top:18px;left:18px;z-index:55}

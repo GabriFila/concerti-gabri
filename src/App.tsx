@@ -1842,7 +1842,6 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       topBest, mates, next:planned[0], plannedCount:planned.length,
     };
   },[]);
-  const soloPct=P.total?Math.round(P.solo/P.total*100):0;
   // "Avanti" cue on every act but the last: glide to the next act below (found
   // via the DOM so it stays correct even when some acts are conditionally hidden).
   const goNext=(e:any)=>{
@@ -1938,7 +1937,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.mates.length>0&&(
       <Act className="rt-peopleact">
         <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
-        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e il <b>{soloPct}%</b> delle serate in perfetta solitudine.</p>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e <b>{P.solo}</b> serate vissute in perfetta solitudine.</p>
         <ol className="rt-peoplelist">
           {P.mates.map(([name,n]: any,i:number)=>(
             <li className="rt-personrow" key={name}>
@@ -1974,12 +1973,11 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
           Apri L'Oracolo
         </button>
+        <div className="rt-endcredits">
+          <button type="button" className="rt-explore" onClick={onExplore}>Sei un po' nerd?<br/>Guarda tutti i numeri!</button>
+          <p className="rt-endcredits-note">Creato con il fondamentale supporto di Cami</p>
+        </div>
       </Act>
-
-      <footer className="rt-footer">
-        <button type="button" className="rt-explore" onClick={onExplore}>Sei un po' nerd?<br/>Guarda tutti i numeri!</button>
-        <p>Creato con il fondamentale supporto di Cami</p>
-      </footer>
     </div>
   );
 }
@@ -2062,6 +2060,8 @@ function App(){
       history.replaceState(null,"",location.pathname+(qs?"?"+qs:"")+location.hash);
     }
   },[]);
+  // expose the current view on <html> so CSS can scope scroll-snapping to "In scena"
+  React.useEffect(()=>{ document.documentElement.setAttribute("data-view",view); },[view]);
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
