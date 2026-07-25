@@ -431,6 +431,11 @@ import type { TrendPoint } from "./TrendPlot.tsx";
 // locale, così i punti cadono sul giorno giusto ovunque nel mondo
 const dateTs=(d:{date:string})=>{const k=sortKey(d);return k?new Date(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100).getTime():null;};
 const byTime=(a:TrendPoint,b:TrendPoint)=>a.t-b.t;
+// Da dove parte la finestra iniziale del grafico: il 2022 è l'anno in cui i
+// concerti diventano continui (2018 e 2021 sono vuoti, il 2017-2020 è un punto
+// ogni tanto) — stesso taglio della "media per anno" nei KPI. Il prima resta
+// lì: si vede zoomando fuori.
+const TREND_FROM=new Date(2022,0,1).getTime();
 // punti per-concerto: `pick` restituisce il valore o null se il concerto non ce l'ha
 const concertPoints=(data:Entry[],pick:(c:FlatConcert)=>number|null):TrendPoint[]=>
   data.flatMap(concertsOf).flatMap(c=>{
@@ -493,7 +498,7 @@ function TrendCard(){
       </div>
       {points.length>0?(<>
         <React.Suspense fallback={<div className="trendbox trendload">Carico il grafico…</div>}>
-          <TrendPlot points={points} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
+          <TrendPlot points={points} from={TREND_FROM} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
             yFormat={spec.yFormat} valueFormat={spec.valueFormat} label={spec.label}/>
         </React.Suspense>
         <div className="ylegend">

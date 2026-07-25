@@ -30,6 +30,7 @@ export interface TrendPoint {
 
 export interface TrendPlotProps {
   points: TrendPoint[];
+  from: number;               // inizio della finestra iniziale (timestamp)
   yMin?: number;              // assente = automatico (costo, km)
   yMax?: number;
   yInterval?: number;         // passo dei tick (1 per le scale ordinali)
@@ -40,24 +41,17 @@ export interface TrendPlotProps {
 
 /* Media mobile centrata: la linea di tendenza. La finestra cresce col numero
    di punti (5 su pochi dati, di più su tanti) così la curva resta leggibile
-   sia con 20 concerti sia con 200.
-   Sopra i sei mesi di silenzio (2018, 2021…) la linea si interrompe: un
-   segmento tirato attraverso un anno senza concerti sembrerebbe un andamento
-   che non c'è. Il buco è un `null`, che ECharts non collega. */
-const GAP = 1000 * 60 * 60 * 24 * 183;
-function movingAverage(points: TrendPoint[]): [number, number | null][] {
+   sia con 20 concerti sia con 200. */
+function movingAverage(points: TrendPoint[]): [number, number][] {
   if (points.length < 4) return [];
   const w = Math.max(5, Math.round(points.length / 10) | 1);
   const half = Math.floor(w / 2);
-  const out: [number, number | null][] = [];
-  points.forEach((p, i) => {
-    if (i > 0 && p.t - points[i - 1].t > GAP) out.push([points[i - 1].t + 1, null]);
+  return points.map((p, i) => {
     const lo = Math.max(0, i - half), hi = Math.min(points.length - 1, i + half);
     let s = 0;
     for (let j = lo; j <= hi; j++) s += points[j].v;
-    out.push([p.t, s / (hi - lo + 1)]);
+    return [p.t, s / (hi - lo + 1)] as [number, number];
   });
-  return out;
 }
 
 /* ECharts scrive le date in inglese: qui serve solo la parte "time" del locale
@@ -72,6 +66,10 @@ echarts.registerLocale("IT", {
     dayOfWeekAbbr: ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"],
   },
 } as any);
+
+/* Tetto "tondo" sopra un massimo: 231 → 250, 978 → 1000, 147 → 150. Serve
+   perché un massimo esatto darebbe tacche come 46,2 · 92,4 · 138,6. */
+const niceMax = (v: number) => { const step = Math.pow(10, Math.floor(Math.log10(v))) / 2; return Math.ceil(v / step) * step; };
 
 /* I colori del grafico sono quelli del tema, letti dalle CSS custom properties:
    così il canvas segue il toggle chiaro/scuro come tutto il resto della pagina. */
@@ -143,7 +141,7 @@ function useGestureGate(outer: React.RefObject<HTMLDivElement | null>) {
   }, [outer]);
 }
 
-export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valueFormat, label }: TrendPlotProps) {
+export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat, valueFormat, label }: TrendPlotProps) {
   const outer = useRef<HTMLDivElement | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
   const chart = useRef<echarts.EChartsType | null>(null);
@@ -169,16 +167,19 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
     // linea sottile, senza tooltip né hover — quello che si legge è la forma.
     // Una serie sola (non due) perché la linea deve attraversare il confine tra
     // già visti e in programma: la differenza la porta il colore del puntino.
-    const line = points.flatMap((p, i) => [
-      // stessa interruzione della tendenza: sopra i sei mesi di silenzio la
-      // linea si stacca, altrimenti disegnerebbe una diagonale lunga due anni
-      // tra un concerto e il successivo come se fosse una discesa graduale
-      ...(i > 0 && p.t - points[i - 1].t > GAP ? [{ value: [points[i - 1].t + 1, null] }] : []),
-      { value: [p.t, p.v], itemStyle: { color: p.planned ? colors["--planned"] : colors["--lamp"] } },
-    ]);
+    // La linea non si interrompe mai: né sui mesi vuoti né al bordo della
+    // finestra. Il punto vicino può essere lontano nel tempo o fuori campo,
+    // ma il segmento che ci arriva resta, e si vede da dove viene la curva.
+    const line = points.map(p => ({
+      value: [p.t, p.v],
+      itemStyle: { color: p.planned ? colors["--planned"] : colors["--lamp"] },
+    }));
     c.setOption({
       // il grafico è già in un pannello: niente titolo, niente legenda (sta sotto, in HTML)
-      grid: { left: 6, right: 14, top: 22, bottom: 6, containLabel: true },
+      // le etichette dell'asse Y si prendevano una fetta di larghezza notevole
+      // ("Anello alto", "1.000 km"): corpo più piccolo, margine stretto e
+      // nessun rientro a sinistra, il resto è grafico
+      grid: { left: 0, right: 14, top: 22, bottom: 6, containLabel: true },
       // niente tooltip: il singolo concerto non è il punto della card, e sul
       // telefono un tooltip che sbuca a ogni sfioramento darebbe solo fastidio
       // mentre si trascina il grafico
@@ -198,16 +199,21 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
       },
       yAxis: {
         type: "value",
-        min: yMin, max: yMax, interval: yInterval,
+        // null, non undefined: in un merge undefined lascerebbe in piedi il
+        // valore della proprietà precedente, null vuol dire "deciditelo tu"
+        min: yMin ?? null, max: yMax ?? null, interval: yInterval ?? null,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: colors["--muted"], fontFamily: "Inter,sans-serif", fontSize: 11, formatter: (v: number) => yFormat(v) },
+        axisLabel: { color: colors["--muted"], fontFamily: "Inter,sans-serif", fontSize: 10, margin: 5, formatter: (v: number) => yFormat(v) },
         splitLine: { lineStyle: { color: colors["--line"] } },
       },
       // zoom con due dita (pinch) e scorrimento orizzontale con un dito;
       // su desktop: rotella per lo zoom, trascinamento per scorrere
       dataZoom: [{
-        type: "inside", xAxisIndex: 0, filterMode: "filter",
+        // filterMode "none": i punti fuori finestra restano nella serie (li taglia
+        // il bordo del grafico, non il filtro), così la linea entra ed esce dai
+        // margini invece di fermarsi all'ultimo punto visibile
+        type: "inside", xAxisIndex: 0, filterMode: "none",
         zoomOnMouseWheel: true, moveOnMouseMove: true, moveOnMouseWheel: false,
         minValueSpan: 1000 * 60 * 60 * 24 * 30, // non si scende sotto il mese: sotto non c'è più nulla da vedere
       }],
@@ -216,7 +222,6 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
           name: "Concerti", type: "line" as const, data: line, symbol: "circle", symbolSize: 4,
           lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.5 },
           silent: true, emphasis: { disabled: true },
-          clip: false, // i punti sui livelli estremi (1★, 5★) stanno sul bordo: senza clip restano tondi
           z: 2,
         },
         ...(ma.length ? [{
@@ -228,13 +233,46 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
             silent: true, symbol: "none",
             data: [{ yAxis: mean }],
             lineStyle: { color: colors["--muted"], type: "dashed", width: 1, opacity: 0.7 },
-            label: { formatter: "media " + valueFormat(mean), color: colors["--muted"], fontFamily: "Inter,sans-serif", fontSize: 10, position: "insideStartTop" },
+            label: { formatter: "media " + valueFormat(mean), color: colors["--muted"], fontFamily: "Inter,sans-serif", fontSize: 10, position: "insideEndTop" },
           },
         }] : []),
       ],
-      // start/end restano fuori: così cambiare proprietà non azzera lo zoom
+      // la finestra iniziale la imposta l'effetto qui sotto: tenerla fuori da
+      // qui vuol dire che un cambio di tema non rimanda lo zoom da capo
     } as echarts.EChartsCoreOption, { replaceMerge: ["series"] });
   }, [points, colors, yMin, yMax, yInterval, yFormat, valueFormat, label]);
+
+  /* Finestra iniziale: dal primo punto del 2022 all'ultimo che la proprietà
+     scelta ha davvero — ogni proprietà finisce dove finiscono i suoi dati (il
+     voto si ferma all'ultimo concerto visto, il costo arriva ai biglietti già
+     comprati per il 2027). Quello che sta prima non sparisce: basta zoomare
+     fuori. Gira dopo l'effetto dell'opzione, che crea le serie. */
+  useEffect(() => {
+    const c = chart.current;
+    if (!c || !points.length) return;
+    const start = points.find(p => p.t >= from)?.t ?? points[0].t;
+    c.dispatchAction({ type: "dataZoom", startValue: start, endValue: points[points.length - 1].t });
+  }, [points, from]);
+
+  /* Scale automatiche (costo, km): il tetto segue la finestra visibile.
+     Le serie non vengono filtrate — è quello che tiene le linee attaccate ai
+     bordi — quindi senza questo il viaggio a Brno (978 km, 2020) schiaccerebbe
+     il grafico anche stando fuori campo. Le scale ordinali hanno già i loro
+     estremi e non passano di qui. */
+  useEffect(() => {
+    const c = chart.current;
+    if (!c || yMax !== undefined || !points.length) return;
+    const fit = () => {
+      const dz = (c.getOption() as any).dataZoom?.[0];
+      const lo = dz?.startValue ?? points[0].t, hi = dz?.endValue ?? points[points.length - 1].t;
+      const seen = points.filter(p => p.t >= lo && p.t <= hi);
+      const top = Math.max(...(seen.length ? seen : points).map(p => p.v));
+      c.setOption({ yAxis: { max: top > 0 ? niceMax(top) : null } });
+    };
+    fit();
+    c.on("datazoom", fit);
+    return () => { c.off("datazoom", fit); };
+  }, [points, yMax]);
 
   return (
     <div ref={outer} className="trendbox" role="img" aria-label={"Andamento di " + label + " nel tempo"}>
