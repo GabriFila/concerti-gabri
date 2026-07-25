@@ -1849,7 +1849,16 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
     const act=e.currentTarget.closest(".rt-act");
     let n=act?act.nextElementSibling:null;
     while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
-    (n||document.querySelector(".rt-footer"))?.scrollIntoView({behavior:"smooth",block:"start"});
+    const target=n||document.querySelector(".rt-footer");
+    if(!target) return;
+    const rect=target.getBoundingClientRect();
+    const vh=window.innerHeight;
+    // center the act in the viewport; if it's taller than the viewport, land its
+    // top just below the fixed top controls instead
+    const y=rect.height>vh
+      ? window.scrollY+rect.top-84
+      : window.scrollY+rect.top+rect.height/2-vh/2;
+    window.scrollTo({top:Math.max(0,y),behavior:"smooth"});
   };
   const nextCue=()=>(
     <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
@@ -1894,7 +1903,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <CountStat value={P.total} label="Concerti" start={seen}/>
           <CountStat value={P.artists} label="Artisti diversi" start={seen}/>
           <CountStat value={P.km} label="Km percorsi" start={seen}/>
-          <CountStat value={P.perYear} label="Media per anno" decimals={1} start={seen}/>
+          <CountStat value={P.perYear} label="Concerti per anno" decimals={1} start={seen}/>
         </div>
         {nextCue()}
       </>)}</Act>
@@ -1968,7 +1977,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       </Act>
 
       <footer className="rt-footer">
-        <button type="button" className="rt-explore" onClick={onExplore}>Vuoi tutti i numeri?<br/>Apri la dashboard completa →</button>
+        <button type="button" className="rt-explore" onClick={onExplore}>Sei un po' nerd?<br/>Guarda tutti i numeri!</button>
         <p>Creato con il fondamentale supporto di Cami</p>
       </footer>
     </div>

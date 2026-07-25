@@ -1151,7 +1151,7 @@
     font-size:clamp(2.3rem,9.2vw,10.5rem);width:100%;display:flex;flex-direction:column;align-items:center;
   }
   .rt-h1-2{font-weight:500}
-  .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6}
+  .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6;text-wrap:balance}
   .rt-scrollcue{
     position:absolute;bottom:clamp(18px,5vh,44px);left:50%;transform:translateX(-50%);z-index:2;
     display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--muted);
