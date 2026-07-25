@@ -14,10 +14,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
 import { LineChart } from "echarts/charts";
-import { DataZoomInsideComponent, GridComponent, MarkLineComponent } from "echarts/components";
+import { DataZoomInsideComponent, GridComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
-echarts.use([LineChart, GridComponent, DataZoomInsideComponent, MarkLineComponent, CanvasRenderer]);
+echarts.use([LineChart, GridComponent, DataZoomInsideComponent, CanvasRenderer]);
 
 /* Un punto sul grafico: un concerto (voto/vicinanza/canzoni note) o un
    biglietto (costo/km) — chi chiama ha già scelto l'unità giusta. Niente
@@ -35,8 +35,7 @@ export interface TrendPlotProps {
   yMax?: number;
   yInterval?: number;         // passo dei tick (1 per le scale ordinali)
   yFormat: (v: number) => string;      // etichetta di un tick
-  valueFormat: (v: number) => string;  // valore nel tooltip e sulla media
-  label: string;              // nome della proprietà, per il tooltip/aria
+  label: string;              // nome della proprietà, per l'aria-label
 }
 
 /* Media mobile centrata: la linea di tendenza. La finestra cresce col numero
@@ -141,7 +140,7 @@ function useGestureGate(outer: React.RefObject<HTMLDivElement | null>) {
   }, [outer]);
 }
 
-export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat, valueFormat, label }: TrendPlotProps) {
+export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat, label }: TrendPlotProps) {
   const outer = useRef<HTMLDivElement | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
   const chart = useRef<echarts.EChartsType | null>(null);
@@ -161,7 +160,6 @@ export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat
   useEffect(() => {
     const c = chart.current;
     if (!c) return;
-    const mean = points.length ? points.reduce((s, p) => s + p.v, 0) / points.length : 0;
     const ma = movingAverage(points);
     // Il singolo concerto non è il punto della card: puntini minuti, uniti da una
     // linea sottile, senza tooltip né hover — quello che si legge è la forma.
@@ -219,8 +217,8 @@ export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat
       }],
       series: [
         {
-          name: "Concerti", type: "line" as const, data: line, symbol: "circle", symbolSize: 4,
-          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.5 },
+          name: "Concerti", type: "line" as const, data: line, symbol: "circle", symbolSize: 3,
+          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.9 },
           silent: true, emphasis: { disabled: true },
           z: 2,
         },
@@ -229,18 +227,12 @@ export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat
           lineStyle: { color: colors["--dim"], width: 2, opacity: 0.9 },
           silent: true, emphasis: { disabled: true },
           z: 3,
-          markLine: {
-            silent: true, symbol: "none",
-            data: [{ yAxis: mean }],
-            lineStyle: { color: colors["--muted"], type: "dashed", width: 1, opacity: 0.7 },
-            label: { formatter: "media " + valueFormat(mean), color: colors["--muted"], fontFamily: "Inter,sans-serif", fontSize: 10, position: "insideEndTop" },
-          },
         }] : []),
       ],
       // la finestra iniziale la imposta l'effetto qui sotto: tenerla fuori da
       // qui vuol dire che un cambio di tema non rimanda lo zoom da capo
     } as echarts.EChartsCoreOption, { replaceMerge: ["series"] });
-  }, [points, colors, yMin, yMax, yInterval, yFormat, valueFormat, label]);
+  }, [points, colors, yMin, yMax, yInterval, yFormat]);
 
   /* Finestra iniziale: dal primo punto del 2022 all'ultimo che la proprietà
      scelta ha davvero — ogni proprietà finisce dove finiscono i suoi dati (il

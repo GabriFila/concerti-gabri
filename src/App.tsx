@@ -499,12 +499,15 @@ function TrendCard(){
       {points.length>0?(<>
         <React.Suspense fallback={<div className="trendbox trendload">Carico il grafico…</div>}>
           <TrendPlot points={points} from={TREND_FROM} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
-            yFormat={spec.yFormat} valueFormat={spec.valueFormat} label={spec.label}/>
+            yFormat={spec.yFormat} label={spec.label}/>
         </React.Suspense>
-        <div className="ylegend">
+        {/* la media sta in legenda e non più come riga tratteggiata dentro il
+            grafico: era un'etichetta in mezzo ai dati per un numero solo */}
+        <div className="ylegend trendlegend">
           <span className="lg lg-att">Già visti</span>
           {points.some(p=>p.planned)&&<span className="lg lg-pl">In programma</span>}
           <span className="lg lg-avg">Tendenza</span>
+          <span className="lg lg-mean">Media <b>{spec.valueFormat(sum(points.map(p=>p.v))/points.length)}</b></span>
         </div>
         <p className="desc trendhint">Un punto per {spec.unit==="concerti"?"concerto":"biglietto"} ({points.length}). Pizzica con due dita per zoomare, trascina con un dito per scorrere nel tempo.</p>
       </>):(
