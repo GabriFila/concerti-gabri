@@ -435,13 +435,13 @@ const byTime=(a:TrendPoint,b:TrendPoint)=>a.t-b.t;
 const concertPoints=(data:Entry[],pick:(c:FlatConcert)=>number|null):TrendPoint[]=>
   data.flatMap(concertsOf).flatMap(c=>{
     const v=pick(c),t=dateTs(c);
-    return v===null||t===null?[]:[{t,v,title:c.artist,sub:c.date+" · "+c.city,planned:isPlanned(c)}];
+    return v===null||t===null?[]:[{t,v,planned:isPlanned(c)}];
   }).sort(byTime);
 // punti per-evento (biglietto/viaggio): un festival è una riga sola
 const eventPoints=(data:Entry[],pick:(e:Entry)=>number|null):TrendPoint[]=>
   data.flatMap(e=>{
     const v=pick(e),t=dateTs(e);
-    return v===null||t===null?[]:[{t,v,title:labelOf(e),sub:e.date+" · "+e.city,planned:isPlanned(e)}];
+    return v===null||t===null?[]:[{t,v,planned:isPlanned(e)}];
   }).sort(byTime);
 
 interface TrendSpec {
@@ -2206,7 +2206,6 @@ function FullDashboard({owner}: {owner:boolean}){
     </div>
     <main>
       <div id="sec-andamento" className="tocsec"><ChartCard/></div>
-      <div id="sec-trend" className="tocsec"><TrendCard/></div>
       <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
       <div className="grid2">
         <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
@@ -2224,6 +2223,7 @@ function FullDashboard({owner}: {owner:boolean}){
       <div id="sec-spesa" className="tocsec"><CostCard/></div>
       <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
       <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
+      <div id="sec-trend" className="tocsec"><TrendCard/></div>
       <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
     </main>
     <footer className="sitefooter">

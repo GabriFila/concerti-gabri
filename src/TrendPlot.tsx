@@ -13,19 +13,18 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts/core";
-import { LineChart, ScatterChart } from "echarts/charts";
-import { DataZoomInsideComponent, GridComponent, MarkLineComponent, TooltipComponent } from "echarts/components";
+import { LineChart } from "echarts/charts";
+import { DataZoomInsideComponent, GridComponent, MarkLineComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 
-echarts.use([ScatterChart, LineChart, GridComponent, TooltipComponent, DataZoomInsideComponent, MarkLineComponent, CanvasRenderer]);
+echarts.use([LineChart, GridComponent, DataZoomInsideComponent, MarkLineComponent, CanvasRenderer]);
 
 /* Un punto sul grafico: un concerto (voto/vicinanza/canzoni note) o un
-   biglietto (costo/km) — chi chiama ha già scelto l'unità giusta. */
+   biglietto (costo/km) — chi chiama ha già scelto l'unità giusta. Niente
+   artista né venue: il grafico non li mostra, qui conta solo la forma. */
 export interface TrendPoint {
-  t: number;        // timestamp UTC del giorno dell'evento
+  t: number;        // giorno dell'evento, timestamp a mezzanotte locale
   v: number;        // valore della proprietà scelta
-  title: string;    // artista o nome dell'evento
-  sub: string;      // "data · città"
   planned: boolean; // in programma (non ancora avvenuto)
 }
 
@@ -164,32 +163,25 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
   useEffect(() => {
     const c = chart.current;
     if (!c) return;
-    const past = points.filter(p => !p.planned);
-    const future = points.filter(p => p.planned);
     const mean = points.length ? points.reduce((s, p) => s + p.v, 0) / points.length : 0;
     const ma = movingAverage(points);
-    const dot = (p: TrendPoint) => ({ value: [p.t, p.v], title: p.title, sub: p.sub, planned: p.planned });
-    const scatter = (name: string, list: TrendPoint[], color: string) => ({
-      name, type: "scatter" as const, data: list.map(dot), symbolSize: 11,
-      itemStyle: { color, opacity: 0.82, borderColor: colors["--panel-2"], borderWidth: 1.5 },
-      emphasis: { itemStyle: { opacity: 1, borderColor: colors["--text"] } },
-      clip: false, // i punti sui livelli estremi (1★, 5★) stanno sul bordo: senza clip restano tondi
-      z: 3,
-    });
+    // Il singolo concerto non è il punto della card: puntini minuti, uniti da una
+    // linea sottile, senza tooltip né hover — quello che si legge è la forma.
+    // Una serie sola (non due) perché la linea deve attraversare il confine tra
+    // già visti e in programma: la differenza la porta il colore del puntino.
+    const line = points.flatMap((p, i) => [
+      // stessa interruzione della tendenza: sopra i sei mesi di silenzio la
+      // linea si stacca, altrimenti disegnerebbe una diagonale lunga due anni
+      // tra un concerto e il successivo come se fosse una discesa graduale
+      ...(i > 0 && p.t - points[i - 1].t > GAP ? [{ value: [points[i - 1].t + 1, null] }] : []),
+      { value: [p.t, p.v], itemStyle: { color: p.planned ? colors["--planned"] : colors["--lamp"] } },
+    ]);
     c.setOption({
       // il grafico è già in un pannello: niente titolo, niente legenda (sta sotto, in HTML)
       grid: { left: 6, right: 14, top: 22, bottom: 6, containLabel: true },
-      tooltip: {
-        trigger: "item",
-        backgroundColor: colors["--panel-2"],
-        borderColor: colors["--line-2"],
-        textStyle: { color: colors["--text"], fontFamily: "Inter,sans-serif", fontSize: 12 },
-        formatter: (p: any) => {
-          if (p.seriesType === "line") return `<b>tendenza</b><br/>${label}: ${valueFormat(p.value[1])}`;
-          const d = p.data;
-          return `<b>${d.title}</b><br/>${d.sub}<br/>${label}: ${valueFormat(p.value[1])}${d.planned ? "<br/><i>in programma</i>" : ""}`;
-        },
-      },
+      // niente tooltip: il singolo concerto non è il punto della card, e sul
+      // telefono un tooltip che sbuca a ogni sfioramento darebbe solo fastidio
+      // mentre si trascina il grafico
       xAxis: {
         type: "time",
         axisLine: { lineStyle: { color: colors["--line-2"] } },
@@ -220,10 +212,18 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
         minValueSpan: 1000 * 60 * 60 * 24 * 30, // non si scende sotto il mese: sotto non c'è più nulla da vedere
       }],
       series: [
+        {
+          name: "Concerti", type: "line" as const, data: line, symbol: "circle", symbolSize: 4,
+          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.5 },
+          silent: true, emphasis: { disabled: true },
+          clip: false, // i punti sui livelli estremi (1★, 5★) stanno sul bordo: senza clip restano tondi
+          z: 2,
+        },
         ...(ma.length ? [{
           name: "Tendenza", type: "line" as const, data: ma, smooth: true, symbol: "none",
-          lineStyle: { color: colors["--dim"], width: 2, opacity: 0.85 },
-          z: 2,
+          lineStyle: { color: colors["--dim"], width: 2, opacity: 0.9 },
+          silent: true, emphasis: { disabled: true },
+          z: 3,
           markLine: {
             silent: true, symbol: "none",
             data: [{ yAxis: mean }],
@@ -231,8 +231,6 @@ export default function TrendPlot({ points, yMin, yMax, yInterval, yFormat, valu
             label: { formatter: "media " + valueFormat(mean), color: colors["--muted"], fontFamily: "Inter,sans-serif", fontSize: 10, position: "insideStartTop" },
           },
         }] : []),
-        scatter("Già visti", past, colors["--lamp"]),
-        scatter("In programma", future, colors["--planned"]),
       ],
       // start/end restano fuori: così cambiare proprietà non azzera lo zoom
     } as echarts.EChartsCoreOption, { replaceMerge: ["series"] });
