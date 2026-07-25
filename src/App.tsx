@@ -1847,24 +1847,50 @@ function Act({className,threshold,children}: any){
 // Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
 const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
 
-// Scroll an element under the fixed top chrome, honouring scroll-padding-top.
-// Programmatic smooth scrolling and CSS scroll-snap fight each other on iOS:
-// the snap engine takes over mid-animation and drops you somewhere in between.
-// So snapping is suspended for the duration (see [data-snap="off"] in the CSS)
-// and re-armed once the page has actually stopped moving — `scrollend` is not
-// dependable across the browsers this has to work on, hence the poll.
+// Glide the page so `target` starts at the top of the screen — the same place
+// scroll-snap puts it, so tapping and flicking agree.
+//
+// The scroll is animated here rather than handed to scrollIntoView({smooth}):
+// the browser's smooth scroll runs on the same machinery as the snap engine, so
+// snapping has to be off while it flies (iOS cancels it outright otherwise) and
+// there is no dependable signal for when it landed — `scrollend` is too new to
+// rely on, and watching for the scroll to go quiet mistakes the pause *before*
+// the animation starts for the end of it. That mistake is what made the tap
+// look broken: snapping came back mid-flight, the snap engine pulled the page
+// home, and the next act flashed past on the way there. A rAF loop has a known
+// start and end, so snapping goes off and comes back at exact moments.
 function glideTo(target:Element){
   const root=document.documentElement;
-  if(prefersReducedMotion()){ target.scrollIntoView({block:"start"}); return; }
+  // absolute document position of the target's top, re-read per frame so a
+  // reveal or a resize mid-flight doesn't leave the animation aiming at a
+  // position that no longer exists
+  const dest=()=>{
+    const y=window.scrollY+target.getBoundingClientRect().top;
+    return Math.max(0,Math.min(y,root.scrollHeight-window.innerHeight));
+  };
+  if(prefersReducedMotion()){ window.scrollTo(0,dest()); return; }
   root.setAttribute("data-snap","off");
-  target.scrollIntoView({behavior:"smooth",block:"start"});
-  let last=window.scrollY, still=0;
-  const done=()=>{ clearInterval(poll); clearTimeout(bail); root.removeAttribute("data-snap"); };
-  const poll=setInterval(()=>{
-    if(Math.abs(window.scrollY-last)<1.5){ if(++still>=3) done(); } else still=0;
-    last=window.scrollY;
-  },90);
-  const bail=setTimeout(done,2500);
+  const from=window.scrollY, dur=620;
+  let t0=0, raf=0, over=false;
+  const end=()=>{
+    if(over) return;
+    over=true;
+    cancelAnimationFrame(raf);
+    root.removeAttribute("data-snap");
+    window.removeEventListener("touchstart",end);
+    window.removeEventListener("wheel",end);
+  };
+  // a finger or a wheel outranks the animation — hand the scroll straight back
+  window.addEventListener("touchstart",end,{passive:true});
+  window.addEventListener("wheel",end,{passive:true});
+  const tick=(t:number)=>{
+    if(over) return;
+    if(!t0) t0=t;
+    const p=Math.min(1,(t-t0)/dur);
+    window.scrollTo(0,from+(dest()-from)*(1-Math.pow(1-p,3)));  // easeOutCubic
+    if(p<1) raf=requestAnimationFrame(tick); else end();
+  };
+  raf=requestAnimationFrame(tick);
 }
 
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){

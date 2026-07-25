@@ -1122,16 +1122,17 @@
      ============================================================ */
   /* One place to tune the act rhythm; the short-viewport block below rewrites
      these instead of overriding a dozen rules.
-     --rt-chrome: vertical room the fixed top chrome (chat / switch / theme)
-       needs, also used as scroll-padding so a snapped heading clears it.
+     --rt-chrome: bottom edge of the fixed top chrome (chat / switch / theme).
+       An act's top padding is derived from it, so the heading always clears the
+       chrome without a second number to keep in sync.
      --rt-cue:    room *reserved* at the bottom of every act for the absolutely
        positioned "Avanti" cue — without it the cue lands on top of the last
        row on short phones (it did: 15-17px of overlap on a 375x667 screen). */
   :root{
-    --rt-chrome:70px;
+    --rt-chrome:60px;
     --rt-cue:78px;
     --rt-pad-x:clamp(20px,6vw,64px);
-    --rt-pad-t:clamp(88px,11vh,140px);
+    --rt-pad-t:max(calc(var(--rt-chrome) + 20px),clamp(88px,11vh,140px));
     --rt-pad-b:clamp(26px,6vh,80px);
   }
   /* overflow:clip (not hidden) so .rt doesn't become a scroll container and
@@ -1143,11 +1144,13 @@
      iOS Safari then either refuses to snap or lands mid-act, which is what made
      the magnetic scroll feel broken there. With `start` an oversized act simply
      snaps its top edge and the overflow scrolls freely: it degrades instead of
-     fighting. scroll-padding-top keeps the snapped heading below the chrome. */
-  :root[data-view="ritratto"]{
-    scroll-snap-type:y proximity;
-    scroll-padding-top:var(--rt-chrome);
-  }
+     fighting.
+     No scroll-padding-top on purpose: it would land the act's top edge that far
+     down the screen, leaving a band of the *previous* act on show — and since
+     each act ends with the "Avanti" cue, what showed was a stray arrow floating
+     above the heading. The act's own padding-top clears the chrome instead, so
+     a snapped act starts exactly at the top of the screen. */
+  :root[data-view="ritratto"]{scroll-snap-type:y proximity}
   /* Set while an "Avanti" scroll animates: iOS hands the scroll to the snap
      engine mid-flight and cancels the smooth scroll, so snapping is suspended
      for the duration and re-armed once the page has settled (see glideTo). */
@@ -1217,7 +1220,8 @@
   .rt-head{width:100%;margin-bottom:clamp(18px,3vw,30px);text-align:center}
   .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);font-size:clamp(2.4rem,7vw,4.4rem);line-height:1}
   .rt-lead{max-width:46ch;color:var(--muted);font-size:clamp(1rem,2.4vw,1.25rem);line-height:1.6}
-  .rt-lead b{color:var(--text);font-weight:600}
+  /* nowrap so the star never breaks away from the rating it belongs to */
+  .rt-lead b{color:var(--text);font-weight:600;white-space:nowrap}
   .rt-act .star{color:var(--lamp)}
 
   /* Act II — numbers */
@@ -1274,8 +1278,15 @@
   .rt-earplugs-cta svg{flex-shrink:0}
   .rt-earplugs-cta span{text-wrap:balance}
 
-  /* Final Act — L'Oracolo (no "Avanti" cue here, so no band to reserve) */
-  .rt-oracoloact{align-items:flex-start;text-align:left;padding-bottom:var(--rt-pad-b)}
+  /* Final Act — L'Oracolo (no "Avanti" cue here, so no band to reserve).
+     Full height, measured against the *large* viewport: the last act's snap
+     point is only reachable if the page can still scroll that far, and at 88svh
+     it couldn't — you stopped ~90px short with the previous act's cue left
+     hanging at the top of the screen. */
+  .rt-oracoloact{
+    align-items:flex-start;text-align:left;padding-bottom:var(--rt-pad-b);
+    min-height:100vh;min-height:100lvh;
+  }
   .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
   .rt-oracolo-pitch b{color:var(--text)}
   /* the two final CTAs, stacked as one centred, equal-width group */
@@ -1296,7 +1307,7 @@
 
   /* ---- narrow phones: tighten the rhythm so an act still fits one screen ---- */
   @media(max-width:560px){
-    :root{--rt-chrome:58px;--rt-pad-t:76px;--rt-pad-b:22px}
+    :root{--rt-chrome:50px;--rt-pad-t:max(calc(var(--rt-chrome) + 26px),76px);--rt-pad-b:22px}
     .rt-lead{font-size:1rem;line-height:1.5}
     .rt-head{margin-bottom:14px}
     .rt-bestlist,.rt-peoplelist,.rt-nextlist{margin-top:18px}
@@ -1311,7 +1322,7 @@
      width, and turn snapping off — with nothing to snap to that fits, magnetic
      scroll only fights the user. */
   @media(max-height:620px){
-    :root{--rt-chrome:52px;--rt-pad-t:62px;--rt-pad-b:18px}
+    :root{--rt-pad-t:calc(var(--rt-chrome) + 20px);--rt-pad-b:18px}
     :root[data-view="ritratto"]{scroll-snap-type:none}
     .rt-act{min-height:auto}
     /* the hero is the one act that should still own the whole screen */
