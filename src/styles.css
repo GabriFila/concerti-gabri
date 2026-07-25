@@ -1120,27 +1120,61 @@
   /* ============================================================
      RITRATTO — the curated, editorial, scroll-based portrait
      ============================================================ */
+  /* One place to tune the act rhythm; the short-viewport block below rewrites
+     these instead of overriding a dozen rules.
+     --rt-chrome: vertical room the fixed top chrome (chat / switch / theme)
+       needs, also used as scroll-padding so a snapped heading clears it.
+     --rt-cue:    room *reserved* at the bottom of every act for the absolutely
+       positioned "Avanti" cue — without it the cue lands on top of the last
+       row on short phones (it did: 15-17px of overlap on a 375x667 screen). */
+  :root{
+    --rt-chrome:70px;
+    --rt-cue:78px;
+    --rt-pad-x:clamp(20px,6vw,64px);
+    --rt-pad-t:clamp(88px,11vh,140px);
+    --rt-pad-b:clamp(26px,6vh,80px);
+  }
   /* overflow:clip (not hidden) so .rt doesn't become a scroll container and
      steal snapping from the page scroller — while still clipping the beams */
   .rt{position:relative;z-index:1;overflow:clip}
-  /* magnetic scroll: acts snap to centre, only in "Sul palco" */
-  :root[data-view="ritratto"]{scroll-snap-type:y proximity}
-  .rt-act{scroll-snap-align:center}
+  /* Magnetic scroll, only in "Sul palco".
+     `start` (not `center`): centre alignment is only well-defined while the
+     snap area fits inside the snapport, and on a phone several acts don't —
+     iOS Safari then either refuses to snap or lands mid-act, which is what made
+     the magnetic scroll feel broken there. With `start` an oversized act simply
+     snaps its top edge and the overflow scrolls freely: it degrades instead of
+     fighting. scroll-padding-top keeps the snapped heading below the chrome. */
+  :root[data-view="ritratto"]{
+    scroll-snap-type:y proximity;
+    scroll-padding-top:var(--rt-chrome);
+  }
+  /* Set while an "Avanti" scroll animates: iOS hands the scroll to the snap
+     engine mid-flight and cancels the smooth scroll, so snapping is suspended
+     for the duration and re-armed once the page has settled (see glideTo). */
+  :root[data-view="ritratto"][data-snap="off"]{scroll-snap-type:none}
+  .rt-act{scroll-snap-align:start}
   .rt-act{
     position:relative;max-width:1100px;margin:0 auto;
-    padding:clamp(64px,12vh,140px) clamp(22px,6vw,64px);
+    padding:var(--rt-pad-t) var(--rt-pad-x) calc(var(--rt-pad-b) + var(--rt-cue));
     min-height:88vh;min-height:88svh;
     display:flex;flex-direction:column;justify-content:center;
     opacity:0;transform:translateY(34px);
     transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1);
   }
   .rt-act.in{opacity:1;transform:none}
+  /* The reveal transform drags the act's *snap area* with it: a snap point that
+     slides 34px over .8s while the snap engine is picking one is exactly the
+     jitter iOS shows. Where snapping is doing real work — touch screens — fade
+     without the rise; pointer devices keep the full effect. */
+  @media(pointer:coarse){ .rt-act,.rt-act.in{transform:none} }
 
   /* Act I — the showstopper */
   .rt-hero{
     min-height:100vh;min-height:100svh;
     align-items:center;text-align:center;overflow:hidden;
     padding-top:clamp(96px,16vh,190px);
+    /* reserve the CTA's band — in landscape the button used to sit on the lede */
+    padding-bottom:calc(var(--rt-pad-b) + 84px);
   }
   .rt-hero .beams{z-index:0}
   .rt-hero-inner{position:relative;z-index:2;width:min(760px,100%);margin-inline:auto;text-align:center}
@@ -1158,7 +1192,7 @@
   .rt-h1-2{font-weight:500}
   .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6;text-wrap:balance}
   .rt-scrollcue{
-    position:absolute;bottom:clamp(18px,5vh,44px);left:50%;transform:translateX(-50%);z-index:2;
+    position:absolute;bottom:var(--rt-pad-b);left:50%;transform:translateX(-50%);z-index:2;
     display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--muted);
     font:inherit;background:none;border:none;cursor:pointer;padding:8px 14px;border-radius:12px;
     transition:color .2s ease;
@@ -1169,7 +1203,7 @@
   @keyframes rt-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(6px);opacity:1}}
   /* hero "inizia lo show!" — a filled CTA that scrolls into the portrait */
   .rt-startbtn{
-    position:absolute;bottom:clamp(24px,6vh,56px);left:50%;transform:translateX(-50%);z-index:2;
+    position:absolute;bottom:var(--rt-pad-b);left:50%;transform:translateX(-50%);z-index:2;
     display:inline-flex;align-items:center;gap:9px;
     font:inherit;font-size:1rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
     color:#171106;padding:14px 26px;border-radius:999px;
@@ -1192,23 +1226,23 @@
   .rt-stat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;min-width:0}
   .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.02em;
     font-size:clamp(2.9rem,10vw,5.4rem);font-variant-numeric:lining-nums tabular-nums}
-  .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600}
+  .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600;text-wrap:balance}
   .rt-stat-h{font-size:.82rem;color:var(--muted)}
 
   /* Act III — map (strip the panel chrome; keep just the map) */
   .rt-mapframe{margin-top:clamp(20px,3vw,32px)}
   .rt-mapframe .panel{background:transparent;border:none;padding:0;overflow:visible}
   .rt-mapframe .paneltop{display:none}
-  /* shorter map in the portrait — the full-height one lives in "I dati" */
-  .rt-mapframe .mapwrap{height:clamp(280px,40vh,420px)}
-  /* extra room below the map so the "Avanti" cue isn't crowding it */
-  .rt-mapact{padding-bottom:clamp(120px,20vh,200px)}
+  /* shorter map in the portrait — the full-height one lives in "I dati".
+     svh, not vh: on iOS `vh` is the *large* viewport (toolbars retracted), so a
+     vh-sized map is taller than the screen it is measured against. */
+  .rt-mapframe .mapwrap{height:clamp(260px,40vh,420px);height:clamp(260px,40svh,420px)}
 
   /* Act IV — best shows */
   .rt-bestlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
   .rt-bestrow{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 18px;padding:clamp(14px,2.4vw,22px) 0;border-bottom:1px solid var(--line)}
   .rt-bestrow:last-child{border-bottom:none}
-  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.5rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.5rem);line-height:1.1;letter-spacing:-.01em;min-width:0;overflow-wrap:anywhere}
   .rt-best-meta{grid-row:2;color:var(--muted);font-size:.86rem}
   .rt-best-stars{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);font-size:clamp(.85rem,2.3vw,1.15rem);letter-spacing:2px;white-space:nowrap}
 
@@ -1217,14 +1251,14 @@
   .rt-personrow{display:flex;align-items:baseline;gap:clamp(14px,3vw,26px);padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
   .rt-personrow:last-child{border-bottom:none}
   .rt-person-rank{font-family:'Fraunces',serif;color:var(--lamp);font-size:1.1rem;width:1.4em;flex-shrink:0;font-variant-numeric:tabular-nums}
-  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.3rem,4vw,2rem);line-height:1.1}
+  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.3rem,4vw,2rem);line-height:1.1;overflow-wrap:anywhere}
   .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 
   /* Act VI — upcoming shows (a short agenda) */
   .rt-nextlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
   .rt-nextrow{display:flex;flex-direction:column;gap:4px;padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
   .rt-nextrow:last-child{border-bottom:none}
-  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.4rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.4rem);line-height:1.1;letter-spacing:-.01em;overflow-wrap:anywhere}
   .rt-next-meta{color:var(--muted);font-size:.9rem}
   .rt-next-date{color:var(--planned);font-weight:500}
   /* hearing-protection nudge + Loop CTA */
@@ -1240,8 +1274,8 @@
   .rt-earplugs-cta svg{flex-shrink:0}
   .rt-earplugs-cta span{text-wrap:balance}
 
-  /* Final Act — L'Oracolo */
-  .rt-oracoloact{align-items:flex-start;text-align:left}
+  /* Final Act — L'Oracolo (no "Avanti" cue here, so no band to reserve) */
+  .rt-oracoloact{align-items:flex-start;text-align:left;padding-bottom:var(--rt-pad-b)}
   .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
   .rt-oracolo-pitch b{color:var(--text)}
   /* the two final CTAs, stacked as one centred, equal-width group */
@@ -1259,6 +1293,50 @@
     transition:border-color .2s ease,color .2s ease,transform .15s ease}
   .rt-explore:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
   .rt-endcredits-note{align-self:center;text-align:center;margin:clamp(52px,11vh,104px) 0 0;font-size:.9rem;color:var(--muted)}
+
+  /* ---- narrow phones: tighten the rhythm so an act still fits one screen ---- */
+  @media(max-width:560px){
+    :root{--rt-chrome:58px;--rt-pad-t:76px;--rt-pad-b:22px}
+    .rt-lead{font-size:1rem;line-height:1.5}
+    .rt-head{margin-bottom:14px}
+    .rt-bestlist,.rt-peoplelist,.rt-nextlist{margin-top:18px}
+    .rt-bestrow{padding:11px 0}
+    .rt-personrow,.rt-nextrow{padding:11px 0}
+    .rt-earplugs{margin-top:20px;padding-top:16px;gap:13px}
+    .rt-h1{font-size:clamp(2.3rem,10.5vw,4rem)}
+  }
+  /* ---- short viewports (phones in landscape, small windows) ----
+     No act can fill a 390px-tall screen without crowding, so: stop forcing a
+     minimum height, size the display type off the *height* rather than the
+     width, and turn snapping off — with nothing to snap to that fits, magnetic
+     scroll only fights the user. */
+  @media(max-height:620px){
+    :root{--rt-chrome:52px;--rt-pad-t:62px;--rt-pad-b:18px}
+    :root[data-view="ritratto"]{scroll-snap-type:none}
+    .rt-act{min-height:auto}
+    /* the hero is the one act that should still own the whole screen */
+    .rt-hero{min-height:100vh;min-height:100svh;padding-top:58px;padding-bottom:calc(var(--rt-pad-b) + 76px)}
+    .rt-h1{font-size:clamp(1.9rem,7.6vh,3.6rem)}
+    .rt-lede{font-size:clamp(.92rem,3.2vh,1.1rem)}
+    .rt-h2{font-size:clamp(1.8rem,6.4vh,3rem)}
+    .rt-stat-n{font-size:clamp(1.9rem,7vh,3.4rem)}
+    .rt-head{margin-bottom:14px}
+    .rt-mapframe .mapwrap{height:min(60svh,300px)}
+    .rt-bestlist,.rt-peoplelist,.rt-nextlist{margin-top:18px}
+  }
+  /* ---- cue in the flow once the screen is small ----
+     Pinning the "Avanti" cue to the bottom of the act only pays off while the
+     act is comfortably shorter than the screen. On a phone it isn't, and a
+     pinned cue lands on the last row (or on the Loop button). In the flow it
+     stays part of the centred group, so it cannot collide with anything and the
+     act is exactly as tall as its content. */
+  @media(max-width:560px),(max-height:620px){
+    .rt-act{padding-bottom:var(--rt-pad-b)}
+    .rt-scrollcue{
+      position:static;transform:none;align-self:center;
+      margin-top:clamp(18px,3vh,30px);padding-bottom:0;
+    }
+  }
 
   /* chat trigger docked in the top-left corner (both modes) */
   .chatdock--corner{position:fixed;top:18px;left:18px;z-index:55}

@@ -1784,9 +1784,14 @@ function useReveal(threshold=0.2): [any,boolean]{
     if(seen) return;
     const el=ref.current; if(!el) return;
     if(prefersReducedMotion()||typeof IntersectionObserver==="undefined"){ setSeen(true); return; }
+    // A ratio threshold is unreachable once the element is taller than the
+    // viewport — a 0.4 threshold on a section 3x the screen never fires and the
+    // content stays invisible. Cap it at what this element can actually reach.
+    const h=el.offsetHeight||1;
+    const t=Math.min(threshold,(window.innerHeight*0.8)/h);
     const io=new IntersectionObserver(es=>{
       es.forEach(e=>{ if(e.isIntersecting){ setSeen(true); io.disconnect(); } });
-    },{threshold,rootMargin:"0px 0px -8% 0px"});
+    },{threshold:t,rootMargin:"0px 0px -8% 0px"});
     io.observe(el);
     return ()=>io.disconnect();
   },[seen,threshold]);
@@ -1842,6 +1847,26 @@ function Act({className,threshold,children}: any){
 // Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
 const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
 
+// Scroll an element under the fixed top chrome, honouring scroll-padding-top.
+// Programmatic smooth scrolling and CSS scroll-snap fight each other on iOS:
+// the snap engine takes over mid-animation and drops you somewhere in between.
+// So snapping is suspended for the duration (see [data-snap="off"] in the CSS)
+// and re-armed once the page has actually stopped moving — `scrollend` is not
+// dependable across the browsers this has to work on, hence the poll.
+function glideTo(target:Element){
+  const root=document.documentElement;
+  if(prefersReducedMotion()){ target.scrollIntoView({block:"start"}); return; }
+  root.setAttribute("data-snap","off");
+  target.scrollIntoView({behavior:"smooth",block:"start"});
+  let last=window.scrollY, still=0;
+  const done=()=>{ clearInterval(poll); clearTimeout(bail); root.removeAttribute("data-snap"); };
+  const poll=setInterval(()=>{
+    if(Math.abs(window.scrollY-last)<1.5){ if(++still>=3) done(); } else still=0;
+    last=window.scrollY;
+  },90);
+  const bail=setTimeout(done,2500);
+}
+
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
   // the KPIs use, so the two views agree by construction.
@@ -1874,20 +1899,15 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
   },[]);
   // "Avanti" cue on every act but the last: glide to the next act below (found
   // via the DOM so it stays correct even when some acts are conditionally hidden).
+  // Where it lands is the same place scroll-snap would put it — top edge under
+  // the chrome — so tapping and flicking agree instead of pulling against each
+  // other, whatever the act's height.
   const goNext=(e:any)=>{
     const act=e.currentTarget.closest(".rt-act");
     let n=act?act.nextElementSibling:null;
     while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
     const target=n||document.querySelector(".rt-footer");
-    if(!target) return;
-    const rect=target.getBoundingClientRect();
-    const vh=window.innerHeight;
-    // center the act in the viewport; if it's taller than the viewport, land its
-    // top just below the fixed top controls instead
-    const y=rect.height>vh
-      ? window.scrollY+rect.top-84
-      : window.scrollY+rect.top+rect.height/2-vh/2;
-    window.scrollTo({top:Math.max(0,y),behavior:"smooth"});
+    if(target) glideTo(target);
   };
   const nextCue=()=>(
     <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
@@ -2107,7 +2127,11 @@ function Shell(){
   // owner: unlocks maintenance notices (captured at module load, see OWNER_UNLOCKED)
   const owner=OWNER_UNLOCKED;
   // expose the current view on <html> so CSS can scope scroll-snapping to "In scena"
-  React.useEffect(()=>{ document.documentElement.setAttribute("data-view",view); },[view]);
+  React.useEffect(()=>{
+    document.documentElement.setAttribute("data-view",view);
+    // never carry a suspended-snapping flag across a route change (see glideTo)
+    document.documentElement.removeAttribute("data-snap");
+  },[view]);
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
