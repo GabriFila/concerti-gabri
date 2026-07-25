@@ -16,6 +16,7 @@ import { ALLDATA, CANZONI_NOTE_LABELS, flatConcerts, isFestival, type FlatConcer
 export const SECTIONS = [
   { id: "sec-kpis", label: "Riepilogo" },
   { id: "sec-andamento", label: "Andamento" },
+  { id: "sec-trend", label: "Come cambia nel tempo" },
   { id: "sec-mappa", label: "Dove sono andato" },
   { id: "sec-artisti", label: "Chi ho visto di più" },
   { id: "sec-compagni", label: "Con chi vado di più" },

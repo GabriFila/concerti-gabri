@@ -414,6 +414,101 @@ function ChartCard(){
   );
 }
 
+/* ── Andamento di una proprietà nel tempo ────────────────────────────────────
+   Una card con un selettore: scegli la proprietà, la vedi punto per punto
+   lungo l'asse del tempo, con la linea di tendenza (media mobile) sopra.
+   L'unità segue la proprietà come ovunque nella pagina: voto, vicinanza e
+   canzoni note sono per CONCERTO (i set dei festival contano uno a testa),
+   costo e km sono per BIGLIETTO/evento (il festival conta una volta sola).
+   Il grafico vero sta in TrendPlot.tsx (ECharts, per il pinch-zoom) ed è
+   caricato pigramente: è l'unico pezzo di pagina che paga quella libreria. */
+const TrendPlot=React.lazy(()=>import("./TrendPlot.tsx"));
+// solo il tipo: `import type` sparisce in compilazione, il chunk resta separato
+import type { TrendPoint } from "./TrendPlot.tsx";
+
+// data "dd/mm/yyyy" (o "30–31/03/2017": vale il primo giorno, come sortKey) →
+// timestamp a mezzanotte LOCALE: l'asse del tempo di ECharts ragiona in ora
+// locale, così i punti cadono sul giorno giusto ovunque nel mondo
+const dateTs=(d:{date:string})=>{const k=sortKey(d);return k?new Date(Math.floor(k/10000),Math.floor(k/100)%100-1,k%100).getTime():null;};
+const byTime=(a:TrendPoint,b:TrendPoint)=>a.t-b.t;
+// punti per-concerto: `pick` restituisce il valore o null se il concerto non ce l'ha
+const concertPoints=(data:Entry[],pick:(c:FlatConcert)=>number|null):TrendPoint[]=>
+  data.flatMap(concertsOf).flatMap(c=>{
+    const v=pick(c),t=dateTs(c);
+    return v===null||t===null?[]:[{t,v,title:c.artist,sub:c.date+" · "+c.city,planned:isPlanned(c)}];
+  }).sort(byTime);
+// punti per-evento (biglietto/viaggio): un festival è una riga sola
+const eventPoints=(data:Entry[],pick:(e:Entry)=>number|null):TrendPoint[]=>
+  data.flatMap(e=>{
+    const v=pick(e),t=dateTs(e);
+    return v===null||t===null?[]:[{t,v,title:labelOf(e),sub:e.date+" · "+e.city,planned:isPlanned(e)}];
+  }).sort(byTime);
+
+interface TrendSpec {
+  k:string; tab:string;            // chiave e etichetta del selettore
+  label:string;                    // nome esteso (tooltip, aria, testo vuoto)
+  unit:string;                     // "concerti" | "biglietti" — cosa è un punto
+  points:(data:Entry[])=>TrendPoint[];
+  // le scale ordinali fissano i bordi sui livelli veri (1..5, 1..6), così ogni
+  // tacca è un livello con la sua etichetta; costo e km lasciano decidere l'asse
+  yMin?:number; yMax?:number; yInterval?:number;
+  yFormat:(v:number)=>string;      // etichetta di un tick sull'asse
+  valueFormat:(v:number)=>string;  // valore nel tooltip
+}
+// arrotondamento al livello più vicino: le scale ordinali (voto, vicinanza,
+// canzoni note) non hanno etichetta per i valori intermedi della media mobile
+const ordFmt=(labels:Record<number,string>)=>(v:number)=>labels[Math.round(v)]||"";
+const TREND_SPECS:TrendSpec[]=[
+  {k:"voto",tab:"Voto",label:"voto",unit:"concerti",
+   points:d=>concertPoints(d,c=>hasVoto(c)?c.voto:null),
+   yMin:1,yMax:5,yInterval:1,yFormat:v=>v+"★",valueFormat:v=>voto1(v)+"★"},
+  {k:"vicinanza",tab:"Vicinanza",label:"vicinanza",unit:"concerti",
+   points:d=>concertPoints(d,c=>hasVic(c)?c.vicinanza:null),
+   yMin:1,yMax:6,yInterval:1,yFormat:ordFmt(VIC_LABELS),valueFormat:ordFmt(VIC_LABELS)},
+  {k:"canzoni",tab:"Canzoni note",label:"canzoni note",unit:"concerti",
+   points:d=>concertPoints(d,c=>hasCN(c)?c.canzoniNote:null),
+   yMin:1,yMax:5,yInterval:1,yFormat:ordFmt(CN_LABELS),valueFormat:ordFmt(CN_LABELS)},
+  {k:"cost",tab:"Costo",label:"costo del biglietto",unit:"biglietti",
+   points:d=>eventPoints(d,e=>hasCost(e)?e.cost:null),
+   yMin:0,yFormat:eur0,valueFormat:eur2},
+  {k:"km",tab:"Viaggio",label:"km di viaggio",unit:"biglietti",
+   points:d=>eventPoints(d,e=>distKm(e)),
+   yMin:0,yFormat:km0,valueFormat:km0},
+];
+
+function TrendCard(){
+  const DATA=useData();
+  const [k,setK]=useState("voto");
+  const spec=TREND_SPECS.find(s=>s.k===k)||TREND_SPECS[0];
+  const points=useMemo(()=>spec.points(DATA),[DATA,spec]);
+  return (
+    <section className="panel full">
+      <div className="paneltop">
+        <div><h2><Icon name="chart" size={22} className="h2ic"/>Come cambia nel tempo</h2></div>
+        <div className="toggle wrap">
+          {TREND_SPECS.map(s=>(
+            <button key={s.k} className={"tg"+(s.k===k?" on":"")} onClick={()=>setK(s.k)}>{s.tab}</button>
+          ))}
+        </div>
+      </div>
+      {points.length>0?(<>
+        <React.Suspense fallback={<div className="trendbox trendload">Carico il grafico…</div>}>
+          <TrendPlot points={points} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
+            yFormat={spec.yFormat} valueFormat={spec.valueFormat} label={spec.label}/>
+        </React.Suspense>
+        <div className="ylegend">
+          <span className="lg lg-att">Già visti</span>
+          {points.some(p=>p.planned)&&<span className="lg lg-pl">In programma</span>}
+          <span className="lg lg-avg">Tendenza</span>
+        </div>
+        <p className="desc trendhint">Un punto per {spec.unit==="concerti"?"concerto":"biglietto"} ({points.length}). Pizzica con due dita per zoomare, trascina con un dito per scorrere nel tempo.</p>
+      </>):(
+        <p className="desc" style={{margin:0}}>Nessun dato su {spec.label} con questi filtri.</p>
+      )}
+    </section>
+  );
+}
+
 // Swipe support for cards with a view toggle: on touch devices a horizontal
 // swipe on the card switches view (left = next tab, right = previous tab).
 // Swipes that start inside horizontally-scrollable areas (e.g. the timeline
@@ -1659,7 +1754,7 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-trend":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
@@ -2111,6 +2206,7 @@ function FullDashboard({owner}: {owner:boolean}){
     </div>
     <main>
       <div id="sec-andamento" className="tocsec"><ChartCard/></div>
+      <div id="sec-trend" className="tocsec"><TrendCard/></div>
       <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
       <div className="grid2">
         <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
