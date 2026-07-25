@@ -1120,8 +1120,10 @@
   /* ============================================================
      RITRATTO — the curated, editorial, scroll-based portrait
      ============================================================ */
-  .rt{position:relative;z-index:1;overflow:hidden}
-  /* magnetic scroll: acts gently snap to centre, only in "In scena" */
+  /* overflow:clip (not hidden) so .rt doesn't become a scroll container and
+     steal snapping from the page scroller — while still clipping the beams */
+  .rt{position:relative;z-index:1;overflow:clip}
+  /* magnetic scroll: acts snap to centre, only in "Sul palco" */
   :root[data-view="ritratto"]{scroll-snap-type:y proximity}
   .rt-act{scroll-snap-align:center}
   .rt-act{
@@ -1230,11 +1232,12 @@
   .rt-earplugs-note{margin:0;display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.95rem;line-height:1.55;max-width:54ch}
   .rt-earplugs-note b{color:var(--text);font-weight:600}
   .rt-earplugs-note svg{flex-shrink:0;color:var(--lamp);margin-top:2px}
-  .rt-earplugs-cta{display:inline-flex;align-items:center;gap:9px;font:inherit;font-size:.92rem;font-weight:600;
-    text-decoration:none;cursor:pointer;color:var(--text);padding:11px 20px;border-radius:999px;
+  .rt-earplugs-cta{align-self:center;display:inline-flex;align-items:center;justify-content:center;gap:9px;max-width:100%;
+    font:inherit;font-size:.92rem;font-weight:600;text-align:center;line-height:1.35;
+    text-decoration:none;cursor:pointer;color:var(--text);padding:12px 22px;border-radius:16px;
     background:var(--panel);border:1px solid var(--line-2);transition:border-color .2s ease,color .2s ease,transform .15s ease}
   .rt-earplugs-cta:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
-  .rt-earplugs-cta b{font-weight:700}
+  .rt-earplugs-cta svg{flex-shrink:0}
 
   /* Final Act — L'Oracolo */
   .rt-oracoloact{align-items:flex-start;text-align:left}

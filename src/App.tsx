@@ -1813,9 +1813,9 @@ function Act({className,threshold,children}: any){
   );
 }
 
-// Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral;
-// the discount is baked into the link).
+// Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
 const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
+const LOOP_CODE="XXXXX"; // TODO: Gabri's actual discount code
 
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
@@ -1978,8 +1978,8 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             <span>Un consiglio dal palco: <b>proteggi le orecchie</b>. Ai concerti Gabri non rinuncia mai ai tappi.</span>
           </p>
           <a className="rt-earplugs-cta" href={LOOP_LINK} target="_blank" rel="noopener noreferrer">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            Compra i tappi Loop col mio sconto
+            <span>Compra i tappi Loop con il mio codice sconto {LOOP_CODE}</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
         </div>
         {nextCue()}
@@ -2158,7 +2158,7 @@ function App(){
       <div className="modeswitch" role="tablist" aria-label="Modalità di visualizzazione">
         <span className="modeswitch-slide" data-view={view} aria-hidden="true"></span>
         <button type="button" role="tab" aria-selected={view==="ritratto"}
-          className={"ms-btn"+(view==="ritratto"?" on":"")} onClick={()=>switchView("ritratto")}>In scena</button>
+          className={"ms-btn"+(view==="ritratto"?" on":"")} onClick={()=>switchView("ritratto")}>Sul palco</button>
         <button type="button" role="tab" aria-selected={view==="dati"}
           className={"ms-btn"+(view==="dati"?" on":"")} onClick={()=>switchView("dati")}>I dati</button>
       </div>
