@@ -1224,6 +1224,16 @@
   .rt-next-meta{color:var(--muted);font-size:.9rem}
   .rt-next-date{color:var(--planned);font-weight:500}
   .rt-nextmore{margin-top:16px}
+  /* hearing-protection nudge + Loop CTA */
+  .rt-earplugs{margin-top:clamp(26px,4vw,40px);padding-top:clamp(20px,3vw,28px);border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+  .rt-earplugs-note{margin:0;display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.95rem;line-height:1.55;max-width:54ch}
+  .rt-earplugs-note b{color:var(--text);font-weight:600}
+  .rt-earplugs-note svg{flex-shrink:0;color:var(--lamp);margin-top:2px}
+  .rt-earplugs-cta{display:inline-flex;align-items:center;gap:9px;font:inherit;font-size:.92rem;font-weight:600;
+    text-decoration:none;cursor:pointer;color:var(--text);padding:11px 20px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--line-2);transition:border-color .2s ease,color .2s ease,transform .15s ease}
+  .rt-earplugs-cta:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
+  .rt-earplugs-cta b{font-weight:700}
 
   /* Final Act — L'Oracolo */
   .rt-oracoloact{align-items:flex-start;text-align:left}
