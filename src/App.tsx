@@ -1839,7 +1839,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       companions:new Set(attC.flatMap(c=>c.with||[])).size,
       solo:attC.filter(c=>!(c.with&&c.with.length)).length,
       avgVoto:voted.length?sum(voted.map(c=>c.voto))/voted.length:0,
-      topBest, mates, next:planned[0], plannedCount:planned.length,
+      topBest, mates, upcoming:planned, plannedCount:planned.length,
     };
   },[]);
   // "Avanti" cue on every act but the last: glide to the next act below (found
@@ -1937,7 +1937,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.mates.length>0&&(
       <Act className="rt-peopleact">
         <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
-        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e <b>{P.solo}</b> serate vissute in perfetta solitudine.</p>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e <b>{P.solo}</b> serate vissute da solo.</p>
         <ol className="rt-peoplelist">
           {P.mates.map(([name,n]: any,i:number)=>(
             <li className="rt-personrow" key={name}>
@@ -1952,15 +1952,19 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       )}
 
       {/* ── Act VI — what's next ── */}
-      {P.next&&(
+      {P.upcoming.length>0&&(
       <Act className="rt-nextact">
         <div className="rt-head"><h2 className="rt-h2">E adesso?</h2></div>
-        <div className="rt-nextcard">
-          <span className="rt-next-tag">Prossimo concerto</span>
-          <span className="rt-next-art">{labelOf(P.next)}</span>
-          <span className="rt-next-meta">{P.next.date} · {P.next.venue}, {P.next.city}</span>
-        </div>
-        {P.plannedCount>1&&<p className="rt-lead">…e altri <b>{P.plannedCount-1}</b> già segnati sul calendario.</p>}
+        <p className="rt-lead">Le prossime serate, già segnate sul calendario.</p>
+        <ol className="rt-nextlist">
+          {P.upcoming.slice(0,5).map((ev,i)=>(
+            <li className="rt-nextrow" key={i}>
+              <span className="rt-next-art">{labelOf(ev)}</span>
+              <span className="rt-next-meta"><span className="rt-next-date">{ev.date}</span> · {ev.venue}, {ev.city}</span>
+            </li>
+          ))}
+        </ol>
+        {P.plannedCount>5&&<p className="rt-lead rt-nextmore">…e altri <b>{P.plannedCount-5}</b> in programma.</p>}
         {nextCue()}
       </Act>
       )}

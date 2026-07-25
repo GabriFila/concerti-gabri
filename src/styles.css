@@ -1216,12 +1216,14 @@
   .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.3rem,4vw,2rem);line-height:1.1}
   .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 
-  /* Act VI — next show */
-  .rt-nextcard{margin-top:clamp(20px,3vw,32px);display:flex;flex-direction:column;gap:12px}
-  .rt-next-tag{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--planned);font-weight:600}
-  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.8rem,6vw,3.2rem);line-height:1.05;letter-spacing:-.02em}
-  .rt-next-meta{color:var(--muted);font-size:clamp(.9rem,2.2vw,1.05rem)}
-  .rt-nextact .rt-lead{margin-top:20px}
+  /* Act VI — upcoming shows (a short agenda) */
+  .rt-nextlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-nextrow{display:flex;flex-direction:column;gap:4px;padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
+  .rt-nextrow:last-child{border-bottom:none}
+  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.4rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-next-meta{color:var(--muted);font-size:.9rem}
+  .rt-next-date{color:var(--planned);font-weight:500}
+  .rt-nextmore{margin-top:16px}
 
   /* Final Act — L'Oracolo */
   .rt-oracoloact{align-items:flex-start;text-align:left}
