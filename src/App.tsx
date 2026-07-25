@@ -1,15 +1,37 @@
 import React, { useState, useMemo, useRef } from "react";
+import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import Fuse from "fuse.js";
 import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
+import type { Entry, Festival, FlatConcert, Person, Posto } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
-import ChatWidget from "./chat/ChatWidget.tsx";
+import ChatWidget, { type ChatApi, type ChatSiteContext } from "./chat/ChatWidget.tsx";
+
+/* Structural view shared by ALLDATA rows (Entry) and flattened concerts
+   (FlatConcert): the fields the cross-cutting helpers below read. */
+type Datum = {
+  y: number; date: string; venue: string; city: string; posto: Posto;
+  cost?: number; gift?: boolean; accredito?: boolean; from?: "m" | "g"; km?: number;
+  artist?: string; with?: Person[];
+  voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na";
+};
+/* The per-concert facts a filter/predicate reads — satisfied by a Concert, a
+   FestivalConcert or a FlatConcert alike (none of the event-level fields). */
+type PerConcert = { with?: Person[]; voto?: number; vicinanza?: number; canzoniNote?: number | string };
+/* The active filter state (shape of EMPTY_FILTERS). */
+interface Filters {
+  dateFrom: string; dateTo: string;
+  cities: string[]; people: string[]; posti: string[];
+  vicinanze: number[]; canzoni: number[];
+  status: string; price: string; solo: boolean;
+  costMin: number; costMax: number; kmMin: number; kmMax: number;
+}
 
 const MESI=["GEN","FEB","MAR","APR","MAG","GIU","LUG","AGO","SET","OTT","NOV","DIC"];
 /* ── Compagni: enum delle persone con cui vado ai concerti.
    Aggiungi qui i nomi consentiti, poi popola il campo "with" di ogni evento. ── */
 
 /* ── Live-music glyphs: thin line icons, inherit currentColor ── */
-const PATHS={
+const PATHS: Record<string, React.ReactNode> = {
   // KPI stats
   ticket:<><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2 2 2 0 0 0 0 6 2 2 0 0 1-2 2H5a2 2 0 0 1-2-2 2 2 0 0 0 0-6Z"/><path d="M14 7v10" strokeDasharray="1.5 2"/></>,
   mic:<><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/></>,
@@ -49,13 +71,13 @@ const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? "";
 
 // Venue coordinates [lng, lat] — hardcoded, no runtime geocoding
 
-const sortKey=d=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(+m[3])*10000+(+m[2])*100+(+m[1]):0;};
+const sortKey=(d:{date:string})=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(+m[3])*10000+(+m[2])*100+(+m[1]):0;};
 // weekday 0=lunedì..6=domenica; multi-day events count on their first day, like sortKey
 const GIORNI=["LUN","MAR","MER","GIO","VEN","SAB","DOM"];
-const weekdayOf=d=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(new Date(+m[3],+m[2]-1,+m[1]).getDay()+6)%7:0;};
+const weekdayOf=(d:{date:string})=>{const m=d.date.match(/(\d{1,2})(?:–\d{1,2})?\/(\d{2})\/(\d{4})/);return m?(new Date(+m[3],+m[2]-1,+m[1]).getDay()+6)%7:0;};
 const todayKey=()=>{const t=new Date();return t.getFullYear()*10000+(t.getMonth()+1)*100+t.getDate();};
-const isPlanned=d=>sortKey(d)>=todayKey();
-const monthOf=d=>parseInt(d.date.split("/")[1],10)-1;
+const isPlanned=(d:{date:string})=>sortKey(d)>=todayKey();
+const monthOf=(d:{date:string})=>parseInt(d.date.split("/")[1],10)-1;
 const CHRON=[...ALLDATA].sort((a,b)=>sortKey(a)-sortKey(b));
 // Event vs concert: an ALLDATA row is an EVENT (ticket/trip/evening); a
 // festival row contains several CONCERTS in `sets`. FLAT_ALL is every
@@ -64,21 +86,21 @@ const CHRON=[...ALLDATA].sort((a,b)=>sortKey(a)-sortKey(b));
 // compagni stats run on concerts.
 const FLAT_ALL=flatConcerts(ALLDATA);
 // Display label for a row: a standalone concert shows its artist, a festival its name.
-const labelOf=e=>isFestival(e)?e.name:e.artist;
+const labelOf=(e:Entry)=>isFestival(e)?e.name:e.artist;
 // Festival name of a concert's row (empty for a standalone concert). The type
 // guard narrows here, so callers don't have to.
-const festName=e=>isFestival(e)?e.name:"";
-const counter=(arr,k)=>{const m={};arr.forEach(x=>{const v=typeof k==="function"?k(x):x[k];m[v]=(m[v]||0)+1});return m;};
+const festName=(e:Entry)=>isFestival(e)?e.name:"";
+const counter=<T,>(arr:T[],k:keyof T|((x:T)=>unknown)):Record<string,number>=>{const m:Record<string,number>={};arr.forEach(x=>{const v=typeof k==="function"?k(x):x[k];m[v as any]=(m[v as any]||0)+1});return m;};
 // like counter, but for array-valued fields (e.g. "with"): counts each element
-const multiCounter=(arr,k)=>{const m={};arr.forEach(x=>{(x[k]||[]).forEach(v=>{m[v]=(m[v]||0)+1});});return m;};
+const multiCounter=<T,>(arr:T[],k:keyof T):Record<string,number>=>{const m:Record<string,number>={};arr.forEach(x=>{((x[k] as any[])||[]).forEach((v:any)=>{m[v as any]=(m[v as any]||0)+1});});return m;};
 const ranked=(o:Record<string,number>)=>Object.entries(o).sort((a,b)=>b[1]-a[1]);
 // Rank-aware cutoff for "top" cards. Walks a ranked [name,value] list and grows
 // the visible set rank by rank (a "rank" = all items sharing the same value).
 // Rules: keep going while under `soft` (a comfortable target count); whenever a
 // rank is shown, show ALL of its members; but never exceed `hard` (the height
 // ceiling) — so a rank that would push past `hard` is dropped whole, not split.
-const rankCutoff=(rows,soft=8,hard=8)=>{
-  const out=[];
+const rankCutoff=<T extends readonly [any,number]>(rows:T[],soft=8,hard=8):T[]=>{
+  const out:T[]=[];
   for(let i=0;i<rows.length;){
     const v=rows[i][1];let j=i;while(j<rows.length&&rows[j][1]===v)j++; // [i,j) = this rank
     if(out.length>0&&j>hard) break;          // adding this whole rank blows the ceiling → stop
@@ -90,35 +112,35 @@ const rankCutoff=(rows,soft=8,hard=8)=>{
 };
 // cost helpers — `cost` is the all-in price paid for a single seat (fees included), in EUR.
 // Many concerts have no known price; those are simply excluded from every cost stat.
-const hasCost=d=>typeof d.cost==="number";
+const hasCost=<T extends {cost?:number}>(d:T):d is T&{cost:number}=>typeof d.cost==="number";
 // a concert can be: priced (cost number) · a gift (someone paid for it) ·
 // an accredito (guest list/press pass, free entry) · unknown.
 // gifts, accrediti and unknowns never enter the money stats.
-const isGift=d=>d.gift===true;
-const isAccredito=d=>d.accredito===true;
+const isGift=<T extends {gift?:boolean}>(d:T):d is T&{gift:true}=>d.gift===true;
+const isAccredito=<T extends {accredito?:boolean}>(d:T):d is T&{accredito:true}=>d.accredito===true;
 // voto — personal 1..5-star rating, given only after attending. Planned concerts
 // can't have one yet; any past concert without a voto is simply left out of vote stats.
-const hasVoto=d=>typeof d.voto==="number";
+const hasVoto=<T extends {voto?:number}>(d:T):d is T&{voto:number}=>typeof d.voto==="number";
 // from — città di partenza del viaggio ("m" Milano / "g" Genova). Come voto e
 // vicinanza si può impostare anche dopo l'evento: assente = non ancora definita.
 // I km sono precalcolati offline e salvati per-concerto in data.ts (vedi CLAUDE.md):
 // nessuna coordinata di partenza né formula di distanza deve vivere nel bundle.
-const FROM_LABELS={m:"Milano",g:"Genova"};
-const hasFrom=d=>d.from==="m"||d.from==="g";
-const fromMissing=d=>!isPlanned(d)&&!hasFrom(d);   // passato senza partenza -> da segnalare
+const FROM_LABELS:Record<string,string>={m:"Milano",g:"Genova"};
+const hasFrom=<T extends {from?:string}>(d:T):d is T&{from:"m"|"g"}=>d.from==="m"||d.from==="g";
+const fromMissing=(d:Datum)=>!isPlanned(d)&&!hasFrom(d);   // passato senza partenza -> da segnalare
 // one-way km from home; null if origin unknown or km not yet computed
-const distKm=d=>hasFrom(d)&&typeof d.km==="number"?d.km:null;
-const km0=n=>Math.round(n).toLocaleString("it-IT")+" km";
-const voto1=n=>n.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1});
-const eur0=n=>"€"+Math.round(n).toLocaleString("it-IT");
-const eur2=n=>"€"+n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
-const sum=a=>a.reduce((s,x)=>s+x,0);
+const distKm=(d:Datum)=>hasFrom(d)&&typeof d.km==="number"?d.km:null;
+const km0=(n:number)=>Math.round(n).toLocaleString("it-IT")+" km";
+const voto1=(n:number)=>n.toLocaleString("it-IT",{minimumFractionDigits:1,maximumFractionDigits:1});
+const eur0=(n:number)=>"€"+Math.round(n).toLocaleString("it-IT");
+const eur2=(n:number)=>"€"+n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
+const sum=(a:number[])=>a.reduce((s,x)=>s+x,0);
 
 /* ── Filtri: dimensioni sensate sul dataset, AND tra dimensioni, OR dentro una dimensione ── */
 const ALL_YEARS=[...new Set(ALLDATA.map(d=>d.y))].sort((a,b)=>a-b);
 const YEAR_MIN=ALL_YEARS[0], YEAR_MAX=ALL_YEARS[ALL_YEARS.length-1];
 // ISO bounds (YYYY-MM-DD) for the native date pickers, spanning all events
-const keyToISO=k=>{const s=String(k).padStart(8,"0");return s.slice(0,4)+"-"+s.slice(4,6)+"-"+s.slice(6,8);};
+const keyToISO=(k:number)=>{const s=String(k).padStart(8,"0");return s.slice(0,4)+"-"+s.slice(4,6)+"-"+s.slice(6,8);};
 const DATE_LO=keyToISO(Math.min(...ALLDATA.map(sortKey)));
 const DATE_HI=keyToISO(Math.max(...ALLDATA.map(sortKey)));
 const ALL_CITIES=[...new Set(ALLDATA.map(d=>d.city))].sort((a,b)=>a.localeCompare(b,"it"));
@@ -129,33 +151,35 @@ const ALL_POSTI=POSTO_ORDER.filter(p=>ALLDATA.some(d=>d.posto===p));
 // ---- Vicinanza (vantaggio sul palco): scala ordinale 1..6 -------------------
 // 1 Transenna, 2 Sottopalco, 3 Centro = "vicino"; 4 Fondo, 5 Tribuna, 6 Anello alto = "lontano".
 // Per-CONCERTO: nei festival ogni set ha la sua. Assente = non ancora definita (eventi futuri).
-const VIC_LABELS={1:"Transenna",2:"Sottopalco",3:"Centro",4:"Fondo",5:"Tribuna",6:"Anello alto"};
+const VIC_LABELS:Record<number,string>={1:"Transenna",2:"Sottopalco",3:"Centro",4:"Fondo",5:"Tribuna",6:"Anello alto"};
+// typed view of the imported (const-asserted) canzoni-note labels, so numeric lookups compile
+const CN_LABELS:Record<number,string>=CANZONI_NOTE_LABELS;
 const VIC_ORDER=[1,2,3,4,5,6];
-const hasVic=d=>typeof d.vicinanza==="number";        // valore vero, entra nel recap
-const vicMissing=c=>!isPlanned(c)&&!hasVic(c);        // concerto passato senza valore -> da segnalare
-const votoMissing=c=>!isPlanned(c)&&!hasVoto(c);      // concerto passato senza voto -> da segnalare
+const hasVic=<T extends {vicinanza?:number}>(d:T):d is T&{vicinanza:number}=>typeof d.vicinanza==="number";        // valore vero, entra nel recap
+const vicMissing=(c:Datum)=>!isPlanned(c)&&!hasVic(c);        // concerto passato senza valore -> da segnalare
+const votoMissing=(c:Datum)=>!isPlanned(c)&&!hasVoto(c);      // concerto passato senza voto -> da segnalare
 // canzoniNote ("Canzoni note"): scala ordinale 1..5, per-concerto come vicinanza
 // (assente = non ancora definita, "na" = non ricordo e fuori dal recap).
-const hasCN=d=>typeof d.canzoniNote==="number";
+const hasCN=<T extends {canzoniNote?:number|string}>(d:T):d is T&{canzoniNote:number}=>typeof d.canzoniNote==="number";
 const ALL_VIC=VIC_ORDER.filter(v=>FLAT_ALL.some(c=>c.vicinanza===v));
 const CN_ORDER=[1,2,3,4,5];
 const ALL_CN=CN_ORDER.filter(v=>FLAT_ALL.some(c=>c.canzoniNote===v));
 const COST_MIN=0;
 const COST_MAX=Math.ceil(Math.max(...ALLDATA.filter(hasCost).map(d=>d.cost))/10)*10;
 const KM_MIN=0;
-const KM_MAX=Math.ceil(Math.max(...ALLDATA.map(d=>distKm(d)).filter(k=>k!==null))/10)*10;
+const KM_MAX=Math.ceil(Math.max(...ALLDATA.map(d=>distKm(d)).filter((k):k is number=>k!==null))/10)*10;
 // ISO YYYY-MM-DD (from a native date input) → comparable YYYYMMDD integer
-const isoKey=s=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?(+m[1])*10000+(+m[2])*100+(+m[3]):null;};
+const isoKey=(s:string)=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?(+m[1])*10000+(+m[2])*100+(+m[3]):null;};
 
-const EMPTY_FILTERS={dateFrom:"",dateTo:"",cities:[],people:[],posti:[],vicinanze:[],canzoni:[],status:"all",price:"all",solo:false,costMin:COST_MIN,costMax:COST_MAX,kmMin:KM_MIN,kmMax:KM_MAX};
-const isDefaultDate=f=>!f.dateFrom&&!f.dateTo;
-const isDefaultCost=f=>f.costMin===COST_MIN&&f.costMax===COST_MAX;
-const isDefaultKm=f=>f.kmMin===KM_MIN&&f.kmMax===KM_MAX;
-const isEmptyFilters=f=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.posti.length===0&&f.vicinanze.length===0&&f.canzoni.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f)&&isDefaultKm(f);
-const countActive=f=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.posti.length+f.vicinanze.length+f.canzoni.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1)+(isDefaultKm(f)?0:1);
+const EMPTY_FILTERS:Filters={dateFrom:"",dateTo:"",cities:[],people:[],posti:[],vicinanze:[],canzoni:[],status:"all",price:"all",solo:false,costMin:COST_MIN,costMax:COST_MAX,kmMin:KM_MIN,kmMax:KM_MAX};
+const isDefaultDate=(f:Filters)=>!f.dateFrom&&!f.dateTo;
+const isDefaultCost=(f:Filters)=>f.costMin===COST_MIN&&f.costMax===COST_MAX;
+const isDefaultKm=(f:Filters)=>f.kmMin===KM_MIN&&f.kmMax===KM_MAX;
+const isEmptyFilters=(f:Filters)=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.posti.length===0&&f.vicinanze.length===0&&f.canzoni.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f)&&isDefaultKm(f);
+const countActive=(f:Filters)=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.posti.length+f.vicinanze.length+f.canzoni.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1)+(isDefaultKm(f)?0:1);
 
 /* Recap testuale dei filtri attivi — usato dalla chat AI per confermare cosa mostra la pagina. */
-function describeFilters(f){
+function describeFilters(f:Filters){
   const parts=[];
   if(f.status==="attended") parts.push("solo già visti");
   if(f.status==="planned") parts.push("solo in programma");
@@ -166,7 +190,7 @@ function describeFilters(f){
   if(f.solo) parts.push("da solo");
   if(f.posti.length) parts.push("posto: "+f.posti.join(", "));
   if(f.vicinanze.length) parts.push("vicinanza: "+f.vicinanze.map(v=>VIC_LABELS[v]||v).join(", "));
-  if(f.canzoni.length) parts.push("canzoni note: "+f.canzoni.map(v=>CANZONI_NOTE_LABELS[v]||v).join(", "));
+  if(f.canzoni.length) parts.push("canzoni note: "+f.canzoni.map(v=>CN_LABELS[v]||v).join(", "));
   if(f.price==="paid") parts.push("solo con prezzo");
   if(f.price==="gift") parts.push("solo regalati");
   if(f.price==="accredito") parts.push("solo con accredito");
@@ -177,24 +201,24 @@ function describeFilters(f){
 }
 
 /* Applica l'input del tool AI `set_filters` (già validato dallo schema) allo stato filtri. */
-function mergeToolFilters(cur,input){
-  const next={...(input.replace?EMPTY_FILTERS:cur)};
-  const iso=s=>s===""||isoKey(s)!=null?s:undefined; // "" clears, invalid dates ignored
+function mergeToolFilters(cur:Filters,input:any){
+  const next:Filters={...(input.replace?EMPTY_FILTERS:cur)};
+  const iso=(s:string)=>s===""||isoKey(s)!=null?s:undefined; // "" clears, invalid dates ignored
   if(input.status!==undefined) next.status=input.status;
   if(input.dateFrom!==undefined&&iso(input.dateFrom)!==undefined) next.dateFrom=input.dateFrom;
   if(input.dateTo!==undefined&&iso(input.dateTo)!==undefined) next.dateTo=input.dateTo;
-  if(input.cities!==undefined) next.cities=input.cities.filter(c=>ALL_CITIES.includes(c));
-  if(input.people!==undefined) next.people=input.people.filter(p=>ALL_PEOPLE.includes(p));
+  if(input.cities!==undefined) next.cities=input.cities.filter((c:string)=>ALL_CITIES.includes(c));
+  if(input.people!==undefined) next.people=input.people.filter((p:Person)=>ALL_PEOPLE.includes(p));
   if(input.solo!==undefined) next.solo=!!input.solo;
-  if(input.posti!==undefined) next.posti=input.posti.filter(p=>ALL_POSTI.includes(p));
-  if(input.vicinanze!==undefined) next.vicinanze=input.vicinanze.map(Number).filter(v=>ALL_VIC.includes(v));
-  if(input.canzoniNote!==undefined) next.canzoni=input.canzoniNote.map(Number).filter(v=>ALL_CN.includes(v));
+  if(input.posti!==undefined) next.posti=input.posti.filter((p:string)=>ALL_POSTI.includes(p));
+  if(input.vicinanze!==undefined) next.vicinanze=input.vicinanze.map(Number).filter((v:number)=>ALL_VIC.includes(v));
+  if(input.canzoniNote!==undefined) next.canzoni=input.canzoniNote.map(Number).filter((v:number)=>ALL_CN.includes(v));
   if(input.price!==undefined) next.price=input.price;
-  const clampCost=v=>Math.min(COST_MAX,Math.max(COST_MIN,Math.round(v)));
+  const clampCost=(v:number)=>Math.min(COST_MAX,Math.max(COST_MIN,Math.round(v)));
   if(input.costMin!==undefined) next.costMin=clampCost(input.costMin);
   if(input.costMax!==undefined) next.costMax=clampCost(input.costMax);
   if(next.costMin>next.costMax) [next.costMin,next.costMax]=[next.costMax,next.costMin];
-  const clampKm=v=>Math.min(KM_MAX,Math.max(KM_MIN,Math.round(v)));
+  const clampKm=(v:number)=>Math.min(KM_MAX,Math.max(KM_MIN,Math.round(v)));
   if(input.kmMin!==undefined) next.kmMin=clampKm(input.kmMin);
   if(input.kmMax!==undefined) next.kmMax=clampKm(input.kmMax);
   if(next.kmMin>next.kmMax) [next.kmMin,next.kmMax]=[next.kmMax,next.kmMin];
@@ -203,18 +227,18 @@ function mergeToolFilters(cur,input){
 
 // Per-concert criteria, checked against anything with with/vicinanza/canzoniNote
 // (a single-concert event or one festival set).
-const concertMatches=(f,c)=>{
+const concertMatches=(f:Filters,c:PerConcert)=>{
   if(f.people.length && !(c.with||[]).some(p=>f.people.includes(p))) return false;
   if(f.solo && (c.with&&c.with.length)) return false;
   if(f.vicinanze.length && !(hasVic(c)&&f.vicinanze.includes(c.vicinanza))) return false;
   if(f.canzoni.length && !(hasCN(c)&&f.canzoni.includes(c.canzoniNote))) return false;
   return true;
 };
-const hasConcertFilters=f=>f.people.length>0||f.solo||f.vicinanze.length>0||f.canzoni.length>0;
+const hasConcertFilters=(f:Filters)=>f.people.length>0||f.solo||f.vicinanze.length>0||f.canzoni.length>0;
 
-function applyFilters(data,f){
+function applyFilters(data:Entry[],f:Filters):Entry[]{
   const from=isoKey(f.dateFrom), to=isoKey(f.dateTo);
-  const out=[];
+  const out:Entry[]=[];
   for(const d of data){
     // event-level criteria: the whole row passes or fails
     const dk=sortKey(d);
@@ -245,7 +269,7 @@ function applyFilters(data,f){
     if(isFestival(d)){
       const keep=hasConcertFilters(f)?d.concerts.filter(s=>concertMatches(f,s)):d.concerts;
       if(!keep.length) continue;
-      out.push(keep.length===d.concerts.length?d:{...d,concerts:keep});
+      out.push(keep.length===d.concerts.length?d:{...d,concerts:keep} as Entry);
     }else{
       if(hasConcertFilters(f) && !concertMatches(f,d)) continue;
       out.push(d);
@@ -254,8 +278,9 @@ function applyFilters(data,f){
   return out;
 }
 
-const FilterContext=React.createContext<any>({data:ALLDATA,filters:EMPTY_FILTERS,setFilters:()=>{}});
-const useData=()=>React.useContext(FilterContext).data;
+interface FilterCtx { data:Entry[]; filters:Filters; setFilters:React.Dispatch<React.SetStateAction<Filters>>; }
+const FilterContext=React.createContext<FilterCtx>({data:ALLDATA,filters:EMPTY_FILTERS,setFilters:()=>{}});
+const useData=():Entry[]=>React.useContext(FilterContext).data;
 const useFilters=()=>React.useContext(FilterContext);
 
 function KPIs(){
@@ -348,7 +373,7 @@ function Timeline(){
   const DATA=useData();
   // per concerto: i set dei festival compaiono singolarmente sulla linea
   const CHRON=useMemo(()=>DATA.flatMap(concertsOf).sort((a,b)=>sortKey(a)-sortKey(b)),[DATA]);
-  let lastYear=null;
+  let lastYear:number|null=null;
   return (
     <div>
       <div className="tlscroll">
@@ -397,14 +422,15 @@ function ChartCard(){
 // swipe on the card switches view (left = next tab, right = previous tab).
 // Swipes that start inside horizontally-scrollable areas (e.g. the timeline
 // track) are ignored so they keep scrolling normally.
-function useSwipeToggle(onPrev,onNext){
-  const start=useRef(null);
-  const onTouchStart=e=>{
-    if(e.target.closest&&e.target.closest(".tlscroll,input,select,textarea")){start.current=null;return;}
+function useSwipeToggle(onPrev:()=>void,onNext:()=>void){
+  const start=useRef<{x:number;y:number}|null>(null);
+  const onTouchStart=(e:React.TouchEvent<HTMLElement>)=>{
+    const tgt=e.target as Element;
+    if(tgt.closest&&tgt.closest(".tlscroll,input,select,textarea")){start.current=null;return;}
     const t=e.touches[0];
     start.current={x:t.clientX,y:t.clientY};
   };
-  const onTouchEnd=e=>{
+  const onTouchEnd=(e:React.TouchEvent<HTMLElement>)=>{
     if(!start.current)return;
     const t=e.changedTouches[0];
     const dx=t.clientX-start.current.x,dy=t.clientY-start.current.y;
@@ -484,7 +510,7 @@ function Months(){
   return (
     <section className="panel">
       <h2><Icon name="calendar" size={22} className="h2ic"/>Quando vado</h2>
-      <div className="months">{Object.keys(mc).map(i=>{
+      <div className="months">{Object.keys(mc).map(Number).map(i=>{
         const v=mc[i],p=mp[i],a=v-p;const h=v?Math.max(4,Math.round(v/max*105)):2;
         const ph=v?Math.round(p/v*h):0;const ah=h-ph;
         return <div className={"mcol"+(v===max&&v>0?" top":"")} key={i}>
@@ -508,7 +534,7 @@ function Weekdays(){
   return (
     <section className="panel">
       <h2><Icon name="calendar" size={22} className="h2ic"/>Che giorno esco</h2>
-      <div className="days">{Object.keys(wc).map(i=>{
+      <div className="days">{Object.keys(wc).map(Number).map(i=>{
         const v=wc[i],p=wp[i],a=v-p;const h=v?Math.max(4,Math.round(v/max*105)):2;
         const ph=v?Math.round(p/v*h):0;const ah=h-ph;
         return <div className={"mcol"+(v===max&&v>0?" top":"")} key={i}>
@@ -625,16 +651,16 @@ function VicinanzaCard(){
 // Every figure here is computed only over concerts with a known `cost` (all-in,
 // single seat). Unknown-price concerts are tolerated and just left out.
 
-function SpendYearChart({rows}: any){
+function SpendYearChart({rows}:{rows:Array<Datum&{cost:number}>}){
   // total spend per year, split past (amber) vs planned/already-paid (teal)
-  const att={},pl={},cnt={},span=[];
+  const att:Record<number,number>={},pl:Record<number,number>={},cnt:Record<number,number>={},span:number[]=[];
   const endY=Math.max(2026,...rows.map(d=>d.y));
   for(let y=2022;y<=endY;y++){att[y]=0;pl[y]=0;cnt[y]=0;span.push(y);}
   rows.forEach(d=>{ if(d.y<2022) return; (isPlanned(d)?pl:att)[d.y]+=d.cost; cnt[d.y]++; });
-  const tot=y=>att[y]+pl[y];
+  const tot=(y:number)=>att[y]+pl[y];
   const max=Math.max(...span.map(tot),1);
   const peak=span.slice().sort((a,b)=>att[b]-att[a])[0];
-  const avgOf=y=>cnt[y]?tot(y)/cnt[y]:0;
+  const avgOf=(y:number)=>cnt[y]?tot(y)/cnt[y]:0;
   const avgMax=Math.max(...span.map(avgOf),1);
   return <div className="years spendyears dualbars">{span.map(y=>{
     const a=att[y],p=pl[y],v=a+p;
@@ -782,7 +808,7 @@ function TopVoted(){
   // shown in full or held back entirely). Expanded: every rated concert, down to 1★.
   const allVoted=DATA.flatMap(concertsOf).filter(hasVoto)
     .sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a))
-    .map(d=>[d,d.voto]);
+    .map((d):[FlatConcert&{voto:number},number]=>[d,d.voto]);
   const eligible=allVoted.filter(([d])=>d.voto>=4);
   const cut=rankCutoff(eligible);
   const shown=expanded?allVoted:cut;
@@ -808,13 +834,13 @@ function TopVoted(){
 function VoteScatter(){
   const DATA=useData();
   const DIMS=["cost","vic","cn"]; // tab order — swipe steps through it
-  const DIM_NAMES={cost:"prezzo",vic:"vicinanza",cn:"canzoni note"};
+  const DIM_NAMES:Record<string,string>={cost:"prezzo",vic:"vicinanza",cn:"canzoni note"};
   const [dim,setDim]=useState("cost"); // "cost" | "vic" | "cn"
   const swipe=useSwipeToggle(
     ()=>setDim(d=>DIMS[Math.max(0,DIMS.indexOf(d)-1)]),
     ()=>setDim(d=>DIMS[Math.min(DIMS.length-1,DIMS.indexOf(d)+1)])
   );
-  const hasDim=dim==="cost"?hasCost:dim==="vic"?hasVic:hasCN;
+  const hasDim:(c:Datum)=>boolean=dim==="cost"?hasCost:dim==="vic"?hasVic:hasCN;
   // per concerto. Sui set dei festival il prezzo non è definito (il biglietto è
   // dell'evento), quindi la vista Prezzo li esclude da sé; Vicinanza e Canzoni
   // note sono per-concerto e li includono.
@@ -822,26 +848,26 @@ function VoteScatter(){
   // svg geometry — viewBox scales with the panel width
   const W=720,H=310,ML=48,MR=16,MT=14,MB=42;
   const iw=W-ML-MR,ih=H-MT-MB;
-  const yOf=v=>MT+ih*(1-(v-0.5)/5); // votes 1..5 with half-step padding
+  const yOf=(v:number)=>MT+ih*(1-(v-0.5)/5); // votes 1..5 with half-step padding
   const costMax=Math.max(50,Math.ceil(Math.max(0,...pts.map(d=>d.cost||0))/25)*25);
-  const xOf=d=>dim==="cost"
-    ? ML+(d.cost/costMax)*iw
+  const xOf=(d:FlatConcert)=>dim==="cost"
+    ? ML+((d.cost as number)/costMax)*iw
     : dim==="vic"
-    ? ML+((d.vicinanza-0.5)/6)*iw
-    : ML+((d.canzoniNote-0.5)/5)*iw;
+    ? ML+(((d.vicinanza as number)-0.5)/6)*iw
+    : ML+(((d.canzoniNote as number)-0.5)/5)*iw;
   const xTicks=dim==="cost"
     ? Array.from({length:costMax/25+1},(_,i)=>i*25).filter(t=>costMax<=150||t%50===0)
     : dim==="vic"?VIC_ORDER:[1,2,3,4,5];
   // overlapping points get a small deterministic offset so every dot stays visible
   const OFF=[[0,0],[0,11],[0,-11],[11,0],[-11,0],[11,11],[-11,-11],[11,-11],[-11,11],[0,22],[0,-22],[22,0],[-22,0],[22,11],[-22,-11],[22,-11],[-22,11],[11,22],[-11,-22]];
-  const seen={};
+  const seen:Record<string,number>={};
   const nodes=pts.map(d=>{
     const bx=Math.round(xOf(d)/10),by=d.voto;
     const k=bx+"-"+by;
     const i=(seen[k]=(seen[k]||0)+1)-1;
     const [dx,dy]=OFF[i%OFF.length];
     const sc=dim==="cost"?0.55:1; // gentler nudge on the continuous axis
-    return {d,x:xOf(d)+dx*sc,y:yOf(d.voto)+dy};
+    return {d,x:xOf(d)+dx*sc,y:yOf(d.voto as number)+dy};
   });
   return (
     <section className="panel full" {...swipe}>
@@ -865,12 +891,12 @@ function VoteScatter(){
             const x=dim==="cost"?ML+(t/costMax)*iw:dim==="vic"?ML+((t-0.5)/6)*iw:ML+((t-0.5)/5)*iw;
             return <g key={t}>
               <line x1={x} y1={MT} x2={x} y2={MT+ih} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 5" opacity="0.6"/>
-              <text x={x} y={H-14} textAnchor="middle" fontSize={dim==="cost"?14:12} fill="var(--muted)" fontFamily="Inter,sans-serif">{dim==="cost"?"€"+t:dim==="vic"?VIC_LABELS[t]:CANZONI_NOTE_LABELS[t]}</text>
+              <text x={x} y={H-14} textAnchor="middle" fontSize={dim==="cost"?14:12} fill="var(--muted)" fontFamily="Inter,sans-serif">{dim==="cost"?"€"+t:dim==="vic"?VIC_LABELS[t]:CN_LABELS[t]}</text>
             </g>;
           })}
           {nodes.map(({d,x,y},i)=>(
             <circle key={i} cx={x} cy={y} r="6" fill="var(--lamp)" fillOpacity="0.82" stroke="var(--bg-2)" strokeWidth="1.5">
-              <title>{d.artist+" · "+d.date+" · "+"★".repeat(d.voto)+" · "+(dim==="cost"?eur2(d.cost):dim==="vic"?VIC_LABELS[d.vicinanza]:CANZONI_NOTE_LABELS[d.canzoniNote])}</title>
+              <title>{d.artist+" · "+d.date+" · "+"★".repeat(d.voto as number)+" · "+(dim==="cost"?eur2(d.cost as number):dim==="vic"?VIC_LABELS[d.vicinanza as number]:CN_LABELS[d.canzoniNote as number])}</title>
             </circle>
           ))}
         </svg>
@@ -902,7 +928,7 @@ function CanzoniNoteCard(){
       {total>0?(<>
         <div className="rank">{rows.map(({v,n,a,pl,avg})=>(
           <div className="rrow" key={v}>
-            <div className="rtop"><span className="name">{CANZONI_NOTE_LABELS[v]} · <span style={{color:"var(--muted)",fontWeight:400}}>{Math.round(n/total*100)}%{avg!=null&&<> · voto {voto1(avg)}<span className="star" style={{fontSize:"0.85em"}}>★</span></>}</span></span><span className="val">{a>0&&<span className="vpast">{a}</span>}{a>0&&pl>0&&<span className="vplus"> + </span>}{pl>0&&<span className="vpl">{pl}</span>}</span></div>
+            <div className="rtop"><span className="name">{CN_LABELS[v]} · <span style={{color:"var(--muted)",fontWeight:400}}>{Math.round(n/total*100)}%{avg!=null&&<> · voto {voto1(avg)}<span className="star" style={{fontSize:"0.85em"}}>★</span></>}</span></span><span className="val">{a>0&&<span className="vpast">{a}</span>}{a>0&&pl>0&&<span className="vplus"> + </span>}{pl>0&&<span className="vpl">{pl}</span>}</span></div>
             <div className="track">
               <div className="fill" style={{width:Math.round(a/max*100)+"%",background:"var(--lamp)"}}></div>
               {pl>0&&<div className="fill fpl" style={{width:Math.round(pl/max*100)+"%"}}></div>}
@@ -916,7 +942,7 @@ function CanzoniNoteCard(){
   );
 }
 
-function hl(text,q){
+function hl(text:string,q:string){
   if(!q) return text;
   const i=text.toLowerCase().indexOf(q.toLowerCase());
   if(i<0) return text;
@@ -924,7 +950,7 @@ function hl(text,q){
 }
 
 // Does a festival match the free-text query? (name, any concert artist/companion, place)
-function festMatches(ev,q){
+function festMatches(ev:Festival,q:string){
   const n=q.trim().toLowerCase();
   if(!n) return true;
   if(ev.name.toLowerCase().includes(n)||ev.venue.toLowerCase().includes(n)||ev.city.toLowerCase().includes(n)) return true;
@@ -934,8 +960,8 @@ function festMatches(ev,q){
 function ArchiveTable(){
   const DATA=useData();
   const [q,setQ]=useState("");
-  const DEFAULT_SORT={col:"date",dir:"desc"}; // default: newest first, shown in the Data column
-  const [sort,setSort]=useState(DEFAULT_SORT); // col:null => relevance order (only while searching)
+  const DEFAULT_SORT={col:"date" as string|null,dir:"desc"}; // default: newest first, shown in the Data column
+  const [sort,setSort]=useState<{col:string|null;dir:string}>(DEFAULT_SORT); // col:null => relevance order (only while searching)
 
   // The archive is an archive of CONCERTS: every row is one concert, festival
   // sets included as first-class rows. Fuse also indexes the festival name
@@ -961,13 +987,13 @@ function ArchiveTable(){
       else if(sort.col==="canzoniNote"){av=hasCN(a)?a.canzoniNote:-Infinity;bv=hasCN(b)?b.canzoniNote:-Infinity;} // "na"/missing sink like unknown prices
       else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // festival sets & unknown origins sink like unknown prices
       else if(sort.col==="with"){av=(a.with||[]).join(", ").toLowerCase();bv=(b.with||[]).join(", ").toLowerCase();}
-      else{av=(a[sort.col]||"").toLowerCase();bv=(b[sort.col]||"").toLowerCase();}
+      else{av=((a as any)[sort.col!]||"").toLowerCase();bv=((b as any)[sort.col!]||"").toLowerCase();}
       return av<bv?-dir:av>bv?dir:0;
     });
   }
 
   // click cycle: 1st tap sorts (date starts desc, others asc), 2nd tap flips, 3rd tap removes the sort
-  const setCol=col=>{
+  const setCol=(col:string)=>{
     setSort(s=>{
       const first=col==="date"?"desc":"asc";
       const second=first==="asc"?"desc":"asc";
@@ -976,7 +1002,7 @@ function ArchiveTable(){
       return searching?{col:null,dir:"desc"}:DEFAULT_SORT; // remove: back to relevance (searching) or default date order
     });
   };
-  const SortIcon=({col})=>{
+  const SortIcon=({col}:{col:string})=>{
     const dir=sort.col===col?sort.dir:null;
     return (
       <span className="ar" aria-hidden="true">
@@ -1018,9 +1044,9 @@ function ArchiveTable(){
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isGift(c)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cn">{hasCN(c)?<span className="viccell">{CANZONI_NOTE_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
-                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[c.from]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="posto">{c.posto?<span className="postocell">{c.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(c)?<span className="viccell">{VIC_LABELS[c.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
               </tr>
@@ -1051,9 +1077,9 @@ function ArchiveTable(){
                   <td>{hl(ev.venue,q)}</td>
                   <td className="city"><b>{hl(ev.city,q)}</b></td>
                   <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev))} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="posto">{ev.posto?<span className="postocell">{ev.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="evconc"><span className="evconc-n">{ev.concerts.length}</span><span className="evconc-l">{ev.concerts.map(c=>c.artist).join(", ")}</span></td>
+                  <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                 </tr>
               );})}
             </tbody>
@@ -1067,17 +1093,17 @@ function ArchiveTable(){
 
 function MapCard(){
   const DATA=useData();
-  const ref=useRef(null);
-  const mapRef=useRef(null);
-  const popRef=useRef(null);
+  const ref=useRef<HTMLDivElement|null>(null);
+  const mapRef=useRef<any>(null);
+  const popRef=useRef<any>(null);
   const [mode]=useState("venue"); // venue only
   const hasToken = MAPBOX_TOKEN && MAPBOX_TOKEN.indexOf("pk.")===0;
 
   // Build GeoJSON for the current mode
-  const buildGeo=React.useCallback((m)=>{
+  const buildGeo=React.useCallback((m:string)=>{
     const coords = m==="venue"?VENUE_COORDS:CITY_COORDS;
-    const keyOf = d=> m==="venue"?d.venue:d.city;
-    const counts={};
+    const keyOf = (d:Entry)=> m==="venue"?d.venue:d.city;
+    const counts:Record<string,number>={};
     DATA.forEach(d=>{const k=keyOf(d);counts[k]=(counts[k]||0)+1;});
     const features=Object.keys(counts).map(k=>{
       const c=coords[k];
@@ -1103,7 +1129,7 @@ function MapCard(){
         .flatMap(concertsOf)
         .map(c=>({artist:c.artist,year:c.y,planned:isPlanned(c)}));
       return {type:"Feature",geometry:{type:"Point",coordinates:c},
-        properties:{name:k, city:m==="venue"?sample.city:k, count:counts[k],
+        properties:{name:k, city:m==="venue"?sample!.city:k, count:counts[k],
           attended, planned, mixed, onlyPlanned, attendedShare, innerFactor,
           items:JSON.stringify(items)}};
     }).filter(Boolean);
@@ -1112,7 +1138,7 @@ function MapCard(){
 
   const maxCount=useMemo(()=>{
     const coords=mode==="venue"?VENUE_COORDS:CITY_COORDS;
-    const keyOf=d=>mode==="venue"?d.venue:d.city;
+    const keyOf=(d:Entry)=>mode==="venue"?d.venue:d.city;
     const counts:Record<string,number>={};DATA.forEach(d=>{const k=keyOf(d);counts[k]=(counts[k]||0)+1;});
     return Math.max(...Object.values(counts),1);
   },[mode,DATA]);
@@ -1122,7 +1148,7 @@ function MapCard(){
     const geo=buildGeo(mode);
     if(!geo.features.length) return;
     const b=new mapboxgl.LngLatBounds();
-    geo.features.forEach(f=>b.extend(f.geometry.coordinates));
+    geo.features.forEach((f:any)=>b.extend(f.geometry.coordinates));
     map.fitBounds(b,{padding:60,maxZoom:11,duration:700});
   },[buildGeo,mode]);
 
@@ -1189,9 +1215,9 @@ function MapCard(){
 
     map.on("load",()=>{
       // Re-tint the dark basemap toward the stage palette
-      const setIf=(id,prop,val)=>{ if(map.getLayer(id)){ try{map.setPaintProperty(id,prop,val);}catch(e){} } };
+      const setIf=(id:string,prop:string,val:any)=>{ if(map.getLayer(id)){ try{map.setPaintProperty(id,prop,val);}catch(e){} } };
       const layers=map.getStyle().layers||[];
-      layers.forEach(l=>{
+      layers.forEach((l:any)=>{
         if(l.type==="background") setIf(l.id,"background-color",bg);
         if(l.id.includes("water")) setIf(l.id,"fill-color",bg2);
         if(l.id.includes("land")&&l.type==="fill") setIf(l.id,"fill-color",bg);
@@ -1313,12 +1339,12 @@ function MapCard(){
       // Popups
       const pop=new mapboxgl.Popup({offset:14,className:"mappop",closeButton:true});
       popRef.current=pop;
-      map.on("click","c-circles",(e)=>{
+      map.on("click","c-circles",(e:any)=>{
         const f=e.features[0],p=f.properties;
         const isVenue = mode==="venue";
-        let items=[];
+        let items:any[]=[];
         try{ items=JSON.parse(p.items||"[]"); }catch(_){}
-        const list=items.map(it=>`<div class="pv-item"><span class="pv-art">${it.artist}</span><span class="pv-yr ${it.planned?"pv-yr-pl":"pv-yr-past"}">${it.year}</span></div>`).join("");
+        const list=items.map((it:any)=>`<div class="pv-item"><span class="pv-art">${it.artist}</span><span class="pv-yr ${it.planned?"pv-yr-pl":"pv-yr-past"}">${it.year}</span></div>`).join("");
         pop.setLngLat(f.geometry.coordinates)
            .setHTML(`<div class="pv-name">${p.name}</div><div class="pv-meta">${isVenue?p.city:"Città"}</div><div class="pv-list">${list}</div>`)
            .addTo(map);
@@ -1327,12 +1353,12 @@ function MapCard(){
       map.on("mouseleave","c-circles",()=>map.getCanvas().style.cursor="");
 
       // Click a cluster to zoom in and expand it
-      map.on("click","clusters",(e)=>{
+      map.on("click","clusters",(e:any)=>{
         const f=map.queryRenderedFeatures(e.point,{layers:["clusters"]})[0];
         if(!f) return;
         const id=f.properties.cluster_id;
         const src=map.getSource("concerts");
-        src.getClusterExpansionZoom(id,(err,zoom)=>{
+        src.getClusterExpansionZoom(id,(err:any,zoom:any)=>{
           if(err) return;
           map.easeTo({center:f.geometry.coordinates,zoom,duration:500});
         });
@@ -1410,9 +1436,9 @@ function MapCard(){
 }
 
 class MapBoundary extends React.Component<any,{err:boolean}>{
-  constructor(p){super(p);this.state={err:false};}
+  constructor(p:any){super(p);this.state={err:false};}
   static getDerivedStateFromError(){return {err:true};}
-  componentDidCatch(e){console.error("Map error:",e);}
+  componentDidCatch(e:any){console.error("Map error:",e);}
   render(){
     if(this.state.err) return (
       <section className="panel full">
@@ -1434,10 +1460,10 @@ function FilterSection({label,value,children,wide}: any){
 
 /* Dual-handle range slider built on two overlaid native range inputs. */
 function RangeSlider({min,max,step,valMin,valMax,onChange,fmt}: any){
-  const f=fmt||(x=>x);
-  const pct=v=>max>min?((v-min)/(max-min))*100:0;
-  const setLo=v=>onChange(Math.min(+v,valMax),valMax);
-  const setHi=v=>onChange(valMin,Math.max(+v,valMin));
+  const f=fmt||((x:any)=>x);
+  const pct=(v:number)=>max>min?((v-min)/(max-min))*100:0;
+  const setLo=(v:any)=>onChange(Math.min(+v,valMax),valMax);
+  const setHi=(v:any)=>onChange(valMin,Math.max(+v,valMin));
   return (
     <div className="rng">
       <div className="rng-vals"><span>{f(valMin)}</span><span>{f(valMax)}</span></div>
@@ -1457,15 +1483,15 @@ function RangeSlider({min,max,step,valMin,valMax,onChange,fmt}: any){
 function SearchSelect({options,selected,onToggle,onClear,placeholder,leadLabel,leadActive,onLeadToggle}: any){
   const [open,setOpen]=useState(false);
   const [q,setQ]=useState("");
-  const ref=useRef(null);
+  const ref=useRef<HTMLDivElement|null>(null);
   React.useEffect(()=>{
     if(!open) return;
-    const onDown=e=>{ if(ref.current&&!ref.current.contains(e.target)) setOpen(false); };
+    const onDown=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown",onDown);
     return ()=>document.removeEventListener("mousedown",onDown);
   },[open]);
-  const norm=s=>s.toLowerCase();
-  const shown=q.trim()?options.filter(o=>norm(o).includes(norm(q.trim()))):options;
+  const norm=(s:string)=>s.toLowerCase();
+  const shown=q.trim()?options.filter((o:string)=>norm(o).includes(norm(q.trim()))):options;
   const showLead = leadLabel && (!q.trim() || norm(leadLabel).includes(norm(q.trim())));
   const label = leadActive ? leadLabel
     : selected.length===0 ? (placeholder||"Tutti")
@@ -1494,7 +1520,7 @@ function SearchSelect({options,selected,onToggle,onClear,placeholder,leadLabel,l
               </button>
             )}
             {shown.length===0&&!showLead&&<div className="ssel-empty">Nessun risultato</div>}
-            {shown.map(o=>{
+            {shown.map((o:string)=>{
               const on=selected.includes(o);
               return (
                 <button type="button" key={o} className={"ssel-opt"+(on?" on":"")} onClick={()=>onToggle(o)}>
@@ -1513,30 +1539,30 @@ function SearchSelect({options,selected,onToggle,onClear,placeholder,leadLabel,l
 function FilterButton(){
   const {filters,setFilters}=useFilters();
   const [open,setOpen]=useState(false);
-  const popRef=useRef(null);
-  const btnRef=useRef(null);
+  const popRef=useRef<HTMLDivElement|null>(null);
+  const btnRef=useRef<HTMLButtonElement|null>(null);
   const active=countActive(filters);
   const has=!isEmptyFilters(filters);
 
   React.useEffect(()=>{
     if(!open) return;
-    const onKey=e=>{ if(e.key==="Escape") setOpen(false); };
+    const onKey=(e:KeyboardEvent)=>{ if(e.key==="Escape") setOpen(false); };
     document.addEventListener("keydown",onKey);
     const prevOverflow=document.body.style.overflow;
     document.body.style.overflow="hidden";
     return ()=>{ document.removeEventListener("keydown",onKey); document.body.style.overflow=prevOverflow; };
   },[open]);
 
-  const toggleIn=(key,val)=>setFilters(f=>{
-    const arr=f[key];
-    return {...f,[key]:arr.includes(val)?arr.filter(x=>x!==val):[...arr,val]};
+  const toggleIn=(key:string,val:any)=>setFilters(f=>{
+    const arr=(f as any)[key] as any[];
+    return {...f,[key]:arr.includes(val)?arr.filter((x:any)=>x!==val):[...arr,val]} as Filters;
   });
-  const clearKey=key=>setFilters(f=>({...f,[key]:[]}));
-  const setVal=(key,val)=>setFilters(f=>({...f,[key]:f[key]===val?"all":val}));
-  const toggleBool=key=>setFilters(f=>({...f,[key]:!f[key]}));
-  const setDate=(key,val)=>setFilters(f=>({...f,[key]:val}));
-  const setCost=(lo,hi)=>setFilters(f=>({...f,costMin:lo,costMax:hi}));
-  const setKm=(lo,hi)=>setFilters(f=>({...f,kmMin:lo,kmMax:hi}));
+  const clearKey=(key:string)=>setFilters(f=>({...f,[key]:[]} as Filters));
+  const setVal=(key:string,val:any)=>setFilters(f=>({...f,[key]:(f as any)[key]===val?"all":val} as Filters));
+  const toggleBool=(key:string)=>setFilters(f=>({...f,[key]:!(f as any)[key]} as Filters));
+  const setDate=(key:string,val:string)=>setFilters(f=>({...f,[key]:val} as Filters));
+  const setCost=(lo:number,hi:number)=>setFilters(f=>({...f,costMin:lo,costMax:hi}));
+  const setKm=(lo:number,hi:number)=>setFilters(f=>({...f,kmMin:lo,kmMax:hi}));
   const clearAll=()=>setFilters(EMPTY_FILTERS);
 
   const costLabel = isDefaultCost(filters)?null:(eur0(filters.costMin)+"–"+eur0(filters.costMax));
@@ -1591,11 +1617,11 @@ function FilterButton(){
             </FilterSection>
             <FilterSection label="Città" wide>
               <SearchSelect options={ALL_CITIES} selected={filters.cities}
-                onToggle={c=>toggleIn("cities",c)} onClear={()=>clearKey("cities")} placeholder="Tutte le città"/>
+                onToggle={(c:string)=>toggleIn("cities",c)} onClear={()=>clearKey("cities")} placeholder="Tutte le città"/>
             </FilterSection>
             <FilterSection label="Compagni" wide>
               <SearchSelect options={ALL_PEOPLE} selected={filters.people}
-                onToggle={p=>toggleIn("people",p)} onClear={()=>clearKey("people")} placeholder="Tutti i compagni"
+                onToggle={(p:string)=>toggleIn("people",p)} onClear={()=>clearKey("people")} placeholder="Tutti i compagni"
                 leadLabel="Da solo" leadActive={filters.solo} onLeadToggle={()=>toggleBool("solo")}/>
             </FilterSection>
             <FilterSection label="Posto">
@@ -1610,7 +1636,7 @@ function FilterButton(){
             </FilterSection>
             <FilterSection label="Canzoni note">
               {ALL_CN.map(v=>(
-                <FilterChip key={v} active={filters.canzoni.includes(v)} onClick={()=>toggleIn("canzoni",v)}>{CANZONI_NOTE_LABELS[v]}</FilterChip>
+                <FilterChip key={v} active={filters.canzoni.includes(v)} onClick={()=>toggleIn("canzoni",v)}>{CN_LABELS[v]}</FilterChip>
               ))}
             </FilterSection>
             <FilterSection label="Distanza del viaggio" value={kmLabel} wide>
@@ -1642,19 +1668,19 @@ const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","se
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
-  const popRef=useRef(null);
-  const btnRef=useRef(null);
+  const popRef=useRef<HTMLDivElement|null>(null);
+  const btnRef=useRef<HTMLButtonElement|null>(null);
   React.useEffect(()=>{
     if(!open) return;
-    const onDocDown=e=>{
-      if(popRef.current&&!popRef.current.contains(e.target)&&btnRef.current&&!btnRef.current.contains(e.target)) setOpen(false);
+    const onDocDown=(e:MouseEvent)=>{
+      if(popRef.current&&!popRef.current.contains(e.target as Node)&&btnRef.current&&!btnRef.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey=e=>{ if(e.key==="Escape") setOpen(false); };
+    const onKey=(e:KeyboardEvent)=>{ if(e.key==="Escape") setOpen(false); };
     document.addEventListener("mousedown",onDocDown);
     document.addEventListener("keydown",onKey);
     return ()=>{ document.removeEventListener("mousedown",onDocDown); document.removeEventListener("keydown",onKey); };
   },[open]);
-  const go=id=>{
+  const go=(id:string)=>{
     const el=document.getElementById(id);
     if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
     setOpen(false);
@@ -1740,21 +1766,355 @@ function FromAlert(){
   );
 }
 
-function App(){
+/* ============================================================
+   RITRATTO — a curated, editorial, scroll-based portrait for the
+   casual visitor. It reuses the same data helpers as the dashboard
+   so its headline numbers can never diverge from "I dati". Every
+   bit of motion is gated on prefers-reduced-motion.
+   ============================================================ */
+const prefersReducedMotion=()=>typeof matchMedia!=="undefined"&&matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Reveal-on-scroll. Returns [ref, seen]; seen flips true the first time the
+// element enters the viewport — or immediately when motion is reduced / there
+// is no IntersectionObserver, so content never gets stuck invisible.
+function useReveal(threshold=0.2): [any,boolean]{
+  const ref=useRef<any>(null);
+  const [seen,setSeen]=useState(false);
+  React.useEffect(()=>{
+    if(seen) return;
+    const el=ref.current; if(!el) return;
+    if(prefersReducedMotion()||typeof IntersectionObserver==="undefined"){ setSeen(true); return; }
+    const io=new IntersectionObserver(es=>{
+      es.forEach(e=>{ if(e.isIntersecting){ setSeen(true); io.disconnect(); } });
+    },{threshold,rootMargin:"0px 0px -8% 0px"});
+    io.observe(el);
+    return ()=>io.disconnect();
+  },[seen,threshold]);
+  return [ref,seen];
+}
+
+// Count-up: eases 0 → target once `start` is true. Reduced motion jumps to the
+// final value with no animation.
+function useCountUp(target:number,start:boolean,dur=1500){
+  const [v,setV]=useState(0);
+  const raf=useRef(0);
+  React.useEffect(()=>{
+    if(!start) return;
+    if(prefersReducedMotion()){ setV(target); return; }
+    let t0:number|null=null;
+    const tick=(t:number)=>{
+      if(t0==null)t0=t;
+      const p=Math.min(1,(t-t0)/dur);
+      const e=1-Math.pow(1-p,3);         // easeOutCubic
+      setV(target*e);
+      if(p<1) raf.current=requestAnimationFrame(tick);
+      else setV(target);
+    };
+    raf.current=requestAnimationFrame(tick);
+    return ()=>cancelAnimationFrame(raf.current);
+  },[target,start,dur]);
+  return v;
+}
+
+function CountStat({value,label,hint,prefix,suffix,start,decimals}: any){
+  const v=useCountUp(value,start);
+  const shown=decimals!=null?v.toFixed(decimals):Math.round(v).toLocaleString("it-IT");
+  return (
+    <div className="rt-stat">
+      <div className="rt-stat-n">{prefix}{shown}{suffix}</div>
+      <div className="rt-stat-l">{label}</div>
+      {hint&&<div className="rt-stat-h">{hint}</div>}
+    </div>
+  );
+}
+
+// A single "act": a near-full-viewport block that fades/rises in on scroll.
+// children may be a node or a render function receiving `seen` (for count-ups).
+function Act({className,threshold,children}: any){
+  const [ref,seen]=useReveal(threshold);
+  return (
+    <section ref={ref} className={"rt-act "+(className||"")+(seen?" in":"")}>
+      {typeof children==="function"?children(seen):children}
+    </section>
+  );
+}
+
+// Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
+const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
+
+function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
+  // Portrait stats — computed once, unfiltered, straight from the same helpers
+  // the KPIs use, so the two views agree by construction.
+  const P=useMemo(()=>{
+    const attEv=ALLDATA.filter(d=>!isPlanned(d));
+    const attC=FLAT_ALL.filter(c=>!isPlanned(c));
+    const rated=FLAT_ALL.filter(c=>!isPlanned(c)).filter(hasVoto).sort((a,b)=>b.voto-a.voto||sortKey(b)-sortKey(a));
+    const five=rated.filter(c=>c.voto>=5);
+    const topBest=(five.length>=3?five:rated.filter(c=>c.voto>=4)).slice(0,6);
+    // same cutoff the dashboard's compagni card uses (people met ≥2 times, whole
+    // ranks kept), just capped harder at 6
+    const mates=rankCutoff(ranked(counter(attC.flatMap(c=>c.with||[]),x=>x)).filter(([,n])=>n>=2),5,5).slice(0,5);
+    const planned=[...ALLDATA.filter(isPlanned)].sort((a,b)=>sortKey(a)-sortKey(b));
+    const voted=attC.filter(hasVoto);
+    // concerts/year — identical to the dashboard's "media per anno" KPI
+    const since=2022;
+    const dataSince=attC.filter(c=>c.y>=since);
+    const elapsedY=(Date.now()-new Date(since,0,1).getTime())/(365.25*24*3600*1000);
+    return {
+      total:attC.length,
+      artists:new Set(attC.map(c=>c.artist)).size,
+      perYear:elapsedY>0?dataSince.length/elapsedY:0,
+      km:Math.round(sum(attEv.map(distKm).filter(k=>k!==null))*2),
+      companions:new Set(attC.flatMap(c=>c.with||[])).size,
+      solo:attC.filter(c=>!(c.with&&c.with.length)).length,
+      avgVoto:voted.length?sum(voted.map(c=>c.voto))/voted.length:0,
+      topBest, mates, upcoming:planned, plannedCount:planned.length,
+      plannedConcerts:FLAT_ALL.filter(isPlanned).length,
+    };
+  },[]);
+  // "Avanti" cue on every act but the last: glide to the next act below (found
+  // via the DOM so it stays correct even when some acts are conditionally hidden).
+  const goNext=(e:any)=>{
+    const act=e.currentTarget.closest(".rt-act");
+    let n=act?act.nextElementSibling:null;
+    while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
+    const target=n||document.querySelector(".rt-footer");
+    if(!target) return;
+    const rect=target.getBoundingClientRect();
+    const vh=window.innerHeight;
+    // center the act in the viewport; if it's taller than the viewport, land its
+    // top just below the fixed top controls instead
+    const y=rect.height>vh
+      ? window.scrollY+rect.top-84
+      : window.scrollY+rect.top+rect.height/2-vh/2;
+    window.scrollTo({top:Math.max(0,y),behavior:"smooth"});
+  };
+  const nextCue=()=>(
+    <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
+      <span className="rt-scrollcue-l">Avanti</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+    </button>
+  );
+
+  return (
+    <div className="rt">
+      {/* ── Act I — the showstopper: lights up on a dark stage ── */}
+      <section className="rt-act rt-hero stage in">
+        <div className="beams">
+          <span className="beam b1"></span>
+          <span className="beam b2"></span>
+          <span className="beam b3"></span>
+          <span className="beam b4"></span>
+          <span className="beam b5"></span>
+          <span className="beam b6"></span>
+          <span className="fixture f1"></span>
+          <span className="fixture f2"></span>
+          <span className="fixture f3"></span>
+          <span className="fixture f4"></span>
+          <span className="fixture f5"></span>
+          <span className="fixture f6"></span>
+        </div>
+        <span className="spot"></span>
+        <div className="rt-hero-inner">
+          <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
+          <p className="rt-lede">Una vita contata in luci, viaggi e concerti sotto un palco.</p>
+        </div>
+        <button type="button" className="rt-startbtn" onClick={goNext}>
+          inizia lo show!
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        </button>
+      </section>
+
+      {/* ── Act II — the headline numbers, counting up ── */}
+      <Act className="rt-numbers" threshold={0.4}>{(seen:boolean)=>(<>
+        <div className="rt-head"><h2 className="rt-h2">I numeri</h2></div>
+        <div className="rt-grid">
+          <CountStat value={P.total} label="Concerti" start={seen}/>
+          <CountStat value={P.artists} label="Artisti diversi" start={seen}/>
+          <CountStat value={P.km} label="Km percorsi" start={seen}/>
+          <CountStat value={P.perYear} label="Concerti per anno" decimals={1} start={seen}/>
+        </div>
+        {nextCue()}
+      </>)}</Act>
+
+      {/* ── Act III — the map ── */}
+      <Act className="rt-mapact" threshold={0.05}>
+        <div className="rt-head"><h2 className="rt-h2">Dove</h2></div>
+        <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
+        {nextCue()}
+      </Act>
+
+      {/* ── Act IV — the best shows ── */}
+      {P.topBest.length>0&&(
+      <Act className="rt-bestact">
+        <div className="rt-head"><h2 className="rt-h2">I migliori</h2></div>
+        <p className="rt-lead">I concerti che varrebbe la pena rivivere all'infinito,{P.avgVoto?<> la media di tutti i concerti è a <b>{voto1(P.avgVoto)}<span className="star">★</span></b></>:null}.</p>
+        <ol className="rt-bestlist">
+          {P.topBest.map((c,i)=>(
+            <li className="rt-bestrow" key={i}>
+              <span className="rt-best-art">{c.artist}</span>
+              <span className="rt-best-meta">{c.city} · '{String(c.y).slice(2)}</span>
+              <span className="rt-best-stars" aria-label={c.voto+" stelle"}>{"★".repeat(c.voto)}</span>
+            </li>
+          ))}
+        </ol>
+        {nextCue()}
+      </Act>
+      )}
+
+      {/* ── Act V — who they go with ── */}
+      {P.mates.length>0&&(
+      <Act className="rt-peopleact">
+        <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada e <b>{P.solo}</b> concerti vissuti da solo.</p>
+        <ol className="rt-peoplelist">
+          {P.mates.map(([name,n]: any,i:number)=>(
+            <li className="rt-personrow" key={name}>
+              <span className="rt-person-rank">{i+1}</span>
+              <span className="rt-person-name">{name}</span>
+              <span className="rt-person-n">{n} volte</span>
+            </li>
+          ))}
+        </ol>
+        {nextCue()}
+      </Act>
+      )}
+
+      {/* ── Act VI — what's next ── */}
+      {P.upcoming.length>0&&(
+      <Act className="rt-nextact">
+        <div className="rt-head"><h2 className="rt-h2">E adesso?</h2></div>
+        <p className="rt-lead"><b>{P.plannedConcerts}</b> concerti programmati, ecco i prossimi.</p>
+        <ol className="rt-nextlist">
+          {P.upcoming.slice(0,3).map((ev,i)=>(
+            <li className="rt-nextrow" key={i}>
+              <span className="rt-next-art">{labelOf(ev)}</span>
+              <span className="rt-next-meta"><span className="rt-next-date">{ev.date}</span> · {ev.venue}, {ev.city}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="rt-earplugs">
+          <p className="rt-earplugs-note">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 3.5-2 4.5-3.2 5.7C13.6 14.9 13 15.7 13 17a3 3 0 0 1-6 0"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
+            <span>Un consiglio: <b>proteggi l'udito</b>, io porto sempre i tappi con me.</span>
+          </p>
+          <a className="rt-earplugs-cta" href={LOOP_LINK} target="_blank" rel="noopener noreferrer">
+            <span>Compra i tuoi Loop con il mio link</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+          </a>
+        </div>
+        {nextCue()}
+      </Act>
+      )}
+
+      {/* ── Final Act — L'Oracolo ── */}
+      <Act className="rt-oracoloact" threshold={0.15}>
+        <div className="rt-head"><h2 className="rt-h2">L'Oracolo</h2></div>
+        <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto:</p>
+        <div className="rt-finalctas">
+          <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
+            Chiedi all'Oracolo
+          </button>
+          <button type="button" className="rt-explore" onClick={onExplore}>Vuoi i dati da nerd? Clicca qui</button>
+        </div>
+        <p className="rt-endcredits-note">Creato con il fondamentale supporto di Cami</p>
+      </Act>
+    </div>
+  );
+}
+
+/* The full analytics dashboard — the original page, intact, now the "I dati"
+   view. Owner-only maintenance notices are gated behind `owner`. */
+function FullDashboard({owner}: {owner:boolean}){
+  const DATA=useData();
+  const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
+  return (<>
+    <div className="stage stage--data">
+      <div className="beams">
+        <span className="beam b1"></span>
+        <span className="beam b2"></span>
+        <span className="beam b3"></span>
+        <span className="beam b4"></span>
+        <span className="beam b5"></span>
+        <span className="beam b6"></span>
+        <span className="fixture f1"></span>
+        <span className="fixture f2"></span>
+        <span className="fixture f3"></span>
+        <span className="fixture f4"></span>
+        <span className="fixture f5"></span>
+        <span className="fixture f6"></span>
+      </div>
+      <span className="spot"></span>
+      {owner&&<header><VicinanzaAlert/><VotoAlert/><FromAlert/></header>}
+      <div id="sec-kpis" className="tocsec"><KPIs/></div>
+    </div>
+    <main>
+      <div id="sec-andamento" className="tocsec"><ChartCard/></div>
+      <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
+      <div className="grid2">
+        <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
+        <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(CONC,"with")} plObj={multiCounter(CONC.filter(isPlanned),"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
+      </div>
+      <div className="grid2">
+        <div id="sec-venue" className="tocsec full"><VenueCard/></div>
+      </div>
+      <div className="grid2"><div id="sec-posto" className="tocsec"><PostoCard/></div><div id="sec-vicinanza" className="tocsec"><VicinanzaCard/></div></div>
+      <div className="grid2"><div id="sec-stagionalita" className="tocsec"><Months/></div><div id="sec-giorni" className="tocsec"><Weekdays/></div></div>
+      <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
+      <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>
+      <div id="sec-voti-vs" className="tocsec"><VoteScatter/></div>
+      <div id="sec-canzoni" className="tocsec"><CanzoniNoteCard/></div>
+      <div id="sec-spesa" className="tocsec"><CostCard/></div>
+      <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
+      <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
+      <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
+    </main>
+    <footer className="sitefooter">
+      <p>Creato con il fondamentale supporto di Cami</p>
+    </footer>
+  </>);
+}
+
+/* Owner unlock, captured once at module load — before the router can touch the
+   URL — so ?owner reliably flips the persisted flag regardless of routing. */
+const OWNER_UNLOCKED: boolean = (()=>{
+  try{
+    if(new URLSearchParams(window.location.search).has("owner")){ localStorage.setItem("owner","1"); return true; }
+    return localStorage.getItem("owner")==="1";
+  }catch(e){ return false; }
+})();
+
+/* Shared page context: the owner flag and the chat opener, provided by the
+   Shell (root route) and consumed by the routed pages. */
+const ShellContext=React.createContext<{owner:boolean; openChat:(q?:string)=>void}>({owner:false, openChat:()=>{}});
+
+/* Root route: owns all shared state (filters, theme, chat, owner) and the page
+   chrome (theme toggle, the Sul palco / I dati switch, ambient lights, chat,
+   bottom bar); the active route renders into <Outlet/>. */
+function Shell(){
   const [filters,setFilters]=React.useState(EMPTY_FILTERS);
   const DATA=React.useMemo(()=>applyFilters(ALLDATA,filters),[filters]);
-  const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
   const [mode,setMode]=React.useState(()=>{
     try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
     return "dark";
   });
+  // which route we're on drives the switch + scroll-snap scoping
+  const pathname=useRouterState({select:s=>s.location.pathname});
+  const isDati=pathname.startsWith("/dati");
+  const view=isDati?"dati":"ritratto";
+  // owner: unlocks maintenance notices (captured at module load, see OWNER_UNLOCKED)
+  const owner=OWNER_UNLOCKED;
+  // expose the current view on <html> so CSS can scope scroll-snapping to "In scena"
+  React.useEffect(()=>{ document.documentElement.setAttribute("data-view",view); },[view]);
+  const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
   // setMode è un setter di useState, quindi stabile anche lui.
   const filtersRef=React.useRef(filters);
   filtersRef.current=filters;
-  const chatCtx=React.useMemo(()=>({
+  const chatCtx=React.useMemo<ChatSiteContext>(()=>({
     applyFilters:(input)=>{
       const next=mergeToolFilters(filtersRef.current,input);
       setFilters(next);
@@ -1791,6 +2151,14 @@ function App(){
   },[mode]);
   const cycleMode=()=>setMode(m=>m==="dark"?"light":m==="light"?"system":"dark");
   const modeLabel={dark:"Scuro",light:"Chiaro",system:"Sistema"}[mode];
+  // on a phone, the "system" theme icon is a smartphone rather than a monitor
+  const [isPhone,setIsPhone]=React.useState(()=>{try{return matchMedia("(max-width:820px) and (pointer:coarse)").matches;}catch(e){return false;}});
+  React.useEffect(()=>{
+    let mq:MediaQueryList; try{ mq=matchMedia("(max-width:820px) and (pointer:coarse)"); }catch(e){ return; }
+    const on=()=>setIsPhone(mq.matches);
+    mq.addEventListener("change",on);
+    return ()=>mq.removeEventListener("change",on);
+  },[]);
   React.useEffect(()=>{
     const root=document.getElementById("root");
     if(!root) return;
@@ -1808,8 +2176,10 @@ function App(){
     const t1=setTimeout(setH,400), t2=setTimeout(setH,1500), t3=setTimeout(setH,3500);
     return ()=>{ ro.disconnect(); window.removeEventListener("resize",setH); window.removeEventListener("load",setH); clearTimeout(t1);clearTimeout(t2);clearTimeout(t3); };
   },[]);
+  const shellCtx=React.useMemo(()=>({owner, openChat:(q?:string)=>chatApi.current?.open(q)}),[owner]);
   return (
     <FilterContext.Provider value={filterCtx}>
+    <ShellContext.Provider value={shellCtx}>
       <button className="theme-toggle"
         onClick={cycleMode}
         aria-label={"Tema: "+modeLabel+". Cambia tema."}
@@ -1818,8 +2188,17 @@ function App(){
           ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           : mode==="light"
           ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+          : isPhone
+          ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
           : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
       </button>
+      <div className="modeswitch" role="tablist" aria-label="Modalità di visualizzazione">
+        <span className="modeswitch-slide" data-view={view} aria-hidden="true"></span>
+        <Link to="/" role="tab" aria-selected={!isDati}
+          className={"ms-btn"+(!isDati?" on":"")}>Sul palco</Link>
+        <Link to="/dati" role="tab" aria-selected={isDati}
+          className={"ms-btn"+(isDati?" on":"")}>I dati</Link>
+      </div>
       <div className="ambient" aria-hidden="true">
         <span className="abeam a1"></span>
         <span className="abeam a2"></span>
@@ -1844,62 +2223,34 @@ function App(){
         <span className="abeam a21"></span>
         <span className="abeam a22"></span>
       </div>
-      <div className="stage">
-        <div className="beams">
-          <span className="beam b1"></span>
-          <span className="beam b2"></span>
-          <span className="beam b3"></span>
-          <span className="beam b4"></span>
-          <span className="beam b5"></span>
-          <span className="beam b6"></span>
-          <span className="fixture f1"></span>
-          <span className="fixture f2"></span>
-          <span className="fixture f3"></span>
-          <span className="fixture f4"></span>
-          <span className="fixture f5"></span>
-          <span className="fixture f6"></span>
+      <Outlet/>
+      <ChatWidget ctx={chatCtx} apiRef={chatApi} corner/>
+      {isDati&&(
+        <div className="bottombar">
+          <TocButton/>
+          <FilterButton/>
         </div>
-        <span className="spot"></span>
-        <header>
-          <h1>Gabri<br/><span className="t2">ai concerti</span></h1>
-          <p className="sub">Per chiunque voglia sapere come Gabri passa il suo tempo</p>
-          <VicinanzaAlert/>
-          <VotoAlert/>
-          <FromAlert/>
-        </header>
-        <div id="sec-kpis" className="tocsec"><KPIs/></div>
-      </div>
-      <main>
-        <div id="sec-andamento" className="tocsec"><ChartCard/></div>
-        <div id="sec-mappa" className="tocsec"><MapBoundary><MapCard/></MapBoundary></div>
-        <div className="grid2">
-          <div id="sec-artisti" className="tocsec"><RankCard title="Chi ho visto di più" desc="" obj={counter(CONC,"artist")} plObj={counter(CONC.filter(isPlanned),"artist")} color="var(--lamp)" min={2} icon="mic" field="artist" entity={ENT_ARTIST}/></div>
-          <div id="sec-compagni" className="tocsec"><RankCard title="Con chi vado di più" desc="Le persone che mi accompagnano più spesso." obj={multiCounter(CONC,"with")} plObj={multiCounter(CONC.filter(isPlanned),"with")} color="var(--lamp)" min={2} unit="concert" icon="users" field="with" multi={true} entity={ENT_PEOPLE}/></div>
-        </div>
-        <div className="grid2">
-          <div id="sec-venue" className="tocsec full"><VenueCard/></div>
-        </div>
-        <div className="grid2"><div id="sec-posto" className="tocsec"><PostoCard/></div><div id="sec-vicinanza" className="tocsec"><VicinanzaCard/></div></div>
-        <div className="grid2"><div id="sec-stagionalita" className="tocsec"><Months/></div><div id="sec-giorni" className="tocsec"><Weekdays/></div></div>
-        <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
-        <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>
-        <div id="sec-voti-vs" className="tocsec"><VoteScatter/></div>
-        <div id="sec-canzoni" className="tocsec"><CanzoniNoteCard/></div>
-        <div id="sec-spesa" className="tocsec"><CostCard/></div>
-        <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
-        <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
-        <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
-      </main>
-      <footer className="sitefooter">
-        <p>Creato con il fondamentale supporto di Cami</p>
-      </footer>
-      <div className="bottombar">
-        <TocButton/>
-        <ChatWidget ctx={chatCtx}/>
-        <FilterButton/>
-      </div>
+      )}
+    </ShellContext.Provider>
     </FilterContext.Provider>
   );
 }
 
+function SulPalcoPage(){
+  const {openChat}=React.useContext(ShellContext);
+  const navigate=useNavigate();
+  return <Ritratto openChat={openChat} onExplore={()=>navigate({to:"/dati"})}/>;
+}
+function DatiPage(){
+  const {owner}=React.useContext(ShellContext);
+  return <FullDashboard owner={owner}/>;
+}
+
+const rootRoute=createRootRoute({component:Shell});
+const indexRoute=createRoute({getParentRoute:()=>rootRoute, path:"/", component:SulPalcoPage});
+const datiRoute=createRoute({getParentRoute:()=>rootRoute, path:"/dati", component:DatiPage});
+const router=createRouter({routeTree:rootRoute.addChildren([indexRoute,datiRoute]), scrollRestoration:true});
+declare module "@tanstack/react-router"{ interface Register{ router:typeof router } }
+
+function App(){ return <RouterProvider router={router}/>; }
 export default App;

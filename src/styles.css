@@ -650,7 +650,10 @@
     0%,100%{opacity:.5} 25%{opacity:.62} 45%{opacity:.42} 70%{opacity:.58} 88%{opacity:.48}
   }
 
-  header{position:relative;z-index:1;padding:clamp(48px,9vw,120px) clamp(20px,5vw,80px) clamp(30px,5vw,56px)}
+  header{position:relative;z-index:1;padding:0 clamp(20px,5vw,80px) clamp(20px,3vw,28px)}
+  /* "I dati" opens straight onto the KPIs now (no title): lit stage room up top
+     so the data clears the fixed switch/toggle */
+  .stage--data{padding-top:clamp(72px,11vw,104px)}
   h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.9rem,11vw,7.5rem);line-height:.96;letter-spacing:-.025em;color:var(--text);font-optical-sizing:auto}
   h1 .t2{font-style:normal;font-weight:500;color:var(--text)}
   .sub{margin-top:26px;max-width:50ch;color:var(--muted);font-size:clamp(.95rem,2.3vw,1.1rem);line-height:1.65}
@@ -901,8 +904,8 @@
   .archsub h3{font-family:'Fraunces',serif;font-weight:500;font-size:1.15rem;color:var(--text);margin:0}
   .archsub .h2ic{color:var(--lamp);align-self:center}
   .archsub-d{font-size:.8rem;color:var(--muted)}
-  td.evconc .evconc-n{font-weight:600;color:var(--lamp);font-variant-numeric:tabular-nums;margin-right:9px}
-  td.evconc .evconc-l{color:var(--muted);font-size:.82rem}
+  td.evconc{min-width:180px}
+  td.evconc .evconc-line{display:block;color:var(--muted);font-size:.84rem;line-height:1.55}
   .ttag{font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap;font-weight:500;display:inline-flex;align-items:center;gap:7px}
   .tti{flex-shrink:0;opacity:.8;color:var(--lamp)}
   .rtop .name--ico{display:inline-flex;align-items:center;gap:9px}
@@ -1085,4 +1088,185 @@
     55%{opacity:.55}
     80%{opacity:.72}
   }
+  /* ============================================================
+     MODE SWITCH — segmented control (Ritratto / I dati), top center
+     ============================================================ */
+  .modeswitch{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:55;
+    display:flex;padding:4px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--line-2);
+    box-shadow:0 6px 22px rgba(0,0,0,.30);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  }
+  /* highlight anchored with left/right to the exact 50% midpoint where the two
+     equal flex buttons meet — so it always covers the selected segment precisely */
+  .modeswitch-slide{
+    position:absolute;top:4px;bottom:4px;left:4px;right:50%;
+    border-radius:999px;background:var(--lamp);z-index:0;
+    transition:left .28s cubic-bezier(.4,.1,.2,1),right .28s cubic-bezier(.4,.1,.2,1);
+  }
+  .modeswitch-slide[data-view="dati"]{left:50%;right:4px}
+  .ms-btn{
+    position:relative;z-index:1;flex:1 1 0;min-width:0;
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;
+    appearance:none;border:none;background:none;cursor:pointer;text-decoration:none;
+    font:inherit;font-size:.86rem;font-weight:600;letter-spacing:.01em;
+    padding:7px 20px;border-radius:999px;color:var(--muted);
+    transition:color .22s ease;
+  }
+  .ms-btn.on{color:#171106}
+  @media(max-width:560px){ .modeswitch{top:12px} .ms-btn{padding:7px 16px;font-size:.82rem} }
+
+  /* ============================================================
+     RITRATTO — the curated, editorial, scroll-based portrait
+     ============================================================ */
+  /* overflow:clip (not hidden) so .rt doesn't become a scroll container and
+     steal snapping from the page scroller — while still clipping the beams */
+  .rt{position:relative;z-index:1;overflow:clip}
+  /* magnetic scroll: acts snap to centre, only in "Sul palco" */
+  :root[data-view="ritratto"]{scroll-snap-type:y proximity}
+  .rt-act{scroll-snap-align:center}
+  .rt-act{
+    position:relative;max-width:1100px;margin:0 auto;
+    padding:clamp(64px,12vh,140px) clamp(22px,6vw,64px);
+    min-height:88vh;min-height:88svh;
+    display:flex;flex-direction:column;justify-content:center;
+    opacity:0;transform:translateY(34px);
+    transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1);
+  }
+  .rt-act.in{opacity:1;transform:none}
+
+  /* Act I — the showstopper */
+  .rt-hero{
+    min-height:100vh;min-height:100svh;
+    align-items:center;text-align:center;overflow:hidden;
+    padding-top:clamp(96px,16vh,190px);
+  }
+  .rt-hero .beams{z-index:0}
+  .rt-hero-inner{position:relative;z-index:2;width:min(760px,100%);margin-inline:auto;text-align:center}
+  .rt-hero-inner > * + *{margin-top:clamp(16px,3vw,28px)}
+  .rt-hero-inner > *{animation:rt-rise .9s both cubic-bezier(.2,.7,.2,1)}
+  .rt-hero-inner > :nth-child(1){animation-delay:.15s}
+  .rt-hero-inner > :nth-child(2){animation-delay:.3s}
+  .rt-hero-inner > :nth-child(3){animation-delay:.52s}
+  @keyframes rt-rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  .rt-h1{
+    font-family:'Fraunces',Georgia,serif;font-weight:400;line-height:.88;letter-spacing:-.03em;
+    color:var(--text);font-optical-sizing:auto;
+    font-size:clamp(2.3rem,9.2vw,10.5rem);width:100%;display:flex;flex-direction:column;align-items:center;
+  }
+  .rt-h1-2{font-weight:500}
+  .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6;text-wrap:balance}
+  .rt-scrollcue{
+    position:absolute;bottom:clamp(18px,5vh,44px);left:50%;transform:translateX(-50%);z-index:2;
+    display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--muted);
+    font:inherit;background:none;border:none;cursor:pointer;padding:8px 14px;border-radius:12px;
+    transition:color .2s ease;
+  }
+  .rt-scrollcue:hover{color:var(--lamp)}
+  .rt-scrollcue-l{font-size:.66rem;letter-spacing:.28em;text-transform:uppercase}
+  .rt-scrollcue svg{width:22px;height:22px;animation:rt-bob 1.8s ease-in-out infinite}
+  @keyframes rt-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(6px);opacity:1}}
+  /* hero "inizia lo show!" — a filled CTA that scrolls into the portrait */
+  .rt-startbtn{
+    position:absolute;bottom:clamp(24px,6vh,56px);left:50%;transform:translateX(-50%);z-index:2;
+    display:inline-flex;align-items:center;gap:9px;
+    font:inherit;font-size:1rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
+    color:#171106;padding:14px 26px;border-radius:999px;
+    background:var(--lamp);border:1px solid var(--lamp);box-shadow:0 8px 30px var(--lamp-soft);
+    transition:transform .15s ease,filter .2s ease;
+  }
+  .rt-startbtn:hover{transform:translate(-50%,-2px);filter:brightness(1.06)}
+  .rt-startbtn svg{width:18px;height:18px;animation:rt-bob 1.8s ease-in-out infinite}
+
+  /* shared act typography */
+  .rt-head{width:100%;margin-bottom:clamp(18px,3vw,30px);text-align:center}
+  .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);font-size:clamp(2.4rem,7vw,4.4rem);line-height:1}
+  .rt-lead{max-width:46ch;color:var(--muted);font-size:clamp(1rem,2.4vw,1.25rem);line-height:1.6}
+  .rt-lead b{color:var(--text);font-weight:600}
+  .rt-act .star{color:var(--lamp)}
+
+  /* Act II — numbers */
+  .rt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(26px,5vw,60px);margin-top:clamp(24px,4vw,44px)}
+  @media(min-width:760px){ .rt-grid{grid-template-columns:repeat(4,1fr)} }
+  .rt-stat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;min-width:0}
+  .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.02em;
+    font-size:clamp(2.9rem,10vw,5.4rem);font-variant-numeric:lining-nums tabular-nums}
+  .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600}
+  .rt-stat-h{font-size:.82rem;color:var(--muted)}
+
+  /* Act III — map (strip the panel chrome; keep just the map) */
+  .rt-mapframe{margin-top:clamp(20px,3vw,32px)}
+  .rt-mapframe .panel{background:transparent;border:none;padding:0;overflow:visible}
+  .rt-mapframe .paneltop{display:none}
+  /* shorter map in the portrait — the full-height one lives in "I dati" */
+  .rt-mapframe .mapwrap{height:clamp(280px,40vh,420px)}
+  /* extra room below the map so the "Avanti" cue isn't crowding it */
+  .rt-mapact{padding-bottom:clamp(120px,20vh,200px)}
+
+  /* Act IV — best shows */
+  .rt-bestlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-bestrow{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 18px;padding:clamp(14px,2.4vw,22px) 0;border-bottom:1px solid var(--line)}
+  .rt-bestrow:last-child{border-bottom:none}
+  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.5rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-best-meta{grid-row:2;color:var(--muted);font-size:.86rem}
+  .rt-best-stars{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);font-size:clamp(.85rem,2.3vw,1.15rem);letter-spacing:2px;white-space:nowrap}
+
+  /* Act V — companions */
+  .rt-peoplelist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-personrow{display:flex;align-items:baseline;gap:clamp(14px,3vw,26px);padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
+  .rt-personrow:last-child{border-bottom:none}
+  .rt-person-rank{font-family:'Fraunces',serif;color:var(--lamp);font-size:1.1rem;width:1.4em;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.3rem,4vw,2rem);line-height:1.1}
+  .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* Act VI — upcoming shows (a short agenda) */
+  .rt-nextlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-nextrow{display:flex;flex-direction:column;gap:4px;padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
+  .rt-nextrow:last-child{border-bottom:none}
+  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.4rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-next-meta{color:var(--muted);font-size:.9rem}
+  .rt-next-date{color:var(--planned);font-weight:500}
+  /* hearing-protection nudge + Loop CTA */
+  .rt-earplugs{margin-top:clamp(26px,4vw,40px);padding-top:clamp(20px,3vw,28px);border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+  .rt-earplugs-note{margin:0;display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.95rem;line-height:1.55;max-width:54ch}
+  .rt-earplugs-note b{color:var(--text);font-weight:600}
+  .rt-earplugs-note svg{flex-shrink:0;color:var(--lamp);margin-top:2px}
+  .rt-earplugs-cta{align-self:center;display:inline-flex;align-items:center;justify-content:center;gap:9px;max-width:100%;
+    font:inherit;font-size:.92rem;font-weight:600;text-align:center;line-height:1.35;
+    text-decoration:none;cursor:pointer;color:var(--text);padding:12px 22px;border-radius:16px;
+    background:var(--panel);border:1px solid var(--line-2);transition:border-color .2s ease,color .2s ease,transform .15s ease}
+  .rt-earplugs-cta:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
+  .rt-earplugs-cta svg{flex-shrink:0}
+  .rt-earplugs-cta span{text-wrap:balance}
+
+  /* Final Act — L'Oracolo */
+  .rt-oracoloact{align-items:flex-start;text-align:left}
+  .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
+  .rt-oracolo-pitch b{color:var(--text)}
+  /* the two final CTAs, stacked as one centred, equal-width group */
+  .rt-finalctas{align-self:center;display:flex;flex-direction:column;align-items:stretch;gap:14px;
+    width:fit-content;max-width:100%;margin-top:clamp(24px,4vw,36px)}
+  .rt-oracolo-cta{display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    font:inherit;font-size:1rem;font-weight:700;cursor:pointer;color:#171106;
+    padding:15px 26px;border-radius:999px;background:var(--lamp);border:1px solid var(--lamp);
+    box-shadow:0 8px 30px var(--lamp-soft);transition:transform .15s ease,filter .2s ease}
+  .rt-oracolo-cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .rt-oracolo-cta svg{display:block;flex-shrink:0}
+  .rt-explore{display:inline-flex;align-items:center;justify-content:center;text-align:center;
+    font:inherit;font-size:1rem;font-weight:600;color:var(--text);cursor:pointer;
+    padding:15px 26px;border-radius:999px;background:var(--panel);border:1px solid var(--line-2);
+    transition:border-color .2s ease,color .2s ease,transform .15s ease}
+  .rt-explore:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
+  .rt-endcredits-note{align-self:center;text-align:center;margin:clamp(52px,11vh,104px) 0 0;font-size:.9rem;color:var(--muted)}
+
+  /* chat trigger docked in the top-left corner (both modes) */
+  .chatdock--corner{position:fixed;top:18px;left:18px;z-index:55}
+  .chatdock--corner .chatbtn{height:42px;width:42px;padding:0;gap:0;justify-content:center;border-radius:999px}
+  .chatdock--corner .chatbtn .filterbtn-lbl{display:none}
+  @media(max-width:560px){
+    .chatdock--corner{top:12px;left:12px}
+    .chatdock--corner .chatbtn{height:38px;width:38px}
+  }
+
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
