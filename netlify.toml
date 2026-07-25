@@ -4,3 +4,11 @@
 
 [functions]
   directory = "netlify/functions"
+
+# SPA fallback so client-side routes (e.g. /dati) work on direct load / refresh.
+# The API functions declare their own paths via `config.path` (Netlify Functions
+# v2), which take precedence over this catch-all, so /api/* is unaffected.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -13,9 +13,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
-    /* The app was converted from untyped inline JSX; strictness is
-       relaxed for now and can be tightened incrementally. */
-    "strict": false,
+    "strict": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },

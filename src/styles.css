@@ -1109,7 +1109,7 @@
   .ms-btn{
     position:relative;z-index:1;flex:1 1 0;min-width:0;
     display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;
-    appearance:none;border:none;background:none;cursor:pointer;
+    appearance:none;border:none;background:none;cursor:pointer;text-decoration:none;
     font:inherit;font-size:.86rem;font-weight:600;letter-spacing:.01em;
     padding:7px 20px;border-radius:999px;color:var(--muted);
     transition:color .22s ease;
@@ -1238,24 +1238,27 @@
     background:var(--panel);border:1px solid var(--line-2);transition:border-color .2s ease,color .2s ease,transform .15s ease}
   .rt-earplugs-cta:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
   .rt-earplugs-cta svg{flex-shrink:0}
+  .rt-earplugs-cta span{text-wrap:balance}
 
   /* Final Act — L'Oracolo */
   .rt-oracoloact{align-items:flex-start;text-align:left}
   .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
   .rt-oracolo-pitch b{color:var(--text)}
-  /* the two final CTAs, stacked as one group */
-  .rt-finalctas{display:flex;flex-direction:column;align-items:flex-start;gap:14px;margin-top:clamp(24px,4vw,36px)}
-  .rt-oracolo-cta{display:inline-flex;align-items:center;gap:10px;
+  /* the two final CTAs, stacked as one centred, equal-width group */
+  .rt-finalctas{align-self:center;display:flex;flex-direction:column;align-items:stretch;gap:14px;
+    width:fit-content;max-width:100%;margin-top:clamp(24px,4vw,36px)}
+  .rt-oracolo-cta{display:inline-flex;align-items:center;justify-content:center;gap:10px;
     font:inherit;font-size:1rem;font-weight:700;cursor:pointer;color:#171106;
-    padding:15px 28px;border-radius:999px;background:var(--lamp);border:1px solid var(--lamp);
+    padding:15px 26px;border-radius:999px;background:var(--lamp);border:1px solid var(--lamp);
     box-shadow:0 8px 30px var(--lamp-soft);transition:transform .15s ease,filter .2s ease}
   .rt-oracolo-cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
-  .rt-oracolo-cta svg{display:block}
-  .rt-explore{font:inherit;font-size:.95rem;font-weight:600;color:var(--text);cursor:pointer;
-    padding:13px 24px;border-radius:999px;background:var(--panel);border:1px solid var(--line-2);
+  .rt-oracolo-cta svg{display:block;flex-shrink:0}
+  .rt-explore{display:inline-flex;align-items:center;justify-content:center;text-align:center;
+    font:inherit;font-size:1rem;font-weight:600;color:var(--text);cursor:pointer;
+    padding:15px 26px;border-radius:999px;background:var(--panel);border:1px solid var(--line-2);
     transition:border-color .2s ease,color .2s ease,transform .15s ease}
   .rt-explore:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
-  .rt-endcredits-note{margin:clamp(30px,5vw,46px) 0 0;font-size:.9rem;color:var(--muted)}
+  .rt-endcredits-note{align-self:center;text-align:center;margin:clamp(52px,11vh,104px) 0 0;font-size:.9rem;color:var(--muted)}
 
   /* chat trigger docked in the top-left corner (both modes) */
   .chatdock--corner{position:fixed;top:18px;left:18px;z-index:55}
