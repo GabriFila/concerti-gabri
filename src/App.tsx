@@ -34,6 +34,7 @@ const PATHS={
   coins:<><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></>,
   wallet:<><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2"/><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2Z"/><circle cx="17" cy="14" r="1"/></>,
   chevron:<><path d="M6 9l6 6 6-6"/></>,
+  camera:<><path d="M3 8a2 2 0 0 1 2-2h2.2l1.3-2h6l1.3 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><circle cx="12" cy="12.5" r="3.5"/></>,
 };
 function Icon({name,size=16,stroke=1.5,className,style}: any){
   return <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none"
@@ -931,6 +932,18 @@ function festMatches(ev,q){
   return ev.concerts.some(c=>c.artist.toLowerCase().includes(n)||(c.with||[]).some(p=>p.toLowerCase().includes(n)));
 }
 
+// Link out to the evening's Drive folder (see MediaFolderUrl in data.ts). Nothing
+// is embedded: Drive's own viewer handles the gallery and the video playback.
+function MediaLink({href,label}){
+  if(!href) return null;
+  return (
+    <a className="cmedia" href={href} target="_blank" rel="noopener noreferrer"
+       title={"Foto e video · "+label} aria-label={"Foto e video di "+label}>
+      <Icon name="camera" size={14}/>
+    </a>
+  );
+}
+
 function ArchiveTable(){
   const DATA=useData();
   const [q,setQ]=useState("");
@@ -1012,7 +1025,7 @@ function ArchiveTable(){
           <tbody>
             {rows.map((c,i)=>{const pl=isPlanned(c);const fest=isFestival(c.ev);return (
               <tr key={i}>
-                <td className="artist">{hl(c.artist,q)}{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}</td>
+                <td className="artist">{hl(c.artist,q)}<MediaLink href={c.media} label={c.artist}/>{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}</td>
                 <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
                 <td>{hl(c.venue,q)}</td>
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
@@ -1046,7 +1059,7 @@ function ArchiveTable(){
             <tbody>
               {fests.map((ev,i)=>{const pl=isPlanned(ev);return (
                 <tr key={i}>
-                  <td className="artist">{hl(ev.name,q)}</td>
+                  <td className="artist">{hl(ev.name,q)}<MediaLink href={ev.media} label={ev.name}/></td>
                   <td className="date">{pl?<span className="d-planned">{ev.date}</span>:<span className="d-past">{ev.date}</span>}</td>
                   <td>{hl(ev.venue,q)}</td>
                   <td className="city"><b>{hl(ev.city,q)}</b></td>

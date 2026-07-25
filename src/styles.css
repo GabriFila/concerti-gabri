@@ -896,6 +896,11 @@
   /* cost/viaggio on a festival set: no per-concert value — it's on the event.
      A muted "festival" marker points there instead of a misleading "—". */
   .cfestmark{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);opacity:.7}
+  /* camera link to the evening's Drive folder, inline after the artist name.
+     Rides alongside the name instead of taking a column: most rows have none,
+     and a 12th column would be mostly empty (and not meaningfully sortable). */
+  .cmedia{display:inline-flex;align-items:center;vertical-align:middle;margin-left:7px;color:var(--muted);opacity:.75;transition:color .15s,opacity .15s}
+  .cmedia:hover,.cmedia:focus-visible{color:var(--lamp);opacity:1}
   /* Eventi sub-table heading inside the Archivio panel */
   .archsub{display:flex;align-items:baseline;gap:10px;margin:34px 0 14px}
   .archsub h3{font-family:'Fraunces',serif;font-weight:500;font-size:1.15rem;color:var(--text);margin:0}
