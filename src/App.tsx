@@ -1966,7 +1966,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.mates.length>0&&(
       <Act className="rt-peopleact">
         <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
-        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada — e <b>{P.solo}</b> concerti vissuti da solo.</p>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada e <b>{P.solo}</b> concerti vissuti da solo.</p>
         <ol className="rt-peoplelist">
           {P.mates.map(([name,n]: any,i:number)=>(
             <li className="rt-personrow" key={name}>

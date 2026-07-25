@@ -126,7 +126,7 @@ function ToolChip({ part }: { part: any }) {
   const done = part.output != null;
   let icon = "✓", text = "", hint = true;
   if (part.name === "set_filters") {
-    text = done ? `Filtri applicati — ${part.output.matchCount} concerti` : "Applico i filtri…";
+    text = done ? `Filtri applicati: ${part.output.matchCount} concerti` : "Applico i filtri…";
   } else if (part.name === "clear_filters") {
     text = done ? "Filtri azzerati" : "Azzero i filtri…";
   } else if (part.name === "go_to_section") {
@@ -341,7 +341,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     const url = `${location.origin}${location.pathname}?chat=${encodeURIComponent(shareId)}`;
     const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer:coarse)").matches;
     if (touch && navigator.share) {
-      try { await navigator.share({ title: "L'Oracolo — concerti di Gabri", url }); } catch { /* user closed the share sheet */ }
+      try { await navigator.share({ title: "L'Oracolo: concerti di Gabri", url }); } catch { /* user closed the share sheet */ }
       return;
     }
     await copyText(url);
@@ -440,7 +440,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     <div className={"chatdock" + (corner ? " chatdock--corner" : "")}>
       {open && (
         <div className="chatmodal" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <div className="chatpop" role="dialog" aria-modal="true" aria-label="L'Oracolo — chat AI">
+          <div className="chatpop" role="dialog" aria-modal="true" aria-label="L'Oracolo, chat AI">
             <div className="fp-head">
               <span className="fp-title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
