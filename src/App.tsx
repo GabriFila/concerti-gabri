@@ -1784,9 +1784,14 @@ function useReveal(threshold=0.2): [any,boolean]{
     if(seen) return;
     const el=ref.current; if(!el) return;
     if(prefersReducedMotion()||typeof IntersectionObserver==="undefined"){ setSeen(true); return; }
+    // A ratio threshold is unreachable once the element is taller than the
+    // viewport — a 0.4 threshold on a section 3x the screen never fires and the
+    // content stays invisible. Cap it at what this element can actually reach.
+    const h=el.offsetHeight||1;
+    const t=Math.min(threshold,(window.innerHeight*0.8)/h);
     const io=new IntersectionObserver(es=>{
       es.forEach(e=>{ if(e.isIntersecting){ setSeen(true); io.disconnect(); } });
-    },{threshold,rootMargin:"0px 0px -8% 0px"});
+    },{threshold:t,rootMargin:"0px 0px -8% 0px"});
     io.observe(el);
     return ()=>io.disconnect();
   },[seen,threshold]);
@@ -1842,6 +1847,52 @@ function Act({className,threshold,children}: any){
 // Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
 const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
 
+// Glide the page so `target` starts at the top of the screen — the same place
+// scroll-snap puts it, so tapping and flicking agree.
+//
+// The scroll is animated here rather than handed to scrollIntoView({smooth}):
+// the browser's smooth scroll runs on the same machinery as the snap engine, so
+// snapping has to be off while it flies (iOS cancels it outright otherwise) and
+// there is no dependable signal for when it landed — `scrollend` is too new to
+// rely on, and watching for the scroll to go quiet mistakes the pause *before*
+// the animation starts for the end of it. That mistake is what made the tap
+// look broken: snapping came back mid-flight, the snap engine pulled the page
+// home, and the next act flashed past on the way there. A rAF loop has a known
+// start and end, so snapping goes off and comes back at exact moments.
+function glideTo(target:Element){
+  const root=document.documentElement;
+  // absolute document position of the target's top, re-read per frame so a
+  // reveal or a resize mid-flight doesn't leave the animation aiming at a
+  // position that no longer exists
+  const dest=()=>{
+    const y=window.scrollY+target.getBoundingClientRect().top;
+    return Math.max(0,Math.min(y,root.scrollHeight-window.innerHeight));
+  };
+  if(prefersReducedMotion()){ window.scrollTo(0,dest()); return; }
+  root.setAttribute("data-snap","off");
+  const from=window.scrollY, dur=620;
+  let t0=0, raf=0, over=false;
+  const end=()=>{
+    if(over) return;
+    over=true;
+    cancelAnimationFrame(raf);
+    root.removeAttribute("data-snap");
+    window.removeEventListener("touchstart",end);
+    window.removeEventListener("wheel",end);
+  };
+  // a finger or a wheel outranks the animation — hand the scroll straight back
+  window.addEventListener("touchstart",end,{passive:true});
+  window.addEventListener("wheel",end,{passive:true});
+  const tick=(t:number)=>{
+    if(over) return;
+    if(!t0) t0=t;
+    const p=Math.min(1,(t-t0)/dur);
+    window.scrollTo(0,from+(dest()-from)*(1-Math.pow(1-p,3)));  // easeOutCubic
+    if(p<1) raf=requestAnimationFrame(tick); else end();
+  };
+  raf=requestAnimationFrame(tick);
+}
+
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
   // the KPIs use, so the two views agree by construction.
@@ -1874,20 +1925,15 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
   },[]);
   // "Avanti" cue on every act but the last: glide to the next act below (found
   // via the DOM so it stays correct even when some acts are conditionally hidden).
+  // Where it lands is the same place scroll-snap would put it — top edge under
+  // the chrome — so tapping and flicking agree instead of pulling against each
+  // other, whatever the act's height.
   const goNext=(e:any)=>{
     const act=e.currentTarget.closest(".rt-act");
     let n=act?act.nextElementSibling:null;
     while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
     const target=n||document.querySelector(".rt-footer");
-    if(!target) return;
-    const rect=target.getBoundingClientRect();
-    const vh=window.innerHeight;
-    // center the act in the viewport; if it's taller than the viewport, land its
-    // top just below the fixed top controls instead
-    const y=rect.height>vh
-      ? window.scrollY+rect.top-84
-      : window.scrollY+rect.top+rect.height/2-vh/2;
-    window.scrollTo({top:Math.max(0,y),behavior:"smooth"});
+    if(target) glideTo(target);
   };
   const nextCue=()=>(
     <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
@@ -2107,7 +2153,11 @@ function Shell(){
   // owner: unlocks maintenance notices (captured at module load, see OWNER_UNLOCKED)
   const owner=OWNER_UNLOCKED;
   // expose the current view on <html> so CSS can scope scroll-snapping to "In scena"
-  React.useEffect(()=>{ document.documentElement.setAttribute("data-view",view); },[view]);
+  React.useEffect(()=>{
+    document.documentElement.setAttribute("data-view",view);
+    // never carry a suspended-snapping flag across a route change (see glideTo)
+    document.documentElement.removeAttribute("data-snap");
+  },[view]);
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
