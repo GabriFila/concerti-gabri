@@ -1813,9 +1813,9 @@ function Act({className,threshold,children}: any){
   );
 }
 
-// Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
+// Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral;
+// the discount is baked into the link).
 const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
-const LOOP_CODE="";
 
 function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
@@ -1959,16 +1959,19 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       {P.upcoming.length>0&&(
       <Act className="rt-nextact">
         <div className="rt-head"><h2 className="rt-h2">E adesso?</h2></div>
-        <p className="rt-lead">Le prossime serate, già segnate sul calendario.</p>
+        <p className="rt-lead">{P.plannedCount>3
+          ? (P.plannedCount-3===1
+              ? <>Un altro concerto programmato, ecco i prossimi.</>
+              : <>Altri <b>{P.plannedCount-3}</b> concerti programmati, ecco i prossimi.</>)
+          : "Ecco i prossimi concerti in programma."}</p>
         <ol className="rt-nextlist">
-          {P.upcoming.slice(0,4).map((ev,i)=>(
+          {P.upcoming.slice(0,3).map((ev,i)=>(
             <li className="rt-nextrow" key={i}>
               <span className="rt-next-art">{labelOf(ev)}</span>
               <span className="rt-next-meta"><span className="rt-next-date">{ev.date}</span> · {ev.venue}, {ev.city}</span>
             </li>
           ))}
         </ol>
-        {P.plannedCount>4&&<p className="rt-lead rt-nextmore">…e altri <b>{P.plannedCount-4}</b> in programma.</p>}
         <div className="rt-earplugs">
           <p className="rt-earplugs-note">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 3.5-2 4.5-3.2 5.7C13.6 14.9 13 15.7 13 17a3 3 0 0 1-6 0"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
@@ -1976,7 +1979,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           </p>
           <a className="rt-earplugs-cta" href={LOOP_LINK} target="_blank" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            Compra i tappi Loop{LOOP_CODE&&<> — codice <b>{LOOP_CODE}</b></>}
+            Compra i tappi Loop col mio sconto
           </a>
         </div>
         {nextCue()}
@@ -2184,7 +2187,7 @@ function App(){
         <span className="abeam a22"></span>
       </div>
       {view==="ritratto"
-        ? <Ritratto openChat={(q)=>chatApi.current?.open(q)} onExplore={()=>switchView("dati")}/>
+        ? <Ritratto openChat={(q)=>chatApi.current?.open(q)} onExplore={()=>{switchView("dati");window.scrollTo(0,0);}}/>
         : <FullDashboard owner={owner}/>}
       <ChatWidget ctx={chatCtx} apiRef={chatApi} corner/>
       {view==="dati"&&(
