@@ -30,27 +30,13 @@ export interface TrendPoint {
 
 export interface TrendPlotProps {
   points: TrendPoint[];
+  trend: [number, number][];  // media mobile [timestamp, valore], vuota = non disegnata
   from: number;               // inizio della finestra iniziale (timestamp)
   yMin?: number;              // assente = automatico (costo, km)
   yMax?: number;
   yInterval?: number;         // passo dei tick (1 per le scale ordinali)
   yFormat: (v: number) => string;      // etichetta di un tick
   label: string;              // nome della proprietà, per l'aria-label
-}
-
-/* Media mobile centrata: la linea di tendenza. La finestra cresce col numero
-   di punti (5 su pochi dati, di più su tanti) così la curva resta leggibile
-   sia con 20 concerti sia con 200. */
-function movingAverage(points: TrendPoint[]): [number, number][] {
-  if (points.length < 4) return [];
-  const w = Math.max(5, Math.round(points.length / 10) | 1);
-  const half = Math.floor(w / 2);
-  return points.map((p, i) => {
-    const lo = Math.max(0, i - half), hi = Math.min(points.length - 1, i + half);
-    let s = 0;
-    for (let j = lo; j <= hi; j++) s += points[j].v;
-    return [p.t, s / (hi - lo + 1)] as [number, number];
-  });
 }
 
 /* ECharts scrive le date in inglese: qui serve solo la parte "time" del locale
@@ -140,7 +126,7 @@ function useGestureGate(outer: React.RefObject<HTMLDivElement | null>) {
   }, [outer]);
 }
 
-export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat, label }: TrendPlotProps) {
+export default function TrendPlot({ points, trend, from, yMin, yMax, yInterval, yFormat, label }: TrendPlotProps) {
   const outer = useRef<HTMLDivElement | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
   const chart = useRef<echarts.EChartsType | null>(null);
@@ -160,7 +146,6 @@ export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat
   useEffect(() => {
     const c = chart.current;
     if (!c) return;
-    const ma = movingAverage(points);
     // Il singolo concerto non è il punto della card: puntini minuti, uniti da una
     // linea sottile, senza tooltip né hover — quello che si legge è la forma.
     // Una serie sola (non due) perché la linea deve attraversare il confine tra
@@ -218,12 +203,12 @@ export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat
       series: [
         {
           name: "Concerti", type: "line" as const, data: line, symbol: "circle", symbolSize: 3,
-          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.9 },
+          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.7 },
           silent: true, emphasis: { disabled: true },
           z: 2,
         },
-        ...(ma.length ? [{
-          name: "Tendenza", type: "line" as const, data: ma, smooth: true, symbol: "none",
+        ...(trend.length ? [{
+          name: "Media mobile", type: "line" as const, data: trend, smooth: true, symbol: "none",
           lineStyle: { color: colors["--dim"], width: 2, opacity: 0.9 },
           silent: true, emphasis: { disabled: true },
           z: 3,
@@ -232,7 +217,7 @@ export default function TrendPlot({ points, from, yMin, yMax, yInterval, yFormat
       // la finestra iniziale la imposta l'effetto qui sotto: tenerla fuori da
       // qui vuol dire che un cambio di tema non rimanda lo zoom da capo
     } as echarts.EChartsCoreOption, { replaceMerge: ["series"] });
-  }, [points, colors, yMin, yMax, yInterval, yFormat]);
+  }, [points, trend, colors, yMin, yMax, yInterval, yFormat]);
 
   /* Finestra iniziale: dal primo punto del 2022 all'ultimo che la proprietà
      scelta ha davvero — ogni proprietà finisce dove finiscono i suoi dati (il

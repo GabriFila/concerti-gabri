@@ -449,6 +449,25 @@ const eventPoints=(data:Entry[],pick:(e:Entry)=>number|null):TrendPoint[]=>
     return v===null||t===null?[]:[{t,v,planned:isPlanned(e)}];
   }).sort(byTime);
 
+/* La linea grigia del grafico: NON è una derivata, è una media mobile centrata.
+   Ogni punto vale la media della proprietà sui W concerti che gli stanno
+   attorno (lui compreso), quindi resta nella stessa scala dei dati — un 3,4 su
+   quella linea è "in questo periodo davo circa 3,4 stelle", non "sto salendo".
+   La finestra è in numero di concerti, non in giorni: nei mesi fitti copre
+   qualche settimana, nei periodi vuoti si allarga da sola. W cresce col
+   dataset (5 su pochi dati, di più su tanti) e resta dispari, così la finestra
+   è simmetrica; agli estremi si accorcia invece di inventare valori. */
+const maWindow=(n:number)=>Math.max(5,Math.round(n/10)|1);
+const movingAverage=(points:TrendPoint[]):[number,number][]=>{
+  if(points.length<4) return [];
+  const half=Math.floor(maWindow(points.length)/2);
+  return points.map((p,i)=>{
+    const lo=Math.max(0,i-half),hi=Math.min(points.length-1,i+half);
+    let s=0; for(let j=lo;j<=hi;j++) s+=points[j].v;
+    return [p.t,s/(hi-lo+1)];
+  });
+};
+
 interface TrendSpec {
   k:string; tab:string;            // chiave e etichetta del selettore
   label:string;                    // nome esteso (tooltip, aria, testo vuoto)
@@ -486,6 +505,7 @@ function TrendCard(){
   const [k,setK]=useState("voto");
   const spec=TREND_SPECS.find(s=>s.k===k)||TREND_SPECS[0];
   const points=useMemo(()=>spec.points(DATA),[DATA,spec]);
+  const trend=useMemo(()=>movingAverage(points),[points]);
   return (
     <section className="panel full">
       <div className="paneltop">
@@ -498,7 +518,7 @@ function TrendCard(){
       </div>
       {points.length>0?(<>
         <React.Suspense fallback={<div className="trendbox trendload">Carico il grafico…</div>}>
-          <TrendPlot points={points} from={TREND_FROM} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
+          <TrendPlot points={points} trend={trend} from={TREND_FROM} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
             yFormat={spec.yFormat} label={spec.label}/>
         </React.Suspense>
         {/* la media sta in legenda e non più come riga tratteggiata dentro il
@@ -506,7 +526,7 @@ function TrendCard(){
         <div className="ylegend trendlegend">
           <span className="lg lg-att">Già visti</span>
           {points.some(p=>p.planned)&&<span className="lg lg-pl">In programma</span>}
-          <span className="lg lg-avg">Tendenza</span>
+          {trend.length>0&&<span className="lg lg-avg">Media mobile ({maWindow(points.length)} {spec.unit})</span>}
           <span className="lg lg-mean">Media <b>{spec.valueFormat(sum(points.map(p=>p.v))/points.length)}</b></span>
         </div>
         <p className="desc trendhint">Un punto per {spec.unit==="concerti"?"concerto":"biglietto"} ({points.length}). Pizzica con due dita per zoomare, trascina con un dito per scorrere nel tempo.</p>
