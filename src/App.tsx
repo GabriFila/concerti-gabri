@@ -401,13 +401,12 @@ function ChartCard(){
   const DATA=useData();
   const [view,setView]=useState("year");
   const swipe=useSwipeToggle(()=>setView("year"),()=>setView("time"));
-  const meta = view==="year"
-    ? {t:"Concerti per anno",d:"La frequenza nel tempo. Gli anni vuoti (2018, 2021) segnano lo stop dei live; dal 2024 la curva esplode."}
-    : {t:"Timeline",d:"Ogni concerto in ordine cronologico lungo una linea orizzontale scorrevole."};
+  // The heading is the card's name, not the active view's: it stays put while
+  // the toggle switches between the year bars and the timeline.
   return (
     <section className="panel full" {...swipe}>
       <div className="paneltop">
-        <div><h2><Icon name="chart" size={22} className="h2ic"/>{meta.t}</h2></div>
+        <div><h2><Icon name="chart" size={22} className="h2ic"/>Concerti per anno</h2></div>
         <div className="toggle">
           <button className={"tg"+(view==="year"?" on":"")} onClick={()=>setView("year")}>Per anno</button>
           <button className={"tg"+(view==="time"?" on":"")} onClick={()=>setView("time")}>Timeline</button>
@@ -473,14 +472,15 @@ function RankCard({title,desc,obj,plObj,color,min,unit,icon,field,multi,entity}:
   // default keeps the old per-event behaviour
   const plC=plObj||(multi?multiCounter(DATA.filter(isPlanned),f):counter(DATA.filter(isPlanned),f));
   const all=ranked(obj);
-  const eligible=all.filter(e=>e[1]>=m);
-  const ent=rankCutoff(eligible);
-  const shown=expanded?eligible:ent;
-  const hasMore=eligible.length>ent.length;
+  // Collapsed: only the recurring entries (>= `min`), capped rank by rank.
+  // Expanded: the whole list, one-offs included — same as every other card.
+  const ent=rankCutoff(all.filter(e=>e[1]>=m));
+  const shown=expanded?all:ent;
+  const hasMore=all.length>ent.length;
   return (
     <section className="panel">
       <h2><Icon name={icon||"trophy"} size={22} className="h2ic"/>{title}</h2>
-      {shown.length>0 ? (<>
+      {shown.length>0 ? (
         <div className="rank">{shown.map(([name,v])=>{
           const max=shown[0][1];
           const p=plC[name]||0;const a=v-p;
@@ -494,10 +494,10 @@ function RankCard({title,desc,obj,plObj,color,min,unit,icon,field,multi,entity}:
             </div>
           );
         })}</div>
-        {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={eligible.length-ent.length} entity={entity||ENT_ARTIST}/>}
-      </>) : (
+      ) : (
         <p className="desc" style={{margin:0}}>Niente che si ripeta finora.</p>
       )}
+      {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={all.length-ent.length} entity={entity||ENT_ARTIST}/>}
     </section>
   );
 }
@@ -696,7 +696,7 @@ function CostCard(){
         <div><h2><Icon name="wallet" size={22} className="h2ic"/>Quanto spendo</h2></div>
       </div>
       <SpendYearChart rows={known}/>
-      <div className="ylegend"><span className="lg lg-att">Speso</span><span className="lg lg-pl">In programma (già pagato)</span><span className="lg lg-avg">Media a biglietto</span></div>
+      <div className="ylegend"><span className="lg lg-att">Speso</span><span className="lg lg-pl">In programma</span><span className="lg lg-avg">Media a biglietto</span></div>
     </section>
   );
 }
@@ -869,6 +869,16 @@ function VoteScatter(){
     const sc=dim==="cost"?0.55:1; // gentler nudge on the continuous axis
     return {d,x:xOf(d)+dx*sc,y:yOf(d.voto as number)+dy};
   });
+  // Dot detail: the native <title> only showed up on desktop, after a delay,
+  // and never on tap — so the dots drive an HTML tooltip instead. Hover opens
+  // it with a mouse, tap toggles it on touch; a tap anywhere else in the chart
+  // (or switching view) closes it.
+  const [active,setActive]=useState<number|null>(null);
+  React.useEffect(()=>{setActive(null)},[dim,pts.length]); // view/filters changed → indices no longer match
+  const dimValue=(d:FlatConcert)=>dim==="cost"?eur2(d.cost as number)
+    :dim==="vic"?VIC_LABELS[d.vicinanza as number]
+    :CN_LABELS[d.canzoniNote as number];
+  const act=active!=null&&nodes[active]?nodes[active]:null;
   return (
     <section className="panel full" {...swipe}>
       <div className="paneltop">
@@ -879,7 +889,9 @@ function VoteScatter(){
           <button className={"tg"+(dim==="cn"?" on":"")} onClick={()=>setDim("cn")}>Canzoni note</button>
         </div>
       </div>
-      {pts.length>0?(<>
+      {pts.length>0?(
+        // touch pointers fire pointerleave on release, so only a mouse leaving closes the tooltip
+        <div className="scwrap" onPointerDown={()=>setActive(null)} onPointerLeave={e=>{if(e.pointerType!=="touch")setActive(null);}}>
         <svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"auto",display:"block"}} role="img" aria-label={"Grafico a dispersione: voto contro "+DIM_NAMES[dim]}>
           {[1,2,3,4,5].map(v=>(
             <g key={v}>
@@ -894,13 +906,26 @@ function VoteScatter(){
               <text x={x} y={H-14} textAnchor="middle" fontSize={dim==="cost"?14:12} fill="var(--muted)" fontFamily="Inter,sans-serif">{dim==="cost"?"€"+t:dim==="vic"?VIC_LABELS[t]:CN_LABELS[t]}</text>
             </g>;
           })}
-          {nodes.map(({d,x,y},i)=>(
-            <circle key={i} cx={x} cy={y} r="6" fill="var(--lamp)" fillOpacity="0.82" stroke="var(--bg-2)" strokeWidth="1.5">
-              <title>{d.artist+" · "+d.date+" · "+"★".repeat(d.voto as number)+" · "+(dim==="cost"?eur2(d.cost as number):dim==="vic"?VIC_LABELS[d.vicinanza as number]:CN_LABELS[d.canzoniNote as number])}</title>
-            </circle>
+          {nodes.map(({x,y},i)=>(
+            <g key={i} className={"scdot"+(active===i?" on":"")}
+              onPointerEnter={e=>{if(e.pointerType!=="touch")setActive(i);}}
+              onPointerDown={e=>{e.stopPropagation();setActive(a=>a===i?null:i);}}>
+              {/* invisible, finger-sized hit area around each dot */}
+              <circle cx={x} cy={y} r="11" fill="transparent"/>
+              <circle className="scd" cx={x} cy={y} r={active===i?6:4} fill="var(--lamp)" fillOpacity="0.82" stroke="var(--bg-2)" strokeWidth="1.2"/>
+            </g>
           ))}
         </svg>
-      </>):(
+        {act&&(
+          <div className={"sctip"+(act.y<H*0.3?" below":"")}
+            style={{left:Math.min(88,Math.max(12,act.x/W*100))+"%",top:(act.y/H*100)+"%"}}>
+            <span className="sct-art">{act.d.artist}</span>
+            <span className="sct-meta">{act.d.date} · {act.d.city}</span>
+            <span className="sct-val"><span className="star">{"★".repeat(act.d.voto as number)}</span> · {dimValue(act.d)}</span>
+          </div>
+        )}
+        </div>
+      ):(
         <p className="desc" style={{margin:0}}>Nessun concerto con voto e {DIM_NAMES[dim]} con questi filtri.</p>
       )}
     </section>
@@ -910,15 +935,12 @@ function VoteScatter(){
 function CanzoniNoteCard(){
   const DATA=useData();
   // breakdown per livello di "Canzoni note" (Tutte in cima), solo valori veri:
-  // "na" e non-definiti restano fuori, come in VicinanzaCard. Ogni riga mostra
-  // anche il voto medio dei concerti votati di quel livello: è la statistica
-  // interessante — conoscere le canzoni cambia quanto mi godo il concerto?
+  // "na" e non-definiti restano fuori, come in VicinanzaCard.
   const CONC=DATA.flatMap(concertsOf); // per concerto, come vicinanza
   const rows=[5,4,3,2,1].map(v=>{
     const list=CONC.filter(c=>c.canzoniNote===v);
     const pl=list.filter(isPlanned).length;
-    const voted=list.filter(hasVoto);
-    return {v,n:list.length,a:list.length-pl,pl,avg:voted.length?sum(voted.map(d=>d.voto))/voted.length:null};
+    return {v,n:list.length,a:list.length-pl,pl};
   }).filter(r=>r.n>0);
   const total=rows.reduce((s,r)=>s+r.n,0);
   const max=Math.max(1,...rows.map(r=>r.n));
@@ -926,9 +948,9 @@ function CanzoniNoteCard(){
     <section className="panel">
       <h2><Icon name="note" size={22} className="h2ic"/>Quante canzoni conosco</h2>
       {total>0?(<>
-        <div className="rank">{rows.map(({v,n,a,pl,avg})=>(
+        <div className="rank">{rows.map(({v,n,a,pl})=>(
           <div className="rrow" key={v}>
-            <div className="rtop"><span className="name">{CN_LABELS[v]} · <span style={{color:"var(--muted)",fontWeight:400}}>{Math.round(n/total*100)}%{avg!=null&&<> · voto {voto1(avg)}<span className="star" style={{fontSize:"0.85em"}}>★</span></>}</span></span><span className="val">{a>0&&<span className="vpast">{a}</span>}{a>0&&pl>0&&<span className="vplus"> + </span>}{pl>0&&<span className="vpl">{pl}</span>}</span></div>
+            <div className="rtop"><span className="name">{CN_LABELS[v]} · <span style={{color:"var(--muted)",fontWeight:400}}>{Math.round(n/total*100)}%</span></span><span className="val">{a>0&&<span className="vpast">{a}</span>}{a>0&&pl>0&&<span className="vplus"> + </span>}{pl>0&&<span className="vpl">{pl}</span>}</span></div>
             <div className="track">
               <div className="fill" style={{width:Math.round(a/max*100)+"%",background:"var(--lamp)"}}></div>
               {pl>0&&<div className="fill fpl" style={{width:Math.round(pl/max*100)+"%"}}></div>}
@@ -1091,6 +1113,9 @@ function ArchiveTable(){
   );
 }
 
+// framing used both for the initial map view and for the "Adatta" button
+const MAP_FIT_OPTS={padding:60,maxZoom:11};
+
 function MapCard(){
   const DATA=useData();
   const ref=useRef<HTMLDivElement|null>(null);
@@ -1143,14 +1168,22 @@ function MapCard(){
     return Math.max(...Object.values(counts),1);
   },[mode,DATA]);
 
-  const fitToData=React.useCallback(()=>{
-    const map=mapRef.current; if(!map||!window.mapboxgl) return;
-    const geo=buildGeo(mode);
-    if(!geo.features.length) return;
+  // Bounds around every plotted marker — shared by "Adatta" and the initial
+  // view, so the map opens on exactly what that button restores.
+  const dataBounds=React.useCallback((m:string)=>{
+    if(!window.mapboxgl) return null;
+    const geo=buildGeo(m);
+    if(!geo.features.length) return null;
     const b=new mapboxgl.LngLatBounds();
     geo.features.forEach((f:any)=>b.extend(f.geometry.coordinates));
-    map.fitBounds(b,{padding:60,maxZoom:11,duration:700});
-  },[buildGeo,mode]);
+    return b;
+  },[buildGeo]);
+
+  const fitToData=React.useCallback(()=>{
+    const map=mapRef.current; if(!map) return;
+    const b=dataBounds(mode);
+    if(b) map.fitBounds(b,{...MAP_FIT_OPTS,duration:700});
+  },[dataBounds,mode]);
 
   // Custom paint tinting applied to a vector basemap (see map.on('load'))
 
@@ -1185,11 +1218,13 @@ function MapCard(){
     if(!hasToken || !mapboxReady || !ref.current) return;
     if(!window.mapboxgl){ setLoadError(true); return; }
     mapboxgl.accessToken=MAPBOX_TOKEN;
+    // Open already framed on every venue (same view as "Adatta"); the fixed
+    // center/zoom is only the fallback when nothing has coordinates yet.
+    const initBounds=dataBounds(mode);
     const map=new mapboxgl.Map({
       container:ref.current,
       style:"mapbox://styles/mapbox/dark-v11",
-      center:[9.6,45.0],
-      zoom:5.4,
+      ...(initBounds?{bounds:initBounds,fitBoundsOptions:MAP_FIT_OPTS}:{center:[9.6,45.0],zoom:5.4}),
       attributionControl:true,
       // Don't hijack page scrolling: zoom needs Ctrl/Cmd+scroll on desktop and
       // two fingers on touch; a plain swipe/scroll over the map scrolls the page.
@@ -2065,7 +2100,7 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             <span>Un consiglio: <b>proteggi l'udito</b>, io porto sempre i tappi con me.</span>
           </p>
           <a className="rt-earplugs-cta" href={LOOP_LINK} target="_blank" rel="noopener noreferrer">
-            <span>Compra i tuoi Loop con il mio link</span>
+            <span>Compra i tuoi Loop con il 15% di sconto</span>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
         </div>
