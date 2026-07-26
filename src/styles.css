@@ -1137,17 +1137,13 @@
   /* overflow:clip (not hidden) so .rt doesn't become a scroll container and
      steal snapping from the page scroller — while still clipping the beams */
   .rt{position:relative;z-index:1;overflow:clip}
-  /* Magnetic scroll, only in "Sul palco". Acts snap to their START, not their
-     centre: an act taller than the viewport (small phones, landscape, long
-     lists) has no reachable centre snap position, and browsers — iOS Safari
-     worst of all — respond by yanking the scroll back mid-gesture. Start
-     alignment always has a reachable position, and since each act centres its
-     own content the framing looks the same.
-     scroll-snap-type is deliberately never toggled at runtime: changing it on a
-     live scroll container is what broke the "Avanti" button on iPhone. The cue
-     uses scrollIntoView, which aims at the same snap position anyway. */
-  :root[data-view="ritratto"]{scroll-snap-type:y proximity}
-  .rt-act{scroll-snap-align:start}
+  /* No scroll-snapping here, deliberately. The acts were magnetic once, but
+     snapping and iOS Safari never made peace: an act taller than the viewport
+     has no reachable snap position, the snapport changes size every time the
+     URL bar collapses, and each of those made the page fight the reader or the
+     "Avanti" cue land somewhere it shouldn't. Plain scrolling is what the page
+     needs to get right, so that is all it does — the cue moves between acts,
+     and nothing second-guesses a gesture. */
   .rt-act{
     position:relative;max-width:1100px;margin:0 auto;
     /* the top padding does double duty: it clears the fixed chrome (switch and
@@ -1321,12 +1317,10 @@
 
   /* Short AND wide viewports (landscape phones, split-screen, a browser window
      dragged flat): an act can't fill the screen there, so the full-height
-     framing only manufactures overflow — and snapping between blocks that are
-     all taller than the viewport is exactly what makes a page feel like it's
-     fighting the user. Let it flow instead. Portrait phones are deliberately
-     excluded, however short: the full-height framing is the whole point there. */
+     framing only manufactures overflow. Let it flow instead. Portrait phones
+     are deliberately excluded, however short: the full-height framing is the
+     whole point there. */
   @media (max-height:620px) and (orientation:landscape){
-    :root[data-view="ritratto"]{scroll-snap-type:none}
     .rt-act{min-height:0;
       padding-top:clamp(74px,15vh,110px);padding-top:clamp(74px,15svh,110px);
       padding-bottom:clamp(26px,7vh,64px);padding-bottom:clamp(26px,7svh,64px)}

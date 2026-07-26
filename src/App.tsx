@@ -1833,64 +1833,50 @@ function CountStat({value,label,hint,prefix,suffix,start,decimals}: any){
   );
 }
 
-/* Glide to an act, cooperating with CSS scroll-snap.
-   scrollIntoView is the snap-aware way to do this: it targets the element's own
-   snap position, so if the browser re-snaps mid-glide it re-snaps to the same
-   place instead of fighting us. We used to switch scroll-snap-type off for the
-   duration instead — but mutating a scroll container's snap properties while a
-   scroll is in flight is exactly the kind of thing WebKit handles badly. On
-   iPhone that lands on top of the URL bar collapsing, which resizes the
-   snapport and makes it rebuild its snap offsets; the two together could dump
-   the reader back at the first offset, i.e. the top of the page.
+/* Move to an act.
 
-   Smooth scrolling stays best-effort on mobile — iOS drops a programmatic one
-   outright if momentum from a previous gesture is still settling — so the
-   landing is watched rather than assumed, and completed outright the moment it
-   stalls short. */
+   The glide is animated here, frame by frame, instead of being handed to the
+   browser as behavior:"smooth". Every attempt to delegate it went wrong on
+   iPhone in a different way — Safari refuses a programmatic smooth scroll
+   outright while momentum from your last gesture is still settling, and when it
+   does accept one it can still finish somewhere else. An ordinary instant
+   scroll is the one thing every browser honours immediately, so that is all
+   this uses: a sequence of them, eased, ending on the exact target. Nothing can
+   decline it and there is no landing to second-guess.
+
+   The reader always wins: a drag, wheel, key or scrollbar grab abandons the
+   animation where it stands. */
 let stopGlide:(()=>void)|null=null;
 function goToAct(el:Element){
-  stopGlide?.();                                  // a second tap supersedes the first
-  const targetY=()=>Math.max(0,Math.round(el.getBoundingClientRect().top+window.scrollY));
-  if(prefersReducedMotion()){ window.scrollTo(0,targetY()); return; }
-  el.scrollIntoView({behavior:"smooth",block:"start",inline:"nearest"});
+  stopGlide?.();                                  // a second press supersedes the first
+  const targetY=()=>{
+    const max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+    return Math.min(max,Math.max(0,Math.round(el.getBoundingClientRect().top+window.scrollY)));
+  };
+  const to=targetY(), from=window.scrollY, dist=to-from;
+  if(prefersReducedMotion()||Math.abs(dist)<2){ window.scrollTo(0,to); return; }
 
-  let poll=0, taken=false, last=window.scrollY, idle=0, settled=0;
-  const stop=()=>{ clearInterval(poll); events.forEach(t=>window.removeEventListener(t,handOver)); stopGlide=null; };
-  // Taking over means driving the page yourself, and it is recognised only by
-  // input — never by where the page ended up, because a scroll that jumps
-  // somewhere unexpected is exactly the breakage worth rescuing, not evidence
-  // of a reader. touchmove rather than touchstart: on iOS the tap that got us
-  // here delivers touch events of its own afterwards, and treating those as a
-  // hand-over cancelled the very rescue they needed. mousedown is safe for the
-  // same reason it catches a scrollbar drag — it precedes the click, so the tap
-  // that got us here cannot have fired it.
-  const began=Date.now();
+  // ~1.6ms per pixel, held between a brisk 300ms and a calm 620ms
+  const dur=Math.min(620,Math.max(300,Math.abs(dist)*1.6));
+  const ease=(p:number)=>1-Math.pow(1-p,3);
+  const t0=(typeof performance!=="undefined"?performance.now():Date.now());
+  let raf=0;
+  // mousedown catches a scrollbar drag, and is safe to listen for because it
+  // precedes the click — the press that got us here cannot have fired it
   const events=["touchmove","wheel","keydown","mousedown"];
-  const handOver=()=>{ if(Date.now()-began>100){ taken=true; stop(); } };
-  events.forEach(t=>window.addEventListener(t,handOver,{passive:true}));
+  const stop=()=>{ cancelAnimationFrame(raf); events.forEach(t=>window.removeEventListener(t,stop)); stopGlide=null; };
+  events.forEach(t=>window.addEventListener(t,stop,{passive:true}));
   stopGlide=stop;
 
-  poll=window.setInterval(()=>{
-    if(taken) return;
-    const atEnd=window.scrollY>=document.documentElement.scrollHeight-window.innerHeight-1;
-    // only call it done once we've held the position — a correction can be
-    // overshot, and then it's on us to correct the correction
-    if(Math.abs(el.getBoundingClientRect().top)<=4||atEnd){ if(++settled>=2) stop(); return; }
-    settled=0;
-    if(Math.abs(window.scrollY-last)<2) idle++; else { idle=0; last=window.scrollY; }
-    // four quiet ticks and still short of the mark: the glide was refused or
-    // died on the way, so finish the job outright rather than strand the reader
-    if(idle>=4||Date.now()-began>1600){
-      idle=0;
-      // Cancel the pending smooth run BEFORE jumping. A smooth scroll that is
-      // merely slow to start is still live, and its leftover delta gets applied
-      // from wherever we land — which threw the reader clean past the act.
-      window.scrollTo({top:window.scrollY,behavior:"auto"});
-      window.scrollTo({top:targetY(),behavior:"auto"});
-      last=window.scrollY;
-    }
-    if(Date.now()-began>3200) stop();                                // backstop
-  },100);
+  const step=()=>{
+    const now=(typeof performance!=="undefined"?performance.now():Date.now());
+    const p=Math.min(1,(now-t0)/dur);
+    window.scrollTo(0,Math.round(from+dist*ease(p)));
+    if(p<1){ raf=requestAnimationFrame(step); return; }
+    window.scrollTo(0,targetY());                 // re-measured, so it lands exact
+    stop();
+  };
+  raf=requestAnimationFrame(step);
 }
 
 // A single "act": a near-full-viewport block that fades/rises in on scroll.
@@ -2179,14 +2165,12 @@ function Shell(){
     try{ const s=localStorage.getItem("theme"); if(s==="dark"||s==="light"||s==="system") return s; }catch(e){}
     return "dark";
   });
-  // which route we're on drives the switch + scroll-snap scoping
+  // which route we're on drives the switch
   const pathname=useRouterState({select:s=>s.location.pathname});
   const isDati=pathname.startsWith("/dati");
   const view=isDati?"dati":"ritratto";
   // owner: unlocks maintenance notices (captured at module load, see OWNER_UNLOCKED)
   const owner=OWNER_UNLOCKED;
-  // expose the current view on <html> so CSS can scope scroll-snapping to "In scena"
-  React.useEffect(()=>{ document.documentElement.setAttribute("data-view",view); },[view]);
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
