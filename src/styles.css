@@ -1150,11 +1150,20 @@
   .rt-act{scroll-snap-align:start}
   .rt-act{
     position:relative;max-width:1100px;margin:0 auto;
-    /* top padding clears the fixed chrome (switch/toggle bottom out ~58px) at
-       the exact position a snap parks the act at */
-    padding:clamp(74px,12vh,140px) clamp(20px,6vw,64px) clamp(28px,7vh,90px);
-    padding:clamp(74px,12svh,140px) clamp(20px,6vw,64px) clamp(28px,7svh,90px);
-    min-height:88vh;min-height:88svh;
+    /* the top padding does double duty: it clears the fixed chrome (switch and
+       toggle bottom out ~58px) at the position a snap parks the act at, and it
+       keeps this act's own heading below the sliver of it that shows under the
+       act above on iOS — see the min-height note below */
+    padding:clamp(74px,14vh,140px) clamp(20px,6vw,64px) clamp(28px,7vh,90px);
+    padding:clamp(74px,14svh,140px) clamp(20px,6vw,64px) clamp(28px,7svh,90px);
+    /* A full viewport, not 88% of one. svh is frozen at the toolbar-VISIBLE
+       height, but iOS hands you the larger viewport the moment the toolbar
+       minimises — so an 88svh act covered barely 78% of what you could
+       actually see, and the next act's heading sat in the gap. 100svh is the
+       most that's safe: anything taller overflows the viewport on desktop and
+       Android (where svh == the real height) and pushes the "Avanti" cue below
+       the fold. */
+    min-height:100vh;min-height:100svh;
     display:flex;flex-direction:column;
     opacity:0;transition:opacity .8s ease;
   }

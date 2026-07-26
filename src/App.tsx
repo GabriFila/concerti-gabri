@@ -1969,7 +1969,10 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
       </>)}</Act>
 
       {/* ── Act III — the map ── */}
-      <Act className="rt-mapact" threshold={0.05} cue={nextCue()}>
+      {/* default reveal threshold on purpose: a lower one fades this act in
+          while it's still only peeking under the act above it (the map card
+          mounts either way, so nothing loads later for it) */}
+      <Act className="rt-mapact" cue={nextCue()}>
         <div className="rt-head"><h2 className="rt-h2">Dove</h2></div>
         <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
       </Act>
