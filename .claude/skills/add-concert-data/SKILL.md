@@ -1,6 +1,6 @@
 ---
 name: add-concert-data
-description: Collect concert details from Gabri via a fill-in template, then write them into src/data.ts. Use whenever the user wants to add a new concert or fill in / update the fields of an existing one (voto, vicinanza, canzoni note, companions, ticket, posto, trip origin, etc.) — e.g. "I saw X, what do you need", "add this concert", "fill in the data for Y", "update the Caparezza row".
+description: Collect concert details from Gabri via a fill-in template, then write them into src/data.ts. Use whenever the user wants to add a new concert or fill in / update the fields of an existing one (voto, vicinanza, canzoni note, companions, ticket, trip origin, etc.) — e.g. "I saw X, what do you need", "add this concert", "fill in the data for Y", "update the Caparezza row".
 ---
 
 # Adding / updating concert data
@@ -13,12 +13,12 @@ pastes back. This is the workflow he settled on; follow it exactly.
 ## Step 1 — Locate or scaffold the row
 
 - Read `src/data.ts` first. If the concert is **already present** (future entries
-  often exist with only `posto`/`cost`/`with`), you're filling in its blanks —
+  often exist with only `cost`/`with`), you're filling in its blanks —
   prefill everything already recorded.
 - If it's a **new** concert, you're creating a new `Concert` row.
 - If it's a **festival** (one ticket/trip bundling ≥2 concerts, see `CLAUDE.md`),
   present one per-concert block (artist, with, voto, vicinanza, canzoni note, and a
-  per-day `date` if multi-day) plus a shared ticket/trip block. `posto`, `cost`,
+  per-day `date` if multi-day) plus a shared ticket/trip block. `cost`,
   `gift`/`accredito`, `from`/`km`, `venue`, `city`, `date` live on the festival, not
   the concert.
 
@@ -32,7 +32,7 @@ Rules the template must obey (these are the corrections Gabri asked for, in orde
    canzoni note) and anything not already in the data blank. Only prefill what's
    genuinely recorded in `src/data.ts` already.
 3. **Mutually exclusive fields are checkbox lists**, so he can't enter an invalid
-   enum. He marks exactly one `[X]`. Applies to: posto, voto, vicinanza, canzoni
+   enum. He marks exactly one `[X]`. Applies to: voto, vicinanza, canzoni
    note, ticket type, trip origin.
 4. **Prefill known fields** with the `[X]` already placed / value filled in.
 5. No filler underscores after a prefilled free-text value (e.g. the names line).
@@ -47,12 +47,6 @@ Use this exact shape (adapt the header and the prefilled marks to the actual row
 
 CON CHI (with) — list names, comma-separated:
   <prefill known names, else leave blank>
-
-POSTO (where you stood — pick one):
-  [ ] Gradinata
-  [ ] Pit/Gold
-  [ ] Platea
-  [ ] Prato/Parterre
 
 VOTO (overall rating, 1 worst → 5 best):
   [ ] 1   [ ] 2   [ ] 3   [ ] 4   [ ] 5
@@ -93,7 +87,7 @@ be registered in `PEOPLE`.
 When he pastes it back:
 
 - Map answers to the `Concert`/`Festival` fields. Enum values come straight from the
-  types in `src/data.ts` — `posto`, `voto` 1–5, `vicinanza` 1–6, `canzoniNote`
+  types in `src/data.ts` — `voto` 1–5, `vicinanza` 1–6, `canzoniNote`
   1–5|"na", `from` "m"|"g". Ticket: Paid → `cost`, Gift → `gift:true`, Accredito →
   `accredito:true`.
 - **New people:** any `with` name not in `PEOPLE` must be added to that array

@@ -2,14 +2,14 @@ import React, { useState, useMemo, useRef } from "react";
 import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import Fuse from "fuse.js";
 import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
-import type { Entry, Festival, FlatConcert, Person, Posto } from "./data.ts";
+import type { Entry, Festival, FlatConcert, Person } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget, { type ChatApi, type ChatSiteContext } from "./chat/ChatWidget.tsx";
 
 /* Structural view shared by ALLDATA rows (Entry) and flattened concerts
    (FlatConcert): the fields the cross-cutting helpers below read. */
 type Datum = {
-  y: number; date: string; venue: string; city: string; posto: Posto;
+  y: number; date: string; venue: string; city: string;
   cost?: number; gift?: boolean; accredito?: boolean; from?: "m" | "g"; km?: number;
   artist?: string; with?: Person[];
   voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na";
@@ -20,7 +20,7 @@ type PerConcert = { with?: Person[]; voto?: number; vicinanza?: number; canzoniN
 /* The active filter state (shape of EMPTY_FILTERS). */
 interface Filters {
   dateFrom: string; dateTo: string;
-  cities: string[]; people: string[]; posti: string[];
+  cities: string[]; people: string[];
   vicinanze: number[]; canzoni: number[];
   status: string; price: string; solo: boolean;
   costMin: number; costMax: number; kmMin: number; kmMax: number;
@@ -46,7 +46,6 @@ const PATHS: Record<string, React.ReactNode> = {
   map:<><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z"/><path d="M9 4v14M15 6v14"/></>,
   chart:<><path d="M4 4v16h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></>,
   list:<><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></>,
-  seat:<><path d="M5 11V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v5"/><path d="M4 11h13a2 2 0 0 1 2 2v3H6a2 2 0 0 1-2-2v-3Z"/><path d="M6 16v4M17 16v4"/></>,
   target:<><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/></>,
   note:<><circle cx="6.5" cy="17.5" r="2.8"/><circle cx="17" cy="15.5" r="2.8"/><path d="M9.3 17.5V6.2l10.5-2.1v11.4M9.3 9.7l10.5-2.1"/></>,
   eyeclosed:<><path d="M3 10c2.6 3 5.7 4.5 9 4.5s6.4-1.5 9-4.5"/><path d="M12 14.5v3.2M6.1 13.3l-2 2.6M17.9 13.3l2 2.6M8.9 14.2l-1.1 3M15.1 14.2l1.1 3"/></>,
@@ -82,7 +81,7 @@ const CHRON=[...ALLDATA].sort((a,b)=>sortKey(a)-sortKey(b));
 // Event vs concert: an ALLDATA row is an EVENT (ticket/trip/evening); a
 // festival row contains several CONCERTS in `sets`. FLAT_ALL is every
 // concert, with its event context spread in (see concertsOf in data.ts).
-// Money/trip/posto stats stay on events; artist/voto/vicinanza/canzoni/
+// Money/trip stats stay on events; artist/voto/vicinanza/canzoni/
 // compagni stats run on concerts.
 const FLAT_ALL=flatConcerts(ALLDATA);
 // Display label for a row: a standalone concert shows its artist, a festival its name.
@@ -145,9 +144,6 @@ const DATE_LO=keyToISO(Math.min(...ALLDATA.map(sortKey)));
 const DATE_HI=keyToISO(Math.max(...ALLDATA.map(sortKey)));
 const ALL_CITIES=[...new Set(ALLDATA.map(d=>d.city))].sort((a,b)=>a.localeCompare(b,"it"));
 const ALL_PEOPLE=[...new Set(FLAT_ALL.flatMap(c=>c.with||[]))].sort((a,b)=>a.localeCompare(b,"it"));
-// posto = dove ero nella venue. Ordine fisso e sensato (vicino→lontano, in piedi→seduto).
-const POSTO_ORDER=["Pit/Gold","Prato/Parterre","Platea","Gradinata"];
-const ALL_POSTI=POSTO_ORDER.filter(p=>ALLDATA.some(d=>d.posto===p));
 // ---- Vicinanza (vantaggio sul palco): scala ordinale 1..6 -------------------
 // 1 Transenna, 2 Sottopalco, 3 Centro = "vicino"; 4 Fondo, 5 Tribuna, 6 Anello alto = "lontano".
 // Per-CONCERTO: nei festival ogni set ha la sua. Assente = non ancora definita (eventi futuri).
@@ -171,12 +167,12 @@ const KM_MAX=Math.ceil(Math.max(...ALLDATA.map(d=>distKm(d)).filter((k):k is num
 // ISO YYYY-MM-DD (from a native date input) → comparable YYYYMMDD integer
 const isoKey=(s:string)=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");return m?(+m[1])*10000+(+m[2])*100+(+m[3]):null;};
 
-const EMPTY_FILTERS:Filters={dateFrom:"",dateTo:"",cities:[],people:[],posti:[],vicinanze:[],canzoni:[],status:"all",price:"all",solo:false,costMin:COST_MIN,costMax:COST_MAX,kmMin:KM_MIN,kmMax:KM_MAX};
+const EMPTY_FILTERS:Filters={dateFrom:"",dateTo:"",cities:[],people:[],vicinanze:[],canzoni:[],status:"all",price:"all",solo:false,costMin:COST_MIN,costMax:COST_MAX,kmMin:KM_MIN,kmMax:KM_MAX};
 const isDefaultDate=(f:Filters)=>!f.dateFrom&&!f.dateTo;
 const isDefaultCost=(f:Filters)=>f.costMin===COST_MIN&&f.costMax===COST_MAX;
 const isDefaultKm=(f:Filters)=>f.kmMin===KM_MIN&&f.kmMax===KM_MAX;
-const isEmptyFilters=(f:Filters)=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.posti.length===0&&f.vicinanze.length===0&&f.canzoni.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f)&&isDefaultKm(f);
-const countActive=(f:Filters)=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.posti.length+f.vicinanze.length+f.canzoni.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1)+(isDefaultKm(f)?0:1);
+const isEmptyFilters=(f:Filters)=>isDefaultDate(f)&&f.cities.length===0&&f.people.length===0&&f.vicinanze.length===0&&f.canzoni.length===0&&f.status==="all"&&f.price==="all"&&!f.solo&&isDefaultCost(f)&&isDefaultKm(f);
+const countActive=(f:Filters)=>(f.dateFrom?1:0)+(f.dateTo?1:0)+f.cities.length+f.people.length+f.vicinanze.length+f.canzoni.length+(f.status!=="all"?1:0)+(f.price!=="all"?1:0)+(f.solo?1:0)+(isDefaultCost(f)?0:1)+(isDefaultKm(f)?0:1);
 
 /* Recap testuale dei filtri attivi — usato dalla chat AI per confermare cosa mostra la pagina. */
 function describeFilters(f:Filters){
@@ -188,7 +184,6 @@ function describeFilters(f:Filters){
   if(f.cities.length) parts.push("città: "+f.cities.join(", "));
   if(f.people.length) parts.push("con: "+f.people.join(", "));
   if(f.solo) parts.push("da solo");
-  if(f.posti.length) parts.push("posto: "+f.posti.join(", "));
   if(f.vicinanze.length) parts.push("vicinanza: "+f.vicinanze.map(v=>VIC_LABELS[v]||v).join(", "));
   if(f.canzoni.length) parts.push("canzoni note: "+f.canzoni.map(v=>CN_LABELS[v]||v).join(", "));
   if(f.price==="paid") parts.push("solo con prezzo");
@@ -210,7 +205,6 @@ function mergeToolFilters(cur:Filters,input:any){
   if(input.cities!==undefined) next.cities=input.cities.filter((c:string)=>ALL_CITIES.includes(c));
   if(input.people!==undefined) next.people=input.people.filter((p:Person)=>ALL_PEOPLE.includes(p));
   if(input.solo!==undefined) next.solo=!!input.solo;
-  if(input.posti!==undefined) next.posti=input.posti.filter((p:string)=>ALL_POSTI.includes(p));
   if(input.vicinanze!==undefined) next.vicinanze=input.vicinanze.map(Number).filter((v:number)=>ALL_VIC.includes(v));
   if(input.canzoniNote!==undefined) next.canzoni=input.canzoniNote.map(Number).filter((v:number)=>ALL_CN.includes(v));
   if(input.price!==undefined) next.price=input.price;
@@ -245,7 +239,6 @@ function applyFilters(data:Entry[],f:Filters):Entry[]{
     if(from!=null && dk<from) continue;
     if(to!=null && dk>to) continue;
     if(f.cities.length && !f.cities.includes(d.city)) continue;
-    if(f.posti.length && !f.posti.includes(d.posto)) continue;
     if(f.status==="attended" && isPlanned(d)) continue;
     if(f.status==="planned" && !isPlanned(d)) continue;
     if(f.price==="paid" && !hasCost(d)) continue;
@@ -580,36 +573,6 @@ function VenueCard(){
         {hasMore&&<ShowAllBtn expanded={expanded} onClick={()=>setExpanded(e=>!e)} count={full.length-vcap.length} entity={ENT_VENUE}/>}
       </>) : (
         <p className="desc" style={{margin:0}}>Nessuna venue ripetuta finora.</p>
-      )}
-    </section>
-  );
-}
-
-function PostoCard(){
-  const DATA=useData();
-  // breakdown per categoria di posto, in ordine fisso; ogni barra split già-visti / in programma
-  const rows=POSTO_ORDER.map(p=>{
-    const list=DATA.filter(d=>d.posto===p);
-    const pl=list.filter(isPlanned).length;
-    return {p,n:list.length,a:list.length-pl,pl};
-  }).filter(r=>r.n>0).sort((a,b)=>b.n-a.n);
-  const total=rows.reduce((s,r)=>s+r.n,0);
-  const max=Math.max(1,...rows.map(r=>r.n));
-  return (
-    <section className="panel">
-      <h2><Icon name="seat" size={22} className="h2ic"/>Che biglietto prendo</h2>
-      {rows.length>0 ? (
-        <div className="rank">{rows.map(({p,n,a,pl})=>(
-          <div className="rrow" key={p}>
-            <div className="rtop"><span className="name">{p} · <span style={{color:"var(--muted)",fontWeight:400}}>{Math.round(n/total*100)}%</span></span><span className="val">{a>0&&<span className="vpast">{a}</span>}{a>0&&pl>0&&<span className="vplus"> + </span>}{pl>0&&<span className="vpl">{pl}</span>}</span></div>
-            <div className="track">
-              <div className="fill" style={{width:Math.round(a/max*100)+"%",background:"var(--lamp)"}}></div>
-              {pl>0&&<div className="fill fpl" style={{width:Math.round(pl/max*100)+"%"}}></div>}
-            </div>
-          </div>
-        ))}</div>
-      ) : (
-        <p className="desc" style={{margin:0}}>Nessun posto registrato.</p>
       )}
     </section>
   );
@@ -1036,7 +999,7 @@ function ArchiveTable(){
     );
   };
 
-  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["canzoniNote","Canzoni note"],["city","Città"],["km","Viaggio"],["posto","Posto"],["vicinanza","Vicinanza"]];
+  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["canzoniNote","Canzoni note"],["city","Città"],["km","Viaggio"],["vicinanza","Vicinanza"]];
   const orderNote = sort.col ? null : (searching ? "Ordinati per pertinenza" : null);
 
   // Second table: the festivals (the only multi-concert events), newest first.
@@ -1069,11 +1032,10 @@ function ArchiveTable(){
                 <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
                 <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="posto">{c.posto?<span className="postocell">{c.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(c)?<span className="viccell">{VIC_LABELS[c.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
               </tr>
             );})}
-            {rows.length===0&&<tr><td colSpan={11} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
+            {rows.length===0&&<tr><td colSpan={10} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -1089,7 +1051,7 @@ function ArchiveTable(){
         <div className="tablewrap">
           <table>
             <thead><tr>
-              <th>Festival</th><th>Data</th><th>Venue</th><th>Città</th><th>Costo</th><th>Viaggio</th><th>Posto</th><th>Concerti</th>
+              <th>Festival</th><th>Data</th><th>Venue</th><th>Città</th><th>Costo</th><th>Viaggio</th><th>Concerti</th>
             </tr></thead>
             <tbody>
               {fests.map((ev,i)=>{const pl=isPlanned(ev);return (
@@ -1100,7 +1062,6 @@ function ArchiveTable(){
                   <td className="city"><b>{hl(ev.city,q)}</b></td>
                   <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="posto">{ev.posto?<span className="postocell">{ev.posto}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                 </tr>
               );})}
@@ -1659,11 +1620,6 @@ function FilterButton(){
                 onToggle={(p:string)=>toggleIn("people",p)} onClear={()=>clearKey("people")} placeholder="Tutti i compagni"
                 leadLabel="Da solo" leadActive={filters.solo} onLeadToggle={()=>toggleBool("solo")}/>
             </FilterSection>
-            <FilterSection label="Posto">
-              {ALL_POSTI.map(p=>(
-                <FilterChip key={p} active={filters.posti.includes(p)} onClick={()=>toggleIn("posti",p)}>{p}</FilterChip>
-              ))}
-            </FilterSection>
             <FilterSection label="Vicinanza">
               {ALL_VIC.map(v=>(
                 <FilterChip key={v} active={filters.vicinanze.includes(v)} onClick={()=>toggleIn("vicinanze",v)}>{VIC_LABELS[v]}</FilterChip>
@@ -1699,7 +1655,7 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-posto":"seat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
@@ -2159,7 +2115,7 @@ function FullDashboard({owner}: {owner:boolean}){
       <div className="grid2">
         <div id="sec-venue" className="tocsec full"><VenueCard/></div>
       </div>
-      <div className="grid2"><div id="sec-posto" className="tocsec"><PostoCard/></div><div id="sec-vicinanza" className="tocsec"><VicinanzaCard/></div></div>
+      <div className="grid2"><div id="sec-vicinanza" className="tocsec full"><VicinanzaCard/></div></div>
       <div className="grid2"><div id="sec-stagionalita" className="tocsec"><Months/></div><div id="sec-giorni" className="tocsec"><Weekdays/></div></div>
       <div id="sec-voti" className="tocsec"><VoteDistribution/></div>
       <div id="sec-voti-migliori" className="tocsec"><TopVoted/></div>

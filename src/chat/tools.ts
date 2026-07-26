@@ -20,7 +20,6 @@ export const SECTIONS = [
   { id: "sec-artisti", label: "Chi ho visto di più" },
   { id: "sec-compagni", label: "Con chi vado di più" },
   { id: "sec-venue", label: "Dove torno più spesso" },
-  { id: "sec-posto", label: "Che biglietto prendo" },
   { id: "sec-vicinanza", label: "Quanto sono vicino" },
   { id: "sec-stagionalita", label: "Quando vado" },
   { id: "sec-giorni", label: "Che giorno esco" },
@@ -43,7 +42,6 @@ const ALL_CONCERTS = flatConcerts(ALLDATA);
 // Vocabularies derived from the data, so the model can only pick real values.
 const CITIES = [...new Set(ALLDATA.map(d => d.city))].sort() as [string, ...string[]];
 export const COMPANIONS = [...new Set(ALL_CONCERTS.flatMap(c => c.with || []))].sort() as [string, ...string[]];
-const POSTI = ["Pit/Gold", "Prato/Parterre", "Platea", "Gradinata"] as const;
 
 export const setFiltersDef = toolDefinition({
   name: "set_filters",
@@ -59,7 +57,6 @@ export const setFiltersDef = toolDefinition({
     cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them). Empty array = all cities." }),
     people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Companions Gabri went with (OR between them). Empty array = anyone." }),
     solo: z.boolean().optional().meta({ description: "true = only concerts attended alone" }),
-    posti: z.array(z.enum(POSTI)).optional().meta({ description: "Ticket/spot type. Empty array = all." }),
     vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Closeness to the stage: 1 Transenna, 2 Sottopalco, 3 Centro, 4 Fondo, 5 Tribuna, 6 Anello alto. Empty array = all." }),
     canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte. Empty array = all." }),
     price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, accredito = free entry via guest list/press pass, unknown = no price recorded" }),
@@ -129,7 +126,7 @@ const queryInputSchema = z.object({
   gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
   accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
   canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte (OR between them)" }),
-  groupBy: z.enum(["person", "artist", "year", "city", "venue", "posto", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion)" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion)" }),
   sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost", "avgCanzoniNote"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
 });
 
@@ -141,7 +138,7 @@ export const queryConcertsDef = toolDefinition({
     "The ONLY source of the concert data. A CONCERT is one act's set; a festival (e.g. MI AMI) is one EVENT/ticket containing several concerts, " +
     "so counts are per concert while costs are per ticket/event. Returns, for the concerts matching the filters (combined with AND): " +
     "exact count, attended/planned split, distinct event/ticket count, total and average ticket cost, average rating, average canzoni note, optional breakdown by " +
-    "person/artist/year/city/venue/posto/vicinanza/canzoniNote, and the full matching list in chronological order. " +
+    "person/artist/year/city/venue/vicinanza/canzoniNote, and the full matching list in chronological order. " +
     "Call it (possibly more than once) before answering ANY question about the data.",
   inputSchema: queryInputSchema,
   outputSchema: z.object({
@@ -230,7 +227,6 @@ export function runConcertQuery(q: ConcertQuery) {
       : q.groupBy === "year" ? [String(c.y)]
       : q.groupBy === "city" ? [c.city]
       : q.groupBy === "venue" ? [c.venue]
-      : q.groupBy === "posto" ? [c.posto]
       : q.groupBy === "canzoniNote" ? [typeof c.canzoniNote === "number" ? `${c.canzoniNote} (${CANZONI_NOTE_LABELS[c.canzoniNote]})` : String(c.canzoniNote ?? "non impostata")]
       : [String(c.vicinanza ?? "non impostata")];
     const byKey = new Map<string, FlatConcert[]>();
