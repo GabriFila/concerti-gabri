@@ -1142,11 +1142,11 @@
      lists) has no reachable centre snap position, and browsers — iOS Safari
      worst of all — respond by yanking the scroll back mid-gesture. Start
      alignment always has a reachable position, and since each act centres its
-     own content the framing looks the same. */
+     own content the framing looks the same.
+     scroll-snap-type is deliberately never toggled at runtime: changing it on a
+     live scroll container is what broke the "Avanti" button on iPhone. The cue
+     uses scrollIntoView, which aims at the same snap position anyway. */
   :root[data-view="ritratto"]{scroll-snap-type:y proximity}
-  /* snapping is suspended while a programmatic smooth scroll is in flight (see
-     scrollToY) so the browser doesn't re-snap us somewhere else mid-glide */
-  :root.rt-snapoff{scroll-snap-type:none}
   .rt-act{scroll-snap-align:start}
   .rt-act{
     position:relative;max-width:1100px;margin:0 auto;

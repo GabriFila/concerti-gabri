@@ -1833,25 +1833,32 @@ function CountStat({value,label,hint,prefix,suffix,start,decimals}: any){
   );
 }
 
-/* Scroll to an absolute y, cooperating with CSS scroll-snap.
-   A programmatic smooth scroll inside a snapping container is unreliable — iOS
-   Safari in particular re-snaps mid-flight and lands somewhere else — so
-   snapping is turned off for the duration and restored once we've stopped, by
-   which point we're already parked exactly on a snap position. */
-let snapRestore=0, snapSeq=0;
-function scrollToY(y:number){
-  const root=document.documentElement;
-  const smooth=!prefersReducedMotion();
-  // tapping the cue again mid-glide starts a new scroll; the older run's
-  // scrollend must not switch snapping back on underneath it
-  const seq=++snapSeq;
-  const restore=()=>{ if(seq!==snapSeq) return; clearTimeout(snapRestore); root.classList.remove("rt-snapoff"); };
-  root.classList.add("rt-snapoff");
-  window.scrollTo({top:Math.max(0,y),behavior:smooth?"smooth":"auto"});
-  clearTimeout(snapRestore);
-  // scrollend isn't everywhere yet (Safari lagged behind), so keep a timeout too
-  snapRestore=window.setTimeout(restore,smooth?1400:80);
-  if("onscrollend" in window) window.addEventListener("scrollend",restore,{once:true});
+/* Glide to an act, cooperating with CSS scroll-snap.
+   scrollIntoView is the snap-aware way to do this: it targets the element's own
+   snap position, so if the browser re-snaps mid-glide it re-snaps to the same
+   place instead of fighting us. We used to switch scroll-snap-type off for the
+   duration instead — but mutating a scroll container's snap properties while a
+   scroll is in flight is exactly the kind of thing WebKit handles badly. On
+   iPhone that lands on top of the URL bar collapsing, which resizes the
+   snapport and makes it rebuild its snap offsets; the two together could dump
+   the reader back at the first offset, i.e. the top of the page.
+
+   Smooth scrolling stays best-effort on mobile, so the landing is verified and
+   corrected instantly if it didn't take — unless the reader has meanwhile taken
+   over with a gesture of their own, in which case we leave them alone. */
+function goToAct(el:Element){
+  if(prefersReducedMotion()){ el.scrollIntoView({block:"start",inline:"nearest"}); return; }
+  el.scrollIntoView({behavior:"smooth",block:"start",inline:"nearest"});
+  let timer=0, taken=false;
+  const events=["touchstart","wheel","pointerdown","keydown"];
+  const stop=()=>{ clearTimeout(timer); events.forEach(t=>window.removeEventListener(t,handOver)); };
+  function handOver(){ taken=true; stop(); }
+  events.forEach(t=>window.addEventListener(t,handOver,{passive:true}));
+  timer=window.setTimeout(()=>{
+    stop();
+    if(taken) return;
+    if(Math.abs(el.getBoundingClientRect().top)>4) el.scrollIntoView({block:"start",inline:"nearest"});
+  },1200);
 }
 
 // A single "act": a near-full-viewport block that fades/rises in on scroll.
@@ -1904,14 +1911,13 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
   },[]);
   // "Avanti" cue on every act but the last: glide to the next act below (found
   // via the DOM so it stays correct even when some acts are conditionally hidden).
-  // Acts snap start-aligned, so landing on the act's top is exactly where a snap
-  // would park it — no fight between the two once the scroll settles.
+  // Acts snap start-aligned, so an act's own snap position is where this lands.
   const goNext=(e:any)=>{
     const act=e.currentTarget.closest(".rt-act");
     let n=act?act.nextElementSibling:null;
     while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
     if(!n) return;
-    scrollToY(window.scrollY+n.getBoundingClientRect().top);
+    goToAct(n);
   };
   // The cue rides in its own row at the end of the act (never absolutely
   // positioned) so it can't sit on top of the content on a short screen.
