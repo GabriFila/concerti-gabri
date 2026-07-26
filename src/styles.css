@@ -1088,6 +1088,20 @@
     55%{opacity:.55}
     80%{opacity:.72}
   }
+  /* Touch devices — must come after both ambient blocks above to win the cascade.
+     Every visible ray is a viewport-wide blurred layer composited with
+     mix-blend-mode, so swaying it forces the whole stack to be re-blended each
+     frame. Measured while scrolling a throttled phone profile: 38fps as
+     authored, 58 with the sway parked and the field thinned out. A scroll
+     dropping a third of its frames is a large part of what makes the snapping
+     feel broken on a phone, so there the rays hold their angle and only keep
+     breathing — that fade lives on the ::before layer and is essentially free.
+     The subset dropped below preserves the left/right alternation down the page. */
+  @media (pointer:coarse){
+    .abeam{animation:none}
+    .abeam.a3,.abeam.a6,.abeam.a7,.abeam.a10,
+    .abeam.a11,.abeam.a14,.abeam.a17,.abeam.a20{display:none}
+  }
   /* ============================================================
      MODE SWITCH — segmented control (Ritratto / I dati), top center
      ============================================================ */
@@ -1123,24 +1137,43 @@
   /* overflow:clip (not hidden) so .rt doesn't become a scroll container and
      steal snapping from the page scroller — while still clipping the beams */
   .rt{position:relative;z-index:1;overflow:clip}
-  /* magnetic scroll: acts snap to centre, only in "Sul palco" */
+  /* Magnetic scroll, only in "Sul palco". Acts snap to their START, not their
+     centre: an act taller than the viewport (small phones, landscape, long
+     lists) has no reachable centre snap position, and browsers — iOS Safari
+     worst of all — respond by yanking the scroll back mid-gesture. Start
+     alignment always has a reachable position, and since each act centres its
+     own content the framing looks the same. */
   :root[data-view="ritratto"]{scroll-snap-type:y proximity}
-  .rt-act{scroll-snap-align:center}
+  /* snapping is suspended while a programmatic smooth scroll is in flight (see
+     scrollToY) so the browser doesn't re-snap us somewhere else mid-glide */
+  :root.rt-snapoff{scroll-snap-type:none}
+  .rt-act{scroll-snap-align:start}
   .rt-act{
     position:relative;max-width:1100px;margin:0 auto;
-    padding:clamp(64px,12vh,140px) clamp(22px,6vw,64px);
+    /* top padding clears the fixed chrome (switch/toggle bottom out ~58px) at
+       the exact position a snap parks the act at */
+    padding:clamp(74px,12svh,140px) clamp(20px,6vw,64px) clamp(28px,7svh,90px);
     min-height:88vh;min-height:88svh;
-    display:flex;flex-direction:column;justify-content:center;
-    opacity:0;transform:translateY(34px);
-    transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1);
+    display:flex;flex-direction:column;
+    opacity:0;transition:opacity .8s ease;
   }
-  .rt-act.in{opacity:1;transform:none}
+  .rt-act.in{opacity:1}
+  /* the reveal's rise lands on the children, never on the act itself: a
+     transform moves the element's snap area, so animating the snap target makes
+     the scroller twitch every time an act fades in */
+  .rt-act > .rt-actbody,.rt-act > .rt-cuerow{transform:translateY(30px);transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+  .rt-act.in > .rt-actbody,.rt-act.in > .rt-cuerow{transform:none}
+  /* body takes the spare height and centres the content inside it; the cue then
+     always follows in flow, so it can never sit on top of the content */
+  .rt-actbody{flex:1 1 auto;width:100%;display:flex;flex-direction:column;justify-content:center}
+  .rt-cuerow{flex:0 0 auto;width:100%;position:relative;z-index:2;display:flex;justify-content:center;
+    margin-top:clamp(20px,4.5svh,48px)}
 
   /* Act I — the showstopper */
   .rt-hero{
     min-height:100vh;min-height:100svh;
     align-items:center;text-align:center;overflow:hidden;
-    padding-top:clamp(96px,16vh,190px);
+    padding-top:clamp(88px,16svh,190px);
   }
   .rt-hero .beams{z-index:0}
   .rt-hero-inner{position:relative;z-index:2;width:min(760px,100%);margin-inline:auto;text-align:center}
@@ -1150,17 +1183,21 @@
   .rt-hero-inner > :nth-child(2){animation-delay:.3s}
   .rt-hero-inner > :nth-child(3){animation-delay:.52s}
   @keyframes rt-rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+  /* Fluid type is capped against the viewport HEIGHT as well as its width:
+     on a landscape phone 9vw is a 78px headline in a 390px-tall window, which
+     is what pushed every act far past the screen. */
   .rt-h1{
     font-family:'Fraunces',Georgia,serif;font-weight:400;line-height:.88;letter-spacing:-.03em;
     color:var(--text);font-optical-sizing:auto;
-    font-size:clamp(2.3rem,9.2vw,10.5rem);width:100%;display:flex;flex-direction:column;align-items:center;
+    font-size:clamp(2.3rem,9.2vw,10.5rem);
+    font-size:clamp(2.3rem,min(9.2vw,13svh),10.5rem);
+    width:100%;display:flex;flex-direction:column;align-items:center;
   }
   .rt-h1-2{font-weight:500}
   .rt-lede{max-width:34ch;margin-inline:auto;color:var(--muted);font-size:clamp(1rem,2.6vw,1.35rem);line-height:1.6;text-wrap:balance}
   .rt-scrollcue{
-    position:absolute;bottom:clamp(18px,5vh,44px);left:50%;transform:translateX(-50%);z-index:2;
-    display:flex;flex-direction:column;align-items:center;gap:7px;color:var(--muted);
-    font:inherit;background:none;border:none;cursor:pointer;padding:8px 14px;border-radius:12px;
+    display:inline-flex;flex-direction:column;align-items:center;gap:7px;color:var(--muted);
+    font:inherit;background:none;border:none;cursor:pointer;padding:8px 16px;border-radius:12px;
     transition:color .2s ease;
   }
   .rt-scrollcue:hover{color:var(--lamp)}
@@ -1169,66 +1206,77 @@
   @keyframes rt-bob{0%,100%{transform:translateY(0);opacity:.45}50%{transform:translateY(6px);opacity:1}}
   /* hero "inizia lo show!" — a filled CTA that scrolls into the portrait */
   .rt-startbtn{
-    position:absolute;bottom:clamp(24px,6vh,56px);left:50%;transform:translateX(-50%);z-index:2;
-    display:inline-flex;align-items:center;gap:9px;
+    display:inline-flex;align-items:center;justify-content:center;gap:9px;max-width:100%;
     font:inherit;font-size:1rem;font-weight:700;letter-spacing:.01em;cursor:pointer;
     color:#171106;padding:14px 26px;border-radius:999px;
     background:var(--lamp);border:1px solid var(--lamp);box-shadow:0 8px 30px var(--lamp-soft);
     transition:transform .15s ease,filter .2s ease;
   }
-  .rt-startbtn:hover{transform:translate(-50%,-2px);filter:brightness(1.06)}
+  .rt-startbtn:hover{transform:translateY(-2px);filter:brightness(1.06)}
   .rt-startbtn svg{width:18px;height:18px;animation:rt-bob 1.8s ease-in-out infinite}
 
   /* shared act typography */
-  .rt-head{width:100%;margin-bottom:clamp(18px,3vw,30px);text-align:center}
-  .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);font-size:clamp(2.4rem,7vw,4.4rem);line-height:1}
+  .rt-head{width:100%;margin-bottom:clamp(14px,3vw,30px);margin-bottom:clamp(14px,min(3vw,3svh),30px);text-align:center}
+  .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);line-height:1;
+    font-size:clamp(2.1rem,7vw,4.4rem);font-size:clamp(2.1rem,min(7vw,8.5svh),4.4rem);text-wrap:balance}
   .rt-lead{max-width:46ch;color:var(--muted);font-size:clamp(1rem,2.4vw,1.25rem);line-height:1.6}
   .rt-lead b{color:var(--text);font-weight:600}
   .rt-act .star{color:var(--lamp)}
 
   /* Act II — numbers */
-  .rt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(26px,5vw,60px);margin-top:clamp(24px,4vw,44px)}
+  .rt-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(22px,5vw,60px);
+    gap:clamp(20px,min(5vw,5svh),60px) clamp(16px,5vw,60px);
+    margin-top:clamp(18px,4vw,44px);margin-top:clamp(18px,min(4vw,4svh),44px)}
   @media(min-width:760px){ .rt-grid{grid-template-columns:repeat(4,1fr)} }
   .rt-stat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;min-width:0}
-  .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.02em;
-    font-size:clamp(2.9rem,10vw,5.4rem);font-variant-numeric:lining-nums tabular-nums}
-  .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600}
+  .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.025em;
+    font-size:clamp(2.4rem,10vw,5.4rem);font-size:clamp(2.4rem,min(9.6vw,8.4svh),5.4rem);
+    font-variant-numeric:lining-nums tabular-nums;max-width:100%}
+  .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600;text-wrap:balance}
   .rt-stat-h{font-size:.82rem;color:var(--muted)}
+  /* the widest labels ("Concerti per anno") need the tracking back on a 320px phone */
+  @media(max-width:380px){ .rt-stat-l{font-size:.7rem;letter-spacing:.07em} }
 
   /* Act III — map (strip the panel chrome; keep just the map) */
-  .rt-mapframe{margin-top:clamp(20px,3vw,32px)}
+  .rt-mapframe{margin-top:clamp(16px,3vw,32px)}
   .rt-mapframe .panel{background:transparent;border:none;padding:0;overflow:visible}
   .rt-mapframe .paneltop{display:none}
   /* shorter map in the portrait — the full-height one lives in "I dati" */
-  .rt-mapframe .mapwrap{height:clamp(280px,40vh,420px)}
-  /* extra room below the map so the "Avanti" cue isn't crowding it */
-  .rt-mapact{padding-bottom:clamp(120px,20vh,200px)}
+  .rt-mapframe .mapwrap{height:clamp(240px,40vh,420px);height:clamp(240px,min(46svh,420px),420px)}
 
   /* Act IV — best shows */
-  .rt-bestlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
-  .rt-bestrow{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:4px 18px;padding:clamp(14px,2.4vw,22px) 0;border-bottom:1px solid var(--line)}
+  .rt-bestlist{list-style:none;margin:clamp(14px,4vw,40px) 0 0;margin:clamp(14px,min(4vw,3.6svh),40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-bestrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:2px 14px;
+    padding:clamp(9px,2.4vw,22px) 0;padding:clamp(9px,min(2.4vw,2.2svh),22px) 0;border-bottom:1px solid var(--line)}
   .rt-bestrow:last-child{border-bottom:none}
-  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.5rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
+    font-size:clamp(1.3rem,4.6vw,2.5rem);font-size:clamp(1.3rem,min(4.6vw,5.4svh),2.5rem);overflow-wrap:anywhere}
   .rt-best-meta{grid-row:2;color:var(--muted);font-size:.86rem}
-  .rt-best-stars{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);font-size:clamp(.85rem,2.3vw,1.15rem);letter-spacing:2px;white-space:nowrap}
+  .rt-best-stars{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);font-size:clamp(.8rem,2.3vw,1.15rem);letter-spacing:1px;white-space:nowrap}
 
   /* Act V — companions */
-  .rt-peoplelist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
-  .rt-personrow{display:flex;align-items:baseline;gap:clamp(14px,3vw,26px);padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
+  .rt-peoplelist{list-style:none;margin:clamp(14px,4vw,40px) 0 0;margin:clamp(14px,min(4vw,3.6svh),40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-personrow{display:flex;align-items:baseline;gap:clamp(12px,3vw,26px);
+    padding:clamp(9px,2.2vw,20px) 0;padding:clamp(9px,min(2.2vw,2svh),20px) 0;border-bottom:1px solid var(--line)}
   .rt-personrow:last-child{border-bottom:none}
   .rt-person-rank{font-family:'Fraunces',serif;color:var(--lamp);font-size:1.1rem;width:1.4em;flex-shrink:0;font-variant-numeric:tabular-nums}
-  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.3rem,4vw,2rem);line-height:1.1}
+  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;
+    font-size:clamp(1.25rem,4vw,2rem);font-size:clamp(1.25rem,min(4vw,5svh),2rem);overflow-wrap:anywhere}
   .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 
   /* Act VI — upcoming shows (a short agenda) */
-  .rt-nextlist{list-style:none;margin:clamp(22px,4vw,40px) 0 0;padding:0;display:flex;flex-direction:column}
-  .rt-nextrow{display:flex;flex-direction:column;gap:4px;padding:clamp(13px,2.2vw,20px) 0;border-bottom:1px solid var(--line)}
+  .rt-nextlist{list-style:none;margin:clamp(14px,4vw,40px) 0 0;margin:clamp(14px,min(4vw,3.6svh),40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-nextrow{display:flex;flex-direction:column;gap:3px;
+    padding:clamp(9px,2.2vw,20px) 0;padding:clamp(9px,min(2.2vw,2svh),20px) 0;border-bottom:1px solid var(--line)}
   .rt-nextrow:last-child{border-bottom:none}
-  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);font-size:clamp(1.4rem,4.6vw,2.4rem);line-height:1.1;letter-spacing:-.01em}
+  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
+    font-size:clamp(1.3rem,4.6vw,2.4rem);font-size:clamp(1.3rem,min(4.6vw,5.4svh),2.4rem);overflow-wrap:anywhere}
   .rt-next-meta{color:var(--muted);font-size:.9rem}
   .rt-next-date{color:var(--planned);font-weight:500}
   /* hearing-protection nudge + Loop CTA */
-  .rt-earplugs{margin-top:clamp(26px,4vw,40px);padding-top:clamp(20px,3vw,28px);border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:16px}
+  .rt-earplugs{margin-top:clamp(18px,4vw,40px);margin-top:clamp(18px,min(4vw,3.4svh),40px);
+    padding-top:clamp(14px,3vw,28px);padding-top:clamp(14px,min(3vw,2.6svh),28px);
+    border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:clamp(10px,2.2svh,16px)}
   .rt-earplugs-note{margin:0;display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.95rem;line-height:1.55;max-width:54ch}
   .rt-earplugs-note b{color:var(--text);font-weight:600}
   .rt-earplugs-note svg{flex-shrink:0;color:var(--lamp);margin-top:2px}
@@ -1241,12 +1289,12 @@
   .rt-earplugs-cta span{text-wrap:balance}
 
   /* Final Act — L'Oracolo */
-  .rt-oracoloact{align-items:flex-start;text-align:left}
-  .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.05rem,2.6vw,1.35rem);line-height:1.65;margin-top:6px}
+  .rt-oracoloact .rt-actbody{align-items:flex-start;text-align:left}
+  .rt-oracolo-pitch{max-width:52ch;color:var(--muted);font-size:clamp(1.02rem,2.6vw,1.35rem);line-height:1.6;margin-top:6px}
   .rt-oracolo-pitch b{color:var(--text)}
   /* the two final CTAs, stacked as one centred, equal-width group */
-  .rt-finalctas{align-self:center;display:flex;flex-direction:column;align-items:stretch;gap:14px;
-    width:fit-content;max-width:100%;margin-top:clamp(24px,4vw,36px)}
+  .rt-finalctas{align-self:center;display:flex;flex-direction:column;align-items:stretch;gap:12px;
+    width:fit-content;max-width:100%;margin-top:clamp(18px,4vw,36px);margin-top:clamp(18px,min(4vw,4svh),36px)}
   .rt-oracolo-cta{display:inline-flex;align-items:center;justify-content:center;gap:10px;
     font:inherit;font-size:1rem;font-weight:700;cursor:pointer;color:#171106;
     padding:15px 26px;border-radius:999px;background:var(--lamp);border:1px solid var(--lamp);
@@ -1258,7 +1306,23 @@
     padding:15px 26px;border-radius:999px;background:var(--panel);border:1px solid var(--line-2);
     transition:border-color .2s ease,color .2s ease,transform .15s ease}
   .rt-explore:hover{border-color:var(--lamp);color:var(--lamp);transform:translateY(-1px)}
-  .rt-endcredits-note{align-self:center;text-align:center;margin:clamp(52px,11vh,104px) 0 0;font-size:.9rem;color:var(--muted)}
+  .rt-endcredits-note{align-self:center;text-align:center;margin:clamp(32px,11vh,104px) 0 0;margin:clamp(32px,11svh,104px) 0 0;font-size:.9rem;color:var(--muted)}
+
+  /* Short AND wide viewports (landscape phones, split-screen, a browser window
+     dragged flat): an act can't fill the screen there, so the full-height
+     framing only manufactures overflow — and snapping between blocks that are
+     all taller than the viewport is exactly what makes a page feel like it's
+     fighting the user. Let it flow instead. Portrait phones are deliberately
+     excluded, however short: the full-height framing is the whole point there. */
+  @media (max-height:620px) and (orientation:landscape){
+    :root[data-view="ritratto"]{scroll-snap-type:none}
+    .rt-act{min-height:0;padding-top:clamp(74px,15svh,110px);padding-bottom:clamp(26px,7svh,64px)}
+    .rt-hero{min-height:100svh;padding-top:clamp(74px,15svh,120px)}
+    .rt-cuerow{margin-top:clamp(14px,3.5svh,30px)}
+    .rt-lede{font-size:1rem;line-height:1.5}
+    .rt-hero-inner > * + *{margin-top:clamp(10px,2.4svh,20px)}
+    .rt-mapframe .mapwrap{height:min(300px,56svh)}
+  }
 
   /* chat trigger docked in the top-left corner (both modes) */
   .chatdock--corner{position:fixed;top:18px;left:18px;z-index:55}

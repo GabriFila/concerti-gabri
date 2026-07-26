@@ -1784,9 +1784,14 @@ function useReveal(threshold=0.2): [any,boolean]{
     if(seen) return;
     const el=ref.current; if(!el) return;
     if(prefersReducedMotion()||typeof IntersectionObserver==="undefined"){ setSeen(true); return; }
+    // A block taller than the viewport can never reach a high ratio (a 3x-tall
+    // act tops out at .33), so cap the threshold at what this element can
+    // actually achieve — otherwise it stays stuck at opacity 0 on short screens.
+    const h=el.getBoundingClientRect().height||1;
+    const t=Math.max(0.01,Math.min(threshold,(window.innerHeight/h)*0.75));
     const io=new IntersectionObserver(es=>{
       es.forEach(e=>{ if(e.isIntersecting){ setSeen(true); io.disconnect(); } });
-    },{threshold,rootMargin:"0px 0px -8% 0px"});
+    },{threshold:t,rootMargin:"0px 0px -8% 0px"});
     io.observe(el);
     return ()=>io.disconnect();
   },[seen,threshold]);
@@ -1828,13 +1833,38 @@ function CountStat({value,label,hint,prefix,suffix,start,decimals}: any){
   );
 }
 
+/* Scroll to an absolute y, cooperating with CSS scroll-snap.
+   A programmatic smooth scroll inside a snapping container is unreliable — iOS
+   Safari in particular re-snaps mid-flight and lands somewhere else — so
+   snapping is turned off for the duration and restored once we've stopped, by
+   which point we're already parked exactly on a snap position. */
+let snapRestore=0, snapSeq=0;
+function scrollToY(y:number){
+  const root=document.documentElement;
+  const smooth=!prefersReducedMotion();
+  // tapping the cue again mid-glide starts a new scroll; the older run's
+  // scrollend must not switch snapping back on underneath it
+  const seq=++snapSeq;
+  const restore=()=>{ if(seq!==snapSeq) return; clearTimeout(snapRestore); root.classList.remove("rt-snapoff"); };
+  root.classList.add("rt-snapoff");
+  window.scrollTo({top:Math.max(0,y),behavior:smooth?"smooth":"auto"});
+  clearTimeout(snapRestore);
+  // scrollend isn't everywhere yet (Safari lagged behind), so keep a timeout too
+  snapRestore=window.setTimeout(restore,smooth?1400:80);
+  if("onscrollend" in window) window.addEventListener("scrollend",restore,{once:true});
+}
+
 // A single "act": a near-full-viewport block that fades/rises in on scroll.
 // children may be a node or a render function receiving `seen` (for count-ups).
-function Act({className,threshold,children}: any){
+// The body is wrapped so the reveal transform lands on a child and not on the
+// snap target itself: transforming a snap area moves its snap position, which
+// makes the scroller twitch while an act fades in.
+function Act({className,threshold,cue,children}: any){
   const [ref,seen]=useReveal(threshold);
   return (
     <section ref={ref} className={"rt-act "+(className||"")+(seen?" in":"")}>
-      {typeof children==="function"?children(seen):children}
+      <div className="rt-actbody">{typeof children==="function"?children(seen):children}</div>
+      {cue}
     </section>
   );
 }
@@ -1874,26 +1904,24 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
   },[]);
   // "Avanti" cue on every act but the last: glide to the next act below (found
   // via the DOM so it stays correct even when some acts are conditionally hidden).
+  // Acts snap start-aligned, so landing on the act's top is exactly where a snap
+  // would park it — no fight between the two once the scroll settles.
   const goNext=(e:any)=>{
     const act=e.currentTarget.closest(".rt-act");
     let n=act?act.nextElementSibling:null;
     while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
-    const target=n||document.querySelector(".rt-footer");
-    if(!target) return;
-    const rect=target.getBoundingClientRect();
-    const vh=window.innerHeight;
-    // center the act in the viewport; if it's taller than the viewport, land its
-    // top just below the fixed top controls instead
-    const y=rect.height>vh
-      ? window.scrollY+rect.top-84
-      : window.scrollY+rect.top+rect.height/2-vh/2;
-    window.scrollTo({top:Math.max(0,y),behavior:"smooth"});
+    if(!n) return;
+    scrollToY(window.scrollY+n.getBoundingClientRect().top);
   };
+  // The cue rides in its own row at the end of the act (never absolutely
+  // positioned) so it can't sit on top of the content on a short screen.
   const nextCue=()=>(
-    <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
-      <span className="rt-scrollcue-l">Avanti</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
-    </button>
+    <div className="rt-cuerow">
+      <button type="button" className="rt-scrollcue" onClick={goNext} aria-label="Vai avanti">
+        <span className="rt-scrollcue-l">Avanti</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+      </button>
+    </div>
   );
 
   return (
@@ -1915,18 +1943,22 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <span className="fixture f6"></span>
         </div>
         <span className="spot"></span>
-        <div className="rt-hero-inner">
-          <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
-          <p className="rt-lede">Una vita contata in luci, viaggi e concerti sotto un palco.</p>
+        <div className="rt-actbody">
+          <div className="rt-hero-inner">
+            <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
+            <p className="rt-lede">Una vita contata in luci, viaggi e concerti sotto un palco.</p>
+          </div>
         </div>
-        <button type="button" className="rt-startbtn" onClick={goNext}>
-          inizia lo show!
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
-        </button>
+        <div className="rt-cuerow">
+          <button type="button" className="rt-startbtn" onClick={goNext}>
+            inizia lo show!
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+          </button>
+        </div>
       </section>
 
       {/* ── Act II — the headline numbers, counting up ── */}
-      <Act className="rt-numbers" threshold={0.4}>{(seen:boolean)=>(<>
+      <Act className="rt-numbers" threshold={0.4} cue={nextCue()}>{(seen:boolean)=>(<>
         <div className="rt-head"><h2 className="rt-h2">I numeri</h2></div>
         <div className="rt-grid">
           <CountStat value={P.total} label="Concerti" start={seen}/>
@@ -1934,19 +1966,17 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
           <CountStat value={P.km} label="Km percorsi" start={seen}/>
           <CountStat value={P.perYear} label="Concerti per anno" decimals={1} start={seen}/>
         </div>
-        {nextCue()}
       </>)}</Act>
 
       {/* ── Act III — the map ── */}
-      <Act className="rt-mapact" threshold={0.05}>
+      <Act className="rt-mapact" threshold={0.05} cue={nextCue()}>
         <div className="rt-head"><h2 className="rt-h2">Dove</h2></div>
         <div className="rt-mapframe"><MapBoundary><MapCard/></MapBoundary></div>
-        {nextCue()}
       </Act>
 
       {/* ── Act IV — the best shows ── */}
       {P.topBest.length>0&&(
-      <Act className="rt-bestact">
+      <Act className="rt-bestact" cue={nextCue()}>
         <div className="rt-head"><h2 className="rt-h2">I migliori</h2></div>
         <p className="rt-lead">I concerti che varrebbe la pena rivivere all'infinito,{P.avgVoto?<> la media di tutti i concerti è a <b>{voto1(P.avgVoto)}<span className="star">★</span></b></>:null}.</p>
         <ol className="rt-bestlist">
@@ -1958,13 +1988,12 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             </li>
           ))}
         </ol>
-        {nextCue()}
       </Act>
       )}
 
       {/* ── Act V — who they go with ── */}
       {P.mates.length>0&&(
-      <Act className="rt-peopleact">
+      <Act className="rt-peopleact" cue={nextCue()}>
         <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
         <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada e <b>{P.solo}</b> concerti vissuti da solo.</p>
         <ol className="rt-peoplelist">
@@ -1976,13 +2005,12 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             </li>
           ))}
         </ol>
-        {nextCue()}
       </Act>
       )}
 
       {/* ── Act VI — what's next ── */}
       {P.upcoming.length>0&&(
-      <Act className="rt-nextact">
+      <Act className="rt-nextact" cue={nextCue()}>
         <div className="rt-head"><h2 className="rt-h2">E adesso?</h2></div>
         <p className="rt-lead"><b>{P.plannedConcerts}</b> concerti programmati, ecco i prossimi.</p>
         <ol className="rt-nextlist">
@@ -2003,7 +2031,6 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
         </div>
-        {nextCue()}
       </Act>
       )}
 
