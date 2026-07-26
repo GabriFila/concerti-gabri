@@ -1152,6 +1152,7 @@
     position:relative;max-width:1100px;margin:0 auto;
     /* top padding clears the fixed chrome (switch/toggle bottom out ~58px) at
        the exact position a snap parks the act at */
+    padding:clamp(74px,12vh,140px) clamp(20px,6vw,64px) clamp(28px,7vh,90px);
     padding:clamp(74px,12svh,140px) clamp(20px,6vw,64px) clamp(28px,7svh,90px);
     min-height:88vh;min-height:88svh;
     display:flex;flex-direction:column;
@@ -1167,13 +1168,13 @@
      always follows in flow, so it can never sit on top of the content */
   .rt-actbody{flex:1 1 auto;width:100%;display:flex;flex-direction:column;justify-content:center}
   .rt-cuerow{flex:0 0 auto;width:100%;position:relative;z-index:2;display:flex;justify-content:center;
-    margin-top:clamp(20px,4.5svh,48px)}
+    margin-top:clamp(20px,4.5vh,48px);margin-top:clamp(20px,4.5svh,48px)}
 
   /* Act I — the showstopper */
   .rt-hero{
     min-height:100vh;min-height:100svh;
     align-items:center;text-align:center;overflow:hidden;
-    padding-top:clamp(88px,16svh,190px);
+    padding-top:clamp(88px,16vh,190px);padding-top:clamp(88px,16svh,190px);
   }
   .rt-hero .beams{z-index:0}
   .rt-hero-inner{position:relative;z-index:2;width:min(760px,100%);margin-inline:auto;text-align:center}
@@ -1276,7 +1277,8 @@
   /* hearing-protection nudge + Loop CTA */
   .rt-earplugs{margin-top:clamp(18px,4vw,40px);margin-top:clamp(18px,min(4vw,3.4svh),40px);
     padding-top:clamp(14px,3vw,28px);padding-top:clamp(14px,min(3vw,2.6svh),28px);
-    border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;gap:clamp(10px,2.2svh,16px)}
+    border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;
+    gap:clamp(10px,2.2vh,16px);gap:clamp(10px,2.2svh,16px)}
   .rt-earplugs-note{margin:0;display:flex;align-items:flex-start;gap:11px;color:var(--muted);font-size:.95rem;line-height:1.55;max-width:54ch}
   .rt-earplugs-note b{color:var(--text);font-weight:600}
   .rt-earplugs-note svg{flex-shrink:0;color:var(--lamp);margin-top:2px}
@@ -1316,12 +1318,15 @@
      excluded, however short: the full-height framing is the whole point there. */
   @media (max-height:620px) and (orientation:landscape){
     :root[data-view="ritratto"]{scroll-snap-type:none}
-    .rt-act{min-height:0;padding-top:clamp(74px,15svh,110px);padding-bottom:clamp(26px,7svh,64px)}
-    .rt-hero{min-height:100svh;padding-top:clamp(74px,15svh,120px)}
-    .rt-cuerow{margin-top:clamp(14px,3.5svh,30px)}
+    .rt-act{min-height:0;
+      padding-top:clamp(74px,15vh,110px);padding-top:clamp(74px,15svh,110px);
+      padding-bottom:clamp(26px,7vh,64px);padding-bottom:clamp(26px,7svh,64px)}
+    .rt-hero{min-height:100vh;min-height:100svh;
+      padding-top:clamp(74px,15vh,120px);padding-top:clamp(74px,15svh,120px)}
+    .rt-cuerow{margin-top:clamp(14px,3.5vh,30px);margin-top:clamp(14px,3.5svh,30px)}
     .rt-lede{font-size:1rem;line-height:1.5}
-    .rt-hero-inner > * + *{margin-top:clamp(10px,2.4svh,20px)}
-    .rt-mapframe .mapwrap{height:min(300px,56svh)}
+    .rt-hero-inner > * + *{margin-top:clamp(10px,2.4vh,20px);margin-top:clamp(10px,2.4svh,20px)}
+    .rt-mapframe .mapwrap{height:min(300px,56vh);height:min(300px,56svh)}
   }
 
   /* chat trigger docked in the top-left corner (both modes) */
