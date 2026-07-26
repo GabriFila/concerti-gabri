@@ -1843,22 +1843,54 @@ function CountStat({value,label,hint,prefix,suffix,start,decimals}: any){
    snapport and makes it rebuild its snap offsets; the two together could dump
    the reader back at the first offset, i.e. the top of the page.
 
-   Smooth scrolling stays best-effort on mobile, so the landing is verified and
-   corrected instantly if it didn't take — unless the reader has meanwhile taken
-   over with a gesture of their own, in which case we leave them alone. */
+   Smooth scrolling stays best-effort on mobile — iOS drops a programmatic one
+   outright if momentum from a previous gesture is still settling — so the
+   landing is watched rather than assumed, and completed outright the moment it
+   stalls short. */
+let stopGlide:(()=>void)|null=null;
 function goToAct(el:Element){
-  if(prefersReducedMotion()){ el.scrollIntoView({block:"start",inline:"nearest"}); return; }
+  stopGlide?.();                                  // a second tap supersedes the first
+  const targetY=()=>Math.max(0,Math.round(el.getBoundingClientRect().top+window.scrollY));
+  if(prefersReducedMotion()){ window.scrollTo(0,targetY()); return; }
   el.scrollIntoView({behavior:"smooth",block:"start",inline:"nearest"});
-  let timer=0, taken=false;
-  const events=["touchstart","wheel","pointerdown","keydown"];
-  const stop=()=>{ clearTimeout(timer); events.forEach(t=>window.removeEventListener(t,handOver)); };
-  function handOver(){ taken=true; stop(); }
+
+  let poll=0, taken=false, last=window.scrollY, idle=0, settled=0;
+  const stop=()=>{ clearInterval(poll); events.forEach(t=>window.removeEventListener(t,handOver)); stopGlide=null; };
+  // Taking over means driving the page yourself, and it is recognised only by
+  // input — never by where the page ended up, because a scroll that jumps
+  // somewhere unexpected is exactly the breakage worth rescuing, not evidence
+  // of a reader. touchmove rather than touchstart: on iOS the tap that got us
+  // here delivers touch events of its own afterwards, and treating those as a
+  // hand-over cancelled the very rescue they needed. mousedown is safe for the
+  // same reason it catches a scrollbar drag — it precedes the click, so the tap
+  // that got us here cannot have fired it.
+  const began=Date.now();
+  const events=["touchmove","wheel","keydown","mousedown"];
+  const handOver=()=>{ if(Date.now()-began>100){ taken=true; stop(); } };
   events.forEach(t=>window.addEventListener(t,handOver,{passive:true}));
-  timer=window.setTimeout(()=>{
-    stop();
+  stopGlide=stop;
+
+  poll=window.setInterval(()=>{
     if(taken) return;
-    if(Math.abs(el.getBoundingClientRect().top)>4) el.scrollIntoView({block:"start",inline:"nearest"});
-  },1200);
+    const atEnd=window.scrollY>=document.documentElement.scrollHeight-window.innerHeight-1;
+    // only call it done once we've held the position — a correction can be
+    // overshot, and then it's on us to correct the correction
+    if(Math.abs(el.getBoundingClientRect().top)<=4||atEnd){ if(++settled>=2) stop(); return; }
+    settled=0;
+    if(Math.abs(window.scrollY-last)<2) idle++; else { idle=0; last=window.scrollY; }
+    // four quiet ticks and still short of the mark: the glide was refused or
+    // died on the way, so finish the job outright rather than strand the reader
+    if(idle>=4||Date.now()-began>1600){
+      idle=0;
+      // Cancel the pending smooth run BEFORE jumping. A smooth scroll that is
+      // merely slow to start is still live, and its leftover delta gets applied
+      // from wherever we land — which threw the reader clean past the act.
+      window.scrollTo({top:window.scrollY,behavior:"auto"});
+      window.scrollTo({top:targetY(),behavior:"auto"});
+      last=window.scrollY;
+    }
+    if(Date.now()-began>3200) stop();                                // backstop
+  },100);
 }
 
 // A single "act": a near-full-viewport block that fades/rises in on scroll.
@@ -1917,6 +1949,17 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
     let n=act?act.nextElementSibling:null;
     while(n && !(n.classList&&n.classList.contains("rt-act"))) n=n.nextElementSibling;
     if(!n) return;
+    // "Avanti" has to mean forward from wherever the reader actually is, not
+    // from where this cue's act sits: if a scroll has already carried them past
+    // that neighbour, aiming at it would send them backwards. Pressing a cue
+    // you can fully see can't reach that state, so this is belt-and-braces
+    // rather than an observed bug — but "forward" should be literally true.
+    while(n && n.getBoundingClientRect().top<=4){
+      let x=n.nextElementSibling;
+      while(x && !(x.classList&&x.classList.contains("rt-act"))) x=x.nextElementSibling;
+      if(!x) break;
+      n=x;
+    }
     goToAct(n);
   };
   // The cue rides in its own row at the end of the act (never absolutely
