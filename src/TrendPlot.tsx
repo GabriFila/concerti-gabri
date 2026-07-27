@@ -146,17 +146,22 @@ export default function TrendPlot({ points, trend, from, yMin, yMax, yInterval, 
   useEffect(() => {
     const c = chart.current;
     if (!c) return;
-    // Il singolo concerto non è il punto della card: puntini minuti, uniti da una
-    // linea sottile, senza tooltip né hover — quello che si legge è la forma.
-    // Una serie sola (non due) perché la linea deve attraversare il confine tra
-    // già visti e in programma: la differenza la porta il colore del puntino.
-    // La linea non si interrompe mai: né sui mesi vuoti né al bordo della
-    // finestra. Il punto vicino può essere lontano nel tempo o fuori campo,
-    // ma il segmento che ci arriva resta, e si vede da dove viene la curva.
-    const line = points.map(p => ({
-      value: [p.t, p.v],
-      itemStyle: { color: p.planned ? colors["--planned"] : colors["--lamp"] },
-    }));
+    /* Il singolo concerto non è il punto della card: puntini minuti, uniti da
+       una linea sottile, senza tooltip né hover — quello che si legge è la
+       forma. La linea non si interrompe mai: né sui mesi vuoti né al bordo
+       della finestra, così si vede sempre da dove arriva la curva.
+
+       Due serie, tagliate al primo evento in programma: da lì linea e punti
+       passano al colore dei futuri. I punti sono ordinati per data e
+       `isPlanned` guarda la data, quindi il taglio è uno solo. La serie dei
+       futuri riparte dall'ultimo concerto già visto — le serve il suo punto
+       di partenza per attaccare il segmento, ma il pallino lì lo disegna già
+       l'altra serie, del suo colore. */
+    const cut = points.findIndex(p => p.planned);
+    const xy = (p: TrendPoint) => [p.t, p.v];
+    const past = (cut < 0 ? points : points.slice(0, cut)).map(xy);
+    const future = cut < 0 ? [] : points.slice(Math.max(0, cut - 1)).map((p, i) =>
+      i === 0 && cut > 0 ? { value: xy(p), symbol: "none" } : xy(p));
     c.setOption({
       // il grafico è già in un pannello: niente titolo, niente legenda (sta sotto, in HTML)
       // le etichette dell'asse Y si prendevano una fetta di larghezza notevole
@@ -202,14 +207,22 @@ export default function TrendPlot({ points, trend, from, yMin, yMax, yInterval, 
       }],
       series: [
         {
-          name: "Concerti", type: "line" as const, data: line, symbol: "circle", symbolSize: 3,
-          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.7 },
+          name: "Già visti", type: "line" as const, data: past, symbol: "circle", symbolSize: 3,
+          itemStyle: { color: colors["--lamp"] },
+          lineStyle: { color: colors["--lamp"], width: 1.5, opacity: 0.5 },
           silent: true, emphasis: { disabled: true },
           z: 2,
         },
+        ...(future.length ? [{
+          name: "In programma", type: "line" as const, data: future, symbol: "circle", symbolSize: 3,
+          itemStyle: { color: colors["--planned"] },
+          lineStyle: { color: colors["--planned"], width: 1.5, opacity: 0.5 },
+          silent: true, emphasis: { disabled: true },
+          z: 2,
+        }] : []),
         ...(trend.length ? [{
           name: "Media mobile", type: "line" as const, data: trend, smooth: true, symbol: "none",
-          lineStyle: { color: colors["--dim"], width: 2, opacity: 0.9 },
+          lineStyle: { color: colors["--dim"], width: 1.2, opacity: 0.9 },
           silent: true, emphasis: { disabled: true },
           z: 3,
         }] : []),
