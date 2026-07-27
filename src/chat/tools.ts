@@ -147,7 +147,7 @@ export const queryConcertsDef = toolDefinition({
     plannedCount: z.number(),
     eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once)" }),
     totalCost: z.number().meta({ description: "Sum of the known ticket costs over the matching events, euros (a festival ticket counts once)" }),
-    costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost" }),
+    costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost (a ticket paid for but whose price Gabri no longer recalls counts as unknown here, and shows as 'prezzo non ricordato' in the list)" }),
     avgCost: z.number().nullable().meta({ description: "Average cost per ticket/event, not per concert" }),
     avgVoto: z.number().nullable().meta({ description: "Average rating over the matching concerts that have one" }),
     avgCanzoniNote: z.number().nullable().meta({ description: "Average canzoni-note level (1..5) over the matching concerts that have one" }),
@@ -250,7 +250,7 @@ export function runConcertQuery(q: ConcertQuery) {
     concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(c =>
       `${c.date} · ${c.artist}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
       ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
-      (typeof c.cost === "number" ? ` · ${c.cost}€` : "") +
+      (typeof c.cost === "number" ? ` · ${c.cost}€` : c.cost === "na" ? " · prezzo non ricordato" : "") +
       (c.gift ? " · regalo" : "") +
       (c.accredito ? " · accredito" : "") +
       (typeof c.voto === "number" ? ` · voto ${c.voto}` : "") +

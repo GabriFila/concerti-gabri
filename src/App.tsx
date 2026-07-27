@@ -10,7 +10,7 @@ import ChatWidget, { type ChatApi, type ChatSiteContext } from "./chat/ChatWidge
    (FlatConcert): the fields the cross-cutting helpers below read. */
 type Datum = {
   y: number; date: string; venue: string; city: string;
-  cost?: number; gift?: boolean; accredito?: boolean; from?: "m" | "g"; km?: number;
+  cost?: number | "na"; gift?: boolean; accredito?: boolean; from?: "m" | "g"; km?: number;
   artist?: string; with?: Person[];
   voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na";
 };
@@ -111,9 +111,13 @@ const rankCutoff=<T extends readonly [any,number]>(rows:T[],soft=8,hard=8):T[]=>
 };
 // cost helpers — `cost` is the all-in price paid for a single seat (fees included), in EUR.
 // Many concerts have no known price; those are simply excluded from every cost stat.
-const hasCost=<T extends {cost?:number}>(d:T):d is T&{cost:number}=>typeof d.cost==="number";
+const hasCost=<T extends {cost?:number|"na"}>(d:T):d is T&{cost:number}=>typeof d.cost==="number";
+// `cost:"na"` means the ticket was paid for but the price is forgotten. It is not a
+// number, so hasCost rejects it and it stays out of the money stats exactly like an
+// unknown — it only differs in what the table shows.
+const isCostNa=<T extends {cost?:number|"na"}>(d:T):boolean=>d.cost==="na";
 // a concert can be: priced (cost number) · a gift (someone paid for it) ·
-// an accredito (guest list/press pass, free entry) · unknown.
+// an accredito (guest list/press pass, free entry) · unknown (absent or "na").
 // gifts, accrediti and unknowns never enter the money stats.
 const isGift=<T extends {gift?:boolean}>(d:T):d is T&{gift:true}=>d.gift===true;
 const isAccredito=<T extends {accredito?:boolean}>(d:T):d is T&{accredito:true}=>d.accredito===true;
@@ -812,7 +816,7 @@ function VoteScatter(){
   const W=720,H=310,ML=48,MR=16,MT=14,MB=42;
   const iw=W-ML-MR,ih=H-MT-MB;
   const yOf=(v:number)=>MT+ih*(1-(v-0.5)/5); // votes 1..5 with half-step padding
-  const costMax=Math.max(50,Math.ceil(Math.max(0,...pts.map(d=>d.cost||0))/25)*25);
+  const costMax=Math.max(50,Math.ceil(Math.max(0,...pts.map(d=>hasCost(d)?d.cost:0))/25)*25);
   const xOf=(d:FlatConcert)=>dim==="cost"
     ? ML+((d.cost as number)/costMax)*iw
     : dim==="vic"
@@ -1027,7 +1031,7 @@ function ArchiveTable(){
                 <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
                 <td>{hl(c.venue,q)}</td>
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isGift(c)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isCostNa(c)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(c)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
@@ -1060,7 +1064,7 @@ function ArchiveTable(){
                   <td className="date">{pl?<span className="d-planned">{ev.date}</span>:<span className="d-past">{ev.date}</span>}</td>
                   <td>{hl(ev.venue,q)}</td>
                   <td className="city"><b>{hl(ev.city,q)}</b></td>
-                  <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                 </tr>
