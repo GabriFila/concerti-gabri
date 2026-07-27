@@ -167,6 +167,8 @@ export const ALLDATA: Entry[] = [
     {artist:"Angelica Bove",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:2,canzoniNote:2},
     {artist:"Labadessa",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:4,canzoniNote:2},
   ]},
+  {y:2026,date:"17/06/2026",artist:"Angelica Bove",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3"],cost:0,vicinanza:2,voto:3,canzoniNote:2},
+  {y:2026,date:"17/06/2026",artist:"Temper City",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3"],cost:0,vicinanza:2,voto:3,canzoniNote:1},
   {y:2026,date:"17/06/2026",artist:"Lewis Capaldi",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3","Ludo","Marco D"],cost:105.84,vicinanza:3,voto:3,canzoniNote:3,from:"m",km:13},
   {y:2026,date:"18/06/2026",artist:"Olly",venue:"Stadio Luigi Ferraris",city:"Genova",with:["Fra M","Ludo","Marco D","Dicce","Fede"],cost:63.13,vicinanza:4,voto:4,canzoniNote:4,from:"g",km:3},
   {y:2026,date:"01/07/2026",artist:"Bresh",venue:"Arena del Mare",city:"Genova",with:["Cami <3","Giulia","Bianca"],cost:47.99,vicinanza:4,voto:2,canzoniNote:3,from:"g",km:4},
