@@ -14,6 +14,7 @@
    Rules enforced by the types (pnpm build fails otherwise):
    - every name in `with` must exist in PEOPLE
    - `vicinanza`, `voto`, `canzoniNote`, `from` accept only the listed values
+   - `cost` is a number or "na" (paid, price forgotten) — never a free-text note
    - a Festival must hold at least TWO concerts (a one-concert event is
      just a Concert — the tuple type makes the single case unrepresentable)
    Rules NOT enforced by types: a new venue needs an entry in
@@ -43,7 +44,7 @@ interface EventInfo {
   date: string; // "dd/mm/yyyy"; multi-day: "30–31/03/2017"
   venue: string;
   city: string;
-  cost?: number; // euros — the ticket
+  cost?: number | "na"; // euros — the ticket; "na" = paid, but the price can't be recalled (kept out of the money stats, like an unknown); absent = not yet defined
   gift?: boolean;
   accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
   from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
@@ -83,7 +84,7 @@ export interface FlatConcert extends ConcertFacts {
   date: string; // the concert's own day when known, else the row date
   venue: string;
   city: string;
-  cost?: number;
+  cost?: number | "na";
   gift?: boolean;
   accredito?: boolean;
   from?: "m" | "g";

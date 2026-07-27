@@ -69,6 +69,7 @@ CANZONI NOTE (share of setlist you already knew):
 
 BIGLIETTO (ticket — pick one):
   [ ] Paid — cost in €:  __________
+  [ ] Paid — non ricordo quanto (can't recall the price)
   [ ] Gift (regalo, someone gave it to me)
   [ ] Accredito (guest list / press — free, not a present)
 
@@ -88,8 +89,12 @@ When he pastes it back:
 
 - Map answers to the `Concert`/`Festival` fields. Enum values come straight from the
   types in `src/data.ts` — `voto` 1–5, `vicinanza` 1–6, `canzoniNote`
-  1–5|"na", `from` "m"|"g". Ticket: Paid → `cost`, Gift → `gift:true`, Accredito →
-  `accredito:true`.
+  1–5|"na", `from` "m"|"g". Ticket: Paid → `cost` (a number), Paid-but-forgotten →
+  `cost:"na"`, Gift → `gift:true`, Accredito → `accredito:true`.
+- **`cost:"na"` vs omitting `cost`:** `"na"` means a ticket was bought and the price
+  is forgotten; leaving `cost` out means the price isn't defined yet (a future row).
+  Both stay out of every money stat — the difference is only what the archive shows
+  ("n.d." vs "—"). Never invent or estimate a forgotten price.
 - **New people:** any `with` name not in `PEOPLE` must be added to that array
   (keep it roughly alphabetical), or the build fails.
 - **`km`:** never derive it in app code. Reuse the exact `km` of an existing
