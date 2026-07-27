@@ -22,7 +22,7 @@
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
-export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio G","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
+export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
 
@@ -126,7 +126,7 @@ export const ALLDATA: Entry[] = [
   {y:2023,date:"12/07/2023",artist:"Pinguini Tattici Nucleari",venue:"Stadio San Siro",city:"Milano",with:["Giorgia D","Matteo A"],cost:73.63,vicinanza:1,voto:4,canzoniNote:4,from:"m",km:6},
   {y:2023,date:"21/07/2023",artist:"Emma Nolde",venue:"Orto di San Matteo",city:"Castelfranco di Sotto",with:["Espi"],cost:10,vicinanza:2,voto:4,canzoniNote:4,from:"g",km:209},
   {y:2023,date:"07/11/2023",artist:"Willie Peyote",venue:"Fabrique",city:"Milano",with:["Camilla C"],cost:31.38,vicinanza:3,voto:3,canzoniNote:4,from:"m",km:9},
-  {y:2023,date:"26/11/2023",artist:"Colla Zio",venue:"Fabrique",city:"Milano",with:["Gio G"],gift:true,vicinanza:2,voto:3,canzoniNote:4,from:"m",km:9},
+  {y:2023,date:"26/11/2023",artist:"Colla Zio",venue:"Fabrique",city:"Milano",with:["Gio Giga"],gift:true,vicinanza:2,voto:3,canzoniNote:4,from:"m",km:9},
   {y:2023,date:"10/12/2023",artist:"Olly",venue:"Fabrique",city:"Milano",with:[],gift:true,vicinanza:2,voto:3,canzoniNote:3,from:"m",km:9},
   {y:2024,date:"04/04/2024",artist:"Fulminacci",venue:"Fabrique",city:"Milano",with:["Camilla C"],cost:30.95,vicinanza:3,voto:4,canzoniNote:4,from:"m",km:9},
   {y:2024,date:"04/05/2024",artist:"Pinguini Tattici Nucleari",venue:"Nelson Mandela Forum",city:"Firenze",with:["Camilla C","Marco D","Ludo"],cost:60,vicinanza:3,voto:3,canzoniNote:4,from:"g",km:229},
