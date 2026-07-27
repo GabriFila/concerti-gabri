@@ -303,6 +303,8 @@ function KPIs(){
   const avgSince=(dataSince.length/elapsedYSince).toFixed(1);
   // most frequent companion across attended concerts (per set: who's actually next to me)
   const topMate=ranked(counter(ATT_C.flatMap(c=>c.with||[]),x=>x))[0]||["—",0];
+  // artista più visto, per set (un festival conta ogni concerto separatamente)
+  const topArtist=ranked(counter(ATT_C,"artist"))[0]||["—",0];
   // concerts watched alone (a festival set counts even if I had company earlier that day)
   const solo=ATT_C.filter(c=>!(c.with&&c.with.length)).length;
   // voto — per concerto: average over rated (attended) sets
@@ -317,7 +319,7 @@ function KPIs(){
   const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null);
   const totalKm=sum(trips)*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
-  // alla cieca — concerti visti conoscendo nessuna o poche canzoni; il "su M"
+  // alla cieca — concerti visti conoscendo nessuna o poche canzoni; la percentuale
   // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi)
   const cnKnown=CONC.filter(hasCN).length;
   const cieca=CONC.filter(c=>hasCN(c)&&c.canzoniNote<=2).length;
@@ -329,11 +331,11 @@ function KPIs(){
     {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" biglietti",ic:"coins"},
     {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" biglietti",ic:"wallet"},
     {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin"},
-    {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
+    {num:artists,lbl:"Artisti diversi",hint:topArtist[1]?topArtist[0]+" "+topArtist[1]+"x":undefined,ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
     {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
-    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?"su "+cnKnown+" concerti":undefined},
-    {num:"~"+Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
+    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?Math.round(cieca/cnKnown*100)+"% dei concerti":undefined},
+    {num:Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
   ];
   return <section className="kpis">{items.map((k,i)=>(
     <div className="kpi" key={i}><div className={"num"+(k.accent?" acc-"+k.accent:"")}>{k.num}</div><div className="lbl"><Icon name={k.ic} size={13} className="kic"/>{k.lbl}</div>{k.hint&&<div className="hint">{k.hint}</div>}{k.note&&<div className="pnote">{k.note}</div>}</div>
