@@ -2409,8 +2409,8 @@ function Shell(){
       <ChatWidget ctx={chatCtx} apiRef={chatApi} corner/>
       {isDati&&(
         <div className="bottombar">
-          <TocButton/>
           <FilterButton/>
+          <TocButton/>
         </div>
       )}
     </ShellContext.Provider>
