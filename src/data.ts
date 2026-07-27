@@ -131,7 +131,10 @@ export const ALLDATA: Entry[] = [
   {y:2024,date:"04/04/2024",artist:"Fulminacci",venue:"Fabrique",city:"Milano",with:["Camilla C"],cost:30.95,vicinanza:3,voto:4,canzoniNote:4,from:"m",km:9},
   {y:2024,date:"04/05/2024",artist:"Pinguini Tattici Nucleari",venue:"Nelson Mandela Forum",city:"Firenze",with:["Camilla C","Marco D","Ludo"],cost:60,vicinanza:3,voto:3,canzoniNote:4,from:"g",km:229},
   {y:2024,date:"08/06/2024",artist:"Ed Sheeran",venue:"Lucca Summer Festival",city:"Lucca",with:["Marco D","Ludo"],cost:129.72,vicinanza:3,voto:5,canzoniNote:4,from:"g",km:163},
-  {y:2024,date:"22/06/2024",artist:"Paolo Nutini",venue:"La Prima Estate",city:"Lido di Camaiore",with:["Camilla C"],cost:100,vicinanza:2,voto:2,canzoniNote:2,from:"g",km:133},
+  {y:2024,date:"22/06/2024",name:"La Prima Estate 2024",venue:"La Prima Estate",city:"Lido di Camaiore",cost:0,from:"g",km:133,concerts:[
+    {artist:"Michael Kiwanuka",with:[],voto:4,vicinanza:2,canzoniNote:2},
+    {artist:"Paolo Nutini",with:["Camilla C"],voto:2,vicinanza:2,canzoniNote:2},
+  ]},
   {y:2024,date:"04/07/2024",artist:"Giovanni Ti Amo",venue:"CLER",city:"Milano",with:["Espi","Cate"],cost:0,vicinanza:1,voto:2,canzoniNote:4,from:"m",km:8},
   {y:2024,date:"25/07/2024",artist:"Edoardo Bennato",venue:"Parchi di Nervi · Nervi Music Ballet Festival",city:"Genova",with:["Mamma"],cost:61.35,vicinanza:3,voto:4,canzoniNote:2,from:"g",km:11},
   {y:2024,date:"29/07/2024",artist:"Eugenio in Via di Gioia",venue:"Castello Sforzesco",city:"Milano",with:["Cami <3"],cost:32.07,vicinanza:2,voto:2,canzoniNote:4,from:"m",km:2},
