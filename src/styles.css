@@ -1208,6 +1208,14 @@
     min-height:100vh;min-height:100svh;
     align-items:center;text-align:center;overflow:hidden;
     padding-top:clamp(88px,16vh,190px);padding-top:clamp(88px,16svh,190px);
+    /* full-bleed, unlike every other act: the beams and the floor wash are
+       absolutely positioned against this section, so the 1100px .rt-act cap
+       would cut the whole stage lighting off into a centred column with black
+       margins either side. Nothing here needs the cap — the hero's content
+       centres itself (.rt-hero-inner is min(760px,100%), the cue row is a
+       centred flex row) — so the act goes edge to edge and only the light
+       follows the viewport. */
+    max-width:none;
   }
   .rt-hero .beams{z-index:0}
   .rt-hero-inner{position:relative;z-index:2;width:min(760px,100%);margin-inline:auto;text-align:center}
