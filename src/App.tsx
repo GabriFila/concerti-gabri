@@ -303,6 +303,8 @@ function KPIs(){
   const avgSince=(dataSince.length/elapsedYSince).toFixed(1);
   // most frequent companion across attended concerts (per set: who's actually next to me)
   const topMate=ranked(counter(ATT_C.flatMap(c=>c.with||[]),x=>x))[0]||["—",0];
+  // artista più visto, per set (un festival conta ogni concerto separatamente)
+  const topArtist=ranked(counter(ATT_C,"artist"))[0]||["—",0];
   // concerts watched alone (a festival set counts even if I had company earlier that day)
   const solo=ATT_C.filter(c=>!(c.with&&c.with.length)).length;
   // voto — per concerto: average over rated (attended) sets
@@ -329,7 +331,7 @@ function KPIs(){
     {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" biglietti",ic:"coins"},
     {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" biglietti",ic:"wallet"},
     {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin"},
-    {num:artists,lbl:"Artisti diversi",hint:(total-artists)+" repliche",ic:"mic"},
+    {num:artists,lbl:"Artisti diversi",hint:topArtist[1]?topArtist[0]+" "+topArtist[1]+"x":undefined,ic:"mic"},
     {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
     {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
     {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?Math.round(cieca/cnKnown*100)+"% dei concerti":undefined},
