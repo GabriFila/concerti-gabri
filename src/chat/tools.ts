@@ -30,6 +30,7 @@ export const SECTIONS = [
   { id: "sec-spesa", label: "Quanto spendo" },
   { id: "sec-spesa-dettaglio", label: "Quando ho speso di più" },
   { id: "sec-spesa-distribuzione", label: "Quanto pago di solito" },
+  { id: "sec-trend", label: "Come cambia nel tempo" },
   { id: "sec-archivio", label: "Archivio" },
 ] as const;
 
