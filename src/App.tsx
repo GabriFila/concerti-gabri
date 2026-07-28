@@ -338,8 +338,8 @@ function KPIs(){
   const cnKnown=CONC.filter(hasCN).length;
   const ciecaC=CONC.filter(c=>hasCN(c)&&c.canzoniNote<=2);
   const cieca=ciecaC.length;
-  // `src` = le righe da cui esce il numero, e da lì i due pallini in alto a
-  // destra (vedi kpiSpan): non tutte le card guardano lo stesso tempo — i
+  // `src` = le righe da cui esce il numero, e da lì i due pallini in basso a
+  // destra (vedi KpiDots): non tutte le card guardano lo stesso tempo — i
   // concerti visti sono passato, "in programma" è futuro, la spesa mescola i
   // due (comprende i biglietti già comprati per l'anno prossimo).
   const items:any[]=[
@@ -361,7 +361,7 @@ function KPIs(){
   ))}</section>;
 }
 
-/* I due pallini in alto a destra di una card KPI: da che tempo viene il numero.
+/* I due pallini in basso a destra di una card KPI: da che tempo viene il numero.
    Ambra = ci sono dentro concerti già visti, teal = ce ne sono in programma;
    due pallini = la card mescola le due cose. Sono indicatori, non bottoni: il
    colore è già quello che tutta la pagina usa per passato e futuro (barre,

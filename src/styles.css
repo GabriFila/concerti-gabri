@@ -672,8 +672,11 @@
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     transition:transform .2s ease,border-color .2s ease}
   /* i due pallini "da che tempo viene questo numero": ambra = passato, teal =
-     in programma. Stessi colori del resto della pagina, misura di .pnote::before */
-  .kpi .kdots{position:absolute;top:12px;right:12px;display:flex;gap:5px}
+     in programma. Stessi colori del resto della pagina, misura di .pnote::before.
+     Angolo in basso a destra: è l'unico che su schermo stretto non finisce
+     addosso al numero (i più larghi, "€2.961", arrivano a filo del bordo) e
+     resta fuori dall'ordine di lettura numero → etichetta → nota */
+  .kpi .kdots{position:absolute;bottom:12px;right:12px;display:flex;gap:5px}
   .kpi .kdot{width:7px;height:7px;border-radius:50%;opacity:.9}
   .kpi .kd-past{background:var(--lamp);box-shadow:0 0 8px var(--lamp-soft)}
   .kpi .kd-future{background:var(--planned);box-shadow:0 0 8px var(--planned-soft)}
