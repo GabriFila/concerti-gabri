@@ -23,7 +23,7 @@
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
-export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Dani","Daniela","Davide B","Dicce","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
+export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Costanza","Dani","Daniela","Davide B","Dicce","Diletta","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
 
@@ -189,6 +189,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"18/11/2026",artist:"Portugal. The Man",venue:"Fabrique",city:"Milano",with:["Filippo","Oscar","Waitz"],cost:36.92},
   {y:2026,date:"30/11/2026",artist:"Ditonellapiaga",venue:"Fabrique",city:"Milano",with:["Filippo"],cost:31.03},
   {y:2026,date:"03/12/2026",artist:"Kodaline",venue:"Alcatraz",city:"Milano",with:["Perla"],cost:50.5},
+  {y:2027,date:"17/03/2027",artist:"Kaleo",venue:"Fabrique",city:"Milano",with:["Costanza","Diletta"],cost:54.18,from:"m",km:9},
   {y:2027,date:"06/06/2027",artist:"Vasco Rossi",venue:"Stadio Olimpico",city:"Roma",with:[],gift:true},
   {y:2027,date:"23/06/2027",artist:"Olly",venue:"Stadio San Siro",city:"Milano",with:["Cami <3","Marco D","Ludo"],cost:96.12},
 ];
