@@ -139,12 +139,12 @@ const voto1=(n:number)=>n.toLocaleString("it-IT",{minimumFractionDigits:1,maximu
 const eur0=(n:number)=>"€"+Math.round(n).toLocaleString("it-IT");
 const eur2=(n:number)=>"€"+n.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2});
 const sum=(a:number[])=>a.reduce((s,x)=>s+x,0);
-// notes — free text about the EVENING, so it lives on the event (a festival note
-// covers the whole weekend). A flattened concert reads its event's note through
-// `ev`, exactly like the ticket and the trip. Blank/whitespace counts as absent.
-const noteOf=(e:Entry):string=>(e.notes||"").trim();
-const hasNote=(e:Entry):boolean=>noteOf(e).length>0;
-// how the archive and the notes card title an event: its artist, or the festival name
+// comments — free text about the EVENING, so it lives on the event (a festival
+// comment covers the whole weekend). A flattened concert reads its event's comment
+// through `ev`, exactly like the ticket and the trip. Blank/whitespace = absent.
+const commentOf=(e:Entry):string=>(e.comments||"").trim();
+const hasComment=(e:Entry):boolean=>commentOf(e).length>0;
+// how the archive and the comments card title an event: its artist, or the festival name
 const eventTitle=(e:Entry):string=>isFestival(e)?e.name:e.artist;
 
 /* ── Filtri: dimensioni sensate sul dataset, AND tra dimensioni, OR dentro una dimensione ── */
@@ -592,7 +592,7 @@ const ENT_PEOPLE={one:"un'altra",noun1:"persona",other:"altre",noun:"persone"};
 const ENT_VENUE={one:"un'altra",noun1:"venue",other:"altre",noun:"venue"};
 const ENT_CONCERT={one:"un altro",noun1:"concerto",other:"altri",noun:"concerti"};
 const ENT_BIGLIETTO={one:"un altro",noun1:"biglietto",other:"altri",noun:"biglietti"};
-const ENT_NOTA={one:"un'altra",noun1:"nota",other:"altre",noun:"note"};
+const ENT_COMMENTO={one:"un altro",noun1:"commento",other:"altri",noun:"commenti"};
 
 function RankCard({title,desc,obj,plObj,color,min,unit,icon,field,multi,entity}: any){
   const DATA=useData();
@@ -1065,58 +1065,58 @@ function CanzoniNoteCard(){
   );
 }
 
-/* "Cosa mi ricordo" — the notes I wrote about an evening, newest first.
-   Per EVENT, like the ticket: a festival note covers its whole weekend, so it
-   is listed once and not repeated per set. Starts on the last NOTES_PAGE ones
-   and grows a page at a time; the whole section is hidden when no event in the
-   current filters has a note (see FullDashboard). */
-const NOTES_PAGE=5;
-function NotesCard(){
+/* "I miei commenti" — what I wrote about an evening, newest first. Per EVENT,
+   like the ticket: a festival comment covers its whole weekend, so it is listed
+   once and not repeated per set. Starts on the last COMMENTS_PAGE ones and grows
+   a page at a time; the whole section is hidden when no event in the current
+   filters has a comment (see FullDashboard). */
+const COMMENTS_PAGE=5;
+function CommentsCard(){
   const DATA=useData();
-  const [limit,setLimit]=useState(NOTES_PAGE);
-  const noted=useMemo(()=>DATA.filter(hasNote).sort((a,b)=>sortKey(b)-sortKey(a)),[DATA]);
-  if(!noted.length) return null;
-  const shown=noted.slice(0,limit);
-  const rest=noted.length-shown.length;
+  const [limit,setLimit]=useState(COMMENTS_PAGE);
+  const commented=useMemo(()=>DATA.filter(hasComment).sort((a,b)=>sortKey(b)-sortKey(a)),[DATA]);
+  if(!commented.length) return null;
+  const shown=commented.slice(0,limit);
+  const rest=commented.length-shown.length;
   const allShown=rest===0;
   return (
     <section className="panel">
-      <h2><Icon name="pen" size={22} className="h2ic"/>Cosa mi ricordo</h2>
+      <h2><Icon name="pen" size={22} className="h2ic"/>I miei commenti</h2>
       <p className="desc">Quello che mi sono segnato dopo la serata.</p>
-      <div className="notelist">{shown.map(ev=>(
-        <div className="noteitem" key={ev.date+eventTitle(ev)}>
+      <div className="commentlist">{shown.map(ev=>(
+        <div className="commentitem" key={ev.date+eventTitle(ev)}>
           <div className="notehead">
             <span className="n-art">{eventTitle(ev)}</span>
             <span className={"n-date "+(isPlanned(ev)?"d-planned":"d-past")}>{ev.date}</span>
             <span className="n-meta">{ev.venue} · {ev.city}</span>
           </div>
-          <p className="notetext">{noteOf(ev)}</p>
+          <p className="commenttext">{commentOf(ev)}</p>
         </div>
       ))}</div>
-      {noted.length>NOTES_PAGE&&(
-        <ShowAllBtn expanded={allShown} count={Math.min(NOTES_PAGE,rest)} entity={ENT_NOTA}
-          onClick={()=>setLimit(l=>allShown?NOTES_PAGE:l+NOTES_PAGE)}/>
+      {commented.length>COMMENTS_PAGE&&(
+        <ShowAllBtn expanded={allShown} count={Math.min(COMMENTS_PAGE,rest)} entity={ENT_COMMENTO}
+          onClick={()=>setLimit(l=>allShown?COMMENTS_PAGE:l+COMMENTS_PAGE)}/>
       )}
     </section>
   );
 }
 
-/* A table cell in the Note column: the note itself never sits in the table (it
-   would wreck the row heights), only a button that opens it in NoteModal. */
-function NoteCell({ev,onOpen}:{ev:Entry;onOpen:(e:Entry)=>void}){
-  if(!hasNote(ev)) return <span style={{color:"var(--dim)"}}>—</span>;
-  const label="Leggi la nota su "+eventTitle(ev);
+/* A table cell in the Commenti column: the comment itself never sits in the
+   table (it would wreck the row heights), only a button opening CommentModal. */
+function CommentCell({ev,onOpen}:{ev:Entry;onOpen:(e:Entry)=>void}){
+  if(!hasComment(ev)) return <span style={{color:"var(--dim)"}}>—</span>;
+  const label="Leggi il commento su "+eventTitle(ev);
   return (
-    <button type="button" className="notebtn" onClick={()=>onOpen(ev)} title={label} aria-label={label}>
+    <button type="button" className="commentbtn" onClick={()=>onOpen(ev)} title={label} aria-label={label}>
       <Icon name="pen" size={15}/>
     </button>
   );
 }
 
-/* The archive's note reader: one modal for the whole table, driven by the event
-   whose Note button was tapped (null = closed). The note belongs to the event,
-   so a festival set opens the festival's note. */
-function NoteModal({ev,onClose}:{ev:Entry|null;onClose:()=>void}){
+/* The archive's comment reader: one modal for the whole table, driven by the
+   event whose Commenti button was tapped (null = closed). The comment belongs to
+   the event, so a festival set opens the festival's comment. */
+function CommentModal({ev,onClose}:{ev:Entry|null;onClose:()=>void}){
   React.useEffect(()=>{
     if(!ev) return;
     const onKey=(e:KeyboardEvent)=>{ if(e.key==="Escape") onClose(); };
@@ -1128,17 +1128,17 @@ function NoteModal({ev,onClose}:{ev:Entry|null;onClose:()=>void}){
   if(!ev) return null;
   const title=eventTitle(ev);
   return (
-    <div className="notemodal" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
-      <div className="notepop" role="dialog" aria-modal="true" aria-label={"Nota su "+title}>
+    <div className="commentmodal" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div className="commentpop" role="dialog" aria-modal="true" aria-label={"Commento su "+title}>
         <div className="fp-head">
           <span className="fp-title"><Icon name="pen" size={18} style={{color:"var(--lamp)"}}/>{title}</span>
           <button type="button" className="fp-close" onClick={onClose} aria-label="Chiudi">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
-        <div className="notepop-body">
-          <div className="notepop-meta">{ev.date} · {ev.venue} · {ev.city}{isFestival(ev)&&<span className="notepop-tag">nota dell'evento</span>}</div>
-          <p className="notepop-text">{noteOf(ev)}</p>
+        <div className="commentpop-body">
+          <div className="commentpop-meta">{ev.date} · {ev.venue} · {ev.city}{isFestival(ev)&&<span className="commentpop-tag">commento sull'evento</span>}</div>
+          <p className="commentpop-text">{commentOf(ev)}</p>
         </div>
       </div>
     </div>
@@ -1152,11 +1152,11 @@ function hl(text:string,q:string){
   return <>{text.slice(0,i)}<mark>{text.slice(i,i+q.length)}</mark>{text.slice(i+q.length)}</>;
 }
 
-// Does a festival match the free-text query? (name, any concert artist/companion, place, note)
+// Does a festival match the free-text query? (name, any concert artist/companion, place, comment)
 function festMatches(ev:Festival,q:string){
   const n=q.trim().toLowerCase();
   if(!n) return true;
-  if(ev.name.toLowerCase().includes(n)||ev.venue.toLowerCase().includes(n)||ev.city.toLowerCase().includes(n)||noteOf(ev).toLowerCase().includes(n)) return true;
+  if(ev.name.toLowerCase().includes(n)||ev.venue.toLowerCase().includes(n)||ev.city.toLowerCase().includes(n)||commentOf(ev).toLowerCase().includes(n)) return true;
   return ev.concerts.some(c=>c.artist.toLowerCase().includes(n)||(c.with||[]).some(p=>p.toLowerCase().includes(n)));
 }
 
@@ -1165,15 +1165,15 @@ function ArchiveTable(){
   const [q,setQ]=useState("");
   const DEFAULT_SORT={col:"date" as string|null,dir:"desc"}; // default: newest first, shown in the Data column
   const [sort,setSort]=useState<{col:string|null;dir:string}>(DEFAULT_SORT); // col:null => relevance order (only while searching)
-  const [noteEv,setNoteEv]=useState<Entry|null>(null); // event whose note the modal is showing
+  const [commentEv,setCommentEv]=useState<Entry|null>(null); // event whose comment the modal is showing
 
   // The archive is an archive of CONCERTS: every row is one concert, festival
   // sets included as first-class rows. Fuse also indexes the festival name
-  // (ev.name) and the event's note, so searching "mi ami" surfaces its concerts
-  // and a word written in a note surfaces the evening it belongs to.
+  // (ev.name) and the event's comment, so searching "mi ami" surfaces its
+  // concerts and a word written in a comment surfaces the evening it belongs to.
   const CONC=useMemo(()=>flatConcerts(DATA),[DATA]);
   const fuse=useMemo(()=>new Fuse(CONC,{
-    keys:["artist","venue","city","with","ev.name","ev.notes"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
+    keys:["artist","venue","city","with","ev.name","ev.comments"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
   }),[CONC]);
 
   const searching=!!q.trim();
@@ -1191,15 +1191,15 @@ function ArchiveTable(){
       else if(sort.col==="vicinanza"){av=hasVic(a)?a.vicinanza:-Infinity;bv=hasVic(b)?b.vicinanza:-Infinity;} // missing sink like unknown prices
       else if(sort.col==="canzoniNote"){av=hasCN(a)?a.canzoniNote:-Infinity;bv=hasCN(b)?b.canzoniNote:-Infinity;} // "na"/missing sink like unknown prices
       else if(sort.col==="km"){av=distKm(a)??-Infinity;bv=distKm(b)??-Infinity;} // festival sets & unknown origins sink like unknown prices
-      else if(sort.col==="notes"){av=hasNote(a.ev)?1:0;bv=hasNote(b.ev)?1:0;} // free text: sortable only by presence, annotated evenings first (desc)
+      else if(sort.col==="comments"){av=hasComment(a.ev)?1:0;bv=hasComment(b.ev)?1:0;} // free text: sortable only by presence, commented evenings first (desc)
       else if(sort.col==="with"){av=(a.with||[]).join(", ").toLowerCase();bv=(b.with||[]).join(", ").toLowerCase();}
       else{av=((a as any)[sort.col!]||"").toLowerCase();bv=((b as any)[sort.col!]||"").toLowerCase();}
       return av<bv?-dir:av>bv?dir:0;
     });
   }
 
-  // click cycle: 1st tap sorts (date and notes start desc, others asc), 2nd tap flips, 3rd tap removes the sort
-  const DESC_FIRST=["date","notes"]; // the columns whose interesting end is the top one (newest / annotated)
+  // click cycle: 1st tap sorts (date and comments start desc, others asc), 2nd tap flips, 3rd tap removes the sort
+  const DESC_FIRST=["date","comments"]; // the columns whose interesting end is the top one (newest / commented)
   const setCol=(col:string)=>{
     setSort(s=>{
       const first=DESC_FIRST.includes(col)?"desc":"asc";
@@ -1221,7 +1221,7 @@ function ArchiveTable(){
     );
   };
 
-  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["canzoniNote","Canzoni note"],["city","Città"],["km","Viaggio"],["vicinanza","Vicinanza"],["notes","Note"]];
+  const cols=[["artist","Artista"],["date","Data"],["venue","Venue"],["with","Compagni"],["cost","Costo"],["voto","Voto"],["canzoniNote","Canzoni note"],["city","Città"],["km","Viaggio"],["vicinanza","Vicinanza"],["comments","Commenti"]];
   const orderNote = sort.col ? null : (searching ? "Ordinati per pertinenza" : null);
 
   // Second table: the festivals (the only multi-concert events), newest first.
@@ -1255,7 +1255,7 @@ function ArchiveTable(){
                 <td className="city"><b>{hl(c.city,q)}</b></td>
                 <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="vic">{hasVic(c)?<span className="viccell">{VIC_LABELS[c.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="note"><NoteCell ev={c.ev} onOpen={setNoteEv}/></td>
+                <td className="comment"><CommentCell ev={c.ev} onOpen={setCommentEv}/></td>
               </tr>
             );})}
             {rows.length===0&&<tr><td colSpan={11} style={{textAlign:"center",padding:"30px",color:"var(--muted)"}}>Nessun concerto trovato.</td></tr>}
@@ -1274,7 +1274,7 @@ function ArchiveTable(){
         <div className="tablewrap">
           <table>
             <thead><tr>
-              <th>Festival</th><th>Data</th><th>Venue</th><th>Città</th><th>Costo</th><th>Viaggio</th><th>Concerti</th><th>Note</th>
+              <th>Festival</th><th>Data</th><th>Venue</th><th>Città</th><th>Costo</th><th>Viaggio</th><th>Concerti</th><th>Commenti</th>
             </tr></thead>
             <tbody>
               {fests.map((ev,i)=>{const pl=isPlanned(ev);return (
@@ -1286,7 +1286,7 @@ function ArchiveTable(){
                   <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
-                  <td className="note"><NoteCell ev={ev} onOpen={setNoteEv}/></td>
+                  <td className="comment"><CommentCell ev={ev} onOpen={setCommentEv}/></td>
                 </tr>
               );})}
             </tbody>
@@ -1295,7 +1295,7 @@ function ArchiveTable(){
         <div className="resn">{fests.length} event{fests.length===1?"o":"i"}{q?" trovat"+(fests.length===1?"o":"i"):""}</div>
       </>)}
 
-      <NoteModal ev={noteEv} onClose={()=>setNoteEv(null)}/>
+      <CommentModal ev={commentEv} onClose={()=>setCommentEv(null)}/>
     </section>
   );
 }
@@ -1881,12 +1881,12 @@ function FilterButton(){
 }
 
 /* Ids+labels live in chat/tools.ts (shared with the AI chat); only icons are added here. */
-const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-trend":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-note":"pen","sec-archivio":"list"};
+const TOC_ICONS={"sec-kpis":"star","sec-andamento":"chart","sec-trend":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-commenti":"pen","sec-archivio":"list"};
 const TOC_ITEMS=SECTIONS.map(s=>({id:s.id,icon:TOC_ICONS[s.id]||"list",label:s.label}));
 function TocButton(){
   const [open,setOpen]=useState(false);
-  // a section can be conditional (the notes card is there only when a note is
-  // written), so the index is resolved against the DOM each time it opens —
+  // a section can be conditional (the comments card is there only when a comment
+  // is written), so the index is resolved against the DOM each time it opens —
   // never listing a link that would scroll nowhere.
   const [items,setItems]=useState(TOC_ITEMS);
   const toggle=()=>{
@@ -2359,9 +2359,9 @@ function FullDashboard({owner}: {owner:boolean}){
       <div id="sec-spesa-dettaglio" className="tocsec"><TopSpend/></div>
       <div id="sec-spesa-distribuzione" className="tocsec"><PriceDistribution/></div>
       <div id="sec-trend" className="tocsec"><TrendCard/></div>
-      {/* notes are optional: with none written (or none left by the filters) the
-          whole section disappears, and the TOC drops it with it */}
-      {DATA.some(hasNote)&&<div id="sec-note" className="tocsec"><NotesCard/></div>}
+      {/* comments are optional: with none written (or none left by the filters)
+          the whole section disappears, and the TOC drops it with it */}
+      {DATA.some(hasComment)&&<div id="sec-commenti" className="tocsec"><CommentsCard/></div>}
       <div id="sec-archivio" className="tocsec"><ArchiveTable/></div>
     </main>
     <footer className="sitefooter">

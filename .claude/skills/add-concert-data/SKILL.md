@@ -19,7 +19,7 @@ pastes back. This is the workflow he settled on; follow it exactly.
 - If it's a **festival** (one ticket/trip bundling ≥2 concerts, see `CLAUDE.md`),
   present one per-concert block (artist, with, voto, vicinanza, canzoni note, and a
   per-day `date` if multi-day) plus a shared ticket/trip block. `cost`,
-  `gift`/`accredito`, `from`/`km`, `venue`, `city`, `date` and `notes` live on the
+  `gift`/`accredito`, `from`/`km`, `venue`, `city`, `date` and `comments` live on the
   festival, not the concert.
 
 ## Step 2 — Present the template
@@ -77,7 +77,7 @@ DA DOVE (trip origin / home base — pick one):
   [ ] Milano
   [ ] Genova
 
-NOTA (optional — free text on the evening; leave blank if you have nothing to say):
+COMMENTO (optional — free text on the evening; leave blank if you have nothing to say):
   ______________________________________________________
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -98,9 +98,9 @@ When he pastes it back:
   is forgotten; leaving `cost` out means the price isn't defined yet (a future row).
   Both stay out of every money stat — the difference is only what the archive shows
   ("n.d." vs "—"). Never invent or estimate a forgotten price.
-- **`notes`:** copy his words verbatim into `notes` (skip the field when he left it
-  blank — never write a note he didn't write). It belongs to the EVENT, so on a
-  festival it goes on the row, not on a single set.
+- **`comments`:** copy his words verbatim into `comments` (skip the field when he
+  left it blank — never write a comment he didn't write). It belongs to the EVENT,
+  so on a festival it goes on the row, not on a single set.
 - **New people:** any `with` name not in `PEOPLE` must be added to that array
   (keep it roughly alphabetical), or the build fails.
 - **`km`:** never derive it in app code. Reuse the exact `km` of an existing

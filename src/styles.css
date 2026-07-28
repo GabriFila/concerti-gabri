@@ -959,18 +959,18 @@
   .rtop .name--ico{display:inline-flex;align-items:center;gap:9px}
   .kic{flex-shrink:0;color:var(--muted);opacity:.85;position:relative;top:-1px}
   .lgi{flex-shrink:0}
-  /* Note column: the text stays out of the table (row heights would explode),
-     only a button that opens it in the note modal. */
-  td.note{text-align:right;white-space:nowrap}
-  .notebtn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;
+  /* Commenti column: the text stays out of the table (row heights would explode),
+     only a button that opens it in the comment modal. */
+  td.comment{text-align:right;white-space:nowrap}
+  .commentbtn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;
     border:1px solid var(--line-2);border-radius:9px;background:var(--panel-2);color:var(--muted);cursor:pointer;
     transition:border-color .15s ease,color .15s ease,background .15s ease}
-  @media(hover:hover){ .notebtn:hover{border-color:var(--lamp);color:var(--lamp);background:var(--lamp-faint)} }
-  .notebtn:focus{outline:none}
-  .notebtn:focus-visible{outline:1px dotted var(--muted);outline-offset:2px}
-  .notebtn svg{display:block}
-  /* ── Nota: overlay modale centrato, stessa chrome dei Filtri (.fp-head) ── */
-  .notemodal{
+  @media(hover:hover){ .commentbtn:hover{border-color:var(--lamp);color:var(--lamp);background:var(--lamp-faint)} }
+  .commentbtn:focus{outline:none}
+  .commentbtn:focus-visible{outline:1px dotted var(--muted);outline-offset:2px}
+  .commentbtn svg{display:block}
+  /* ── Commento: overlay modale centrato, stessa chrome dei Filtri (.fp-head) ── */
+  .commentmodal{
     position:fixed;inset:0;z-index:200;
     display:flex;align-items:center;justify-content:center;
     padding:24px;
@@ -978,30 +978,30 @@
     -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
     animation:fmbg .18s ease;
   }
-  .notepop{
+  .commentpop{
     width:520px;max-width:100%;max-height:min(80vh,620px);
     display:flex;flex-direction:column;overflow:hidden;
     background:var(--panel);border:1px solid var(--line-2);border-radius:18px;
     box-shadow:0 30px 80px rgba(0,0,0,.5);
     animation:fpin .18s ease;transform-origin:center;
   }
-  .notepop-body{padding:16px 20px 22px;overflow-y:auto;overscroll-behavior:contain}
-  .notepop-meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
-  .notepop-tag{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--lamp);opacity:.85}
-  .notepop-text{margin:12px 0 0;color:var(--text);font-size:.95rem;line-height:1.65;white-space:pre-line}
+  .commentpop-body{padding:16px 20px 22px;overflow-y:auto;overscroll-behavior:contain}
+  .commentpop-meta{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+  .commentpop-tag{font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:var(--lamp);opacity:.85}
+  .commentpop-text{margin:12px 0 0;color:var(--text);font-size:.95rem;line-height:1.65;white-space:pre-line}
   @media (max-width:620px){
-    .notemodal{padding:16px}
-    .notepop{max-height:86vh}
+    .commentmodal{padding:16px}
+    .commentpop{max-height:86vh}
   }
-  /* ── "Cosa mi ricordo": l'elenco delle note, una per evento ── */
-  .notelist{margin-top:4px}
-  .noteitem{padding:15px 0;border-bottom:1px solid var(--line)}
-  .noteitem:last-child{border-bottom:none;padding-bottom:0}
+  /* ── "I miei commenti": l'elenco dei commenti, uno per evento ── */
+  .commentlist{margin-top:4px}
+  .commentitem{padding:15px 0;border-bottom:1px solid var(--line)}
+  .commentitem:last-child{border-bottom:none;padding-bottom:0}
   .notehead{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
   .notehead .n-art{font-weight:600;color:var(--text)}
   .notehead .n-date{font-size:.82rem;font-variant-numeric:tabular-nums}
   .notehead .n-meta{font-size:.82rem;color:var(--muted)}
-  .notetext{margin:7px 0 0;color:var(--muted);font-size:.92rem;line-height:1.6;white-space:pre-line}
+  .commenttext{margin:7px 0 0;color:var(--muted);font-size:.92rem;line-height:1.6;white-space:pre-line}
   .resn{font-size:.8rem;color:var(--muted);margin-top:16px}
   .ordn{color:var(--lamp)}
   .relink{font-family:inherit;font-size:.76rem;margin-left:12px;padding:5px 13px;border:1px solid var(--line-2);border-radius:999px;background:none;color:var(--muted);cursor:pointer}
