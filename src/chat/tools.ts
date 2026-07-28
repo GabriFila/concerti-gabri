@@ -31,6 +31,7 @@ export const SECTIONS = [
   { id: "sec-spesa-dettaglio", label: "Quando ho speso di più" },
   { id: "sec-spesa-distribuzione", label: "Quanto pago di solito" },
   { id: "sec-trend", label: "Come cambia nel tempo" },
+  { id: "sec-note", label: "Cosa mi ricordo" }, // hidden when no event has a note, so this link can be absent
   { id: "sec-archivio", label: "Archivio" },
 ] as const;
 
@@ -88,6 +89,8 @@ export const goToSectionDef = toolDefinition({
   inputSchema: z.object({
     section: z.enum(SECTION_IDS).meta({ description: "Section id; the label next to each id in the system prompt says what it shows" }),
   }),
+  // ok:false = that section is not on the page right now (sec-note only appears
+  // when at least one evening has a note): say so instead of claiming you scrolled.
   outputSchema: z.object({ ok: z.boolean(), label: z.string() }),
 });
 
@@ -160,7 +163,7 @@ export const queryConcertsDef = toolDefinition({
       avgVoto: z.number().nullable(),
       avgCanzoniNote: z.number().nullable(),
     })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking. count = concerts; costs = distinct tickets in the group" }),
-    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event." }),
+    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · nota: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The nota is Gabri's own free-text memory of the EVENING (a festival's note covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -256,7 +259,9 @@ export function runConcertQuery(q: ConcertQuery) {
       (c.accredito ? " · accredito" : "") +
       (typeof c.voto === "number" ? ` · voto ${c.voto}` : "") +
       (typeof c.canzoniNote === "number" ? ` · canzoni note ${CANZONI_NOTE_LABELS[c.canzoniNote]}` : "") +
-      (isPlanned(c) ? " · in programma" : "")),
+      (isPlanned(c) ? " · in programma" : "") +
+      // the note lives on the event; flattened to one line so a line stays one concert
+      (c.ev.notes?.trim() ? ` · nota: "${c.ev.notes.trim().replace(/\s+/g, " ")}"` : "")),
     concertsTruncated: matches.length > MAX_LISTED_CONCERTS,
   };
 }

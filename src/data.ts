@@ -9,7 +9,7 @@
    the event name (e.g. "MI AMI 2023") and the per-concert fields
    stay at the set level (the types forbid mixing the two shapes).
    Ticket (`cost`/`gift`/`accredito`), trip (`from`/`km`),
-   `date`, `venue` and `city` always belong to the event.
+   `notes`, `date`, `venue` and `city` always belong to the event.
 
    Rules enforced by the types (pnpm build fails otherwise):
    - every name in `with` must exist in PEOPLE
@@ -49,6 +49,7 @@ interface EventInfo {
   accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
   from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
   km?: number; // one-way trip km, precomputed offline (recipe in CLAUDE.md) — set together with `from`; reuse the value of an existing (from, venue) pair. Never derive it in app code: home coordinates must not ship in the bundle.
+  notes?: string; // free-text memory of the evening (a festival note covers the whole weekend, not one set). Shown in the "Cosa mi ricordo" card and behind the archive's Note button; absent/empty = nothing written.
 }
 
 // The unit. A single concert that is also its own event: it carries both the
@@ -78,7 +79,7 @@ export const isFestival = (e: Entry): e is Festival => "concerts" in e;
    (place, date). Ticket/trip fields are present only when the concert IS
    its own event — a festival concert has no price or km of its own, so
    cost-based stats skip it. `ev` points back to the owning row (a Concert is
-   its own event) for anything event-scoped (dedup, money, trips). */
+   its own event) for anything event-scoped (dedup, money, trips, `notes`). */
 export interface FlatConcert extends ConcertFacts {
   y: number;
   date: string; // the concert's own day when known, else the row date
