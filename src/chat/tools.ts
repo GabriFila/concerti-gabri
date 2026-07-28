@@ -10,7 +10,7 @@
 
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { ALLDATA, CANZONI_NOTE_LABELS, flatConcerts, isFestival, type FlatConcert, type Person } from "../data.ts";
+import { ALLDATA, CANZONI_NOTE_LABELS, VICINANZA_LABELS, flatConcerts, isFestival, type FlatConcert, type Person } from "../data.ts";
 
 // Single source of truth for the page sections (the TOC adds icons on top).
 export const SECTIONS = [
@@ -59,7 +59,7 @@ export const setFiltersDef = toolDefinition({
     cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them). Empty array = all cities." }),
     people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Companions Gabri went with (OR between them). Empty array = anyone." }),
     solo: z.boolean().optional().meta({ description: "true = only concerts attended alone" }),
-    vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Closeness to the stage: 1 Transenna, 2 Sottopalco, 3 Centro, 4 Fondo, 5 Tribuna, 6 Anello alto. Empty array = all." }),
+    vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Closeness to the stage, higher = closer: 6 Transenna, 5 Sottopalco, 4 Centro, 3 Fondo, 2 Tribuna, 1 Anello alto. Empty array = all." }),
     canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte. Empty array = all." }),
     price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, accredito = free entry via guest list/press pass, unknown = no price recorded" }),
     costMin: z.number().optional().meta({ description: "Minimum ticket cost in euros (only constrains concerts with a known price)" }),
@@ -232,7 +232,7 @@ export function runConcertQuery(q: ConcertQuery) {
       : q.groupBy === "city" ? [c.city]
       : q.groupBy === "venue" ? [c.venue]
       : q.groupBy === "canzoniNote" ? [typeof c.canzoniNote === "number" ? `${c.canzoniNote} (${CANZONI_NOTE_LABELS[c.canzoniNote]})` : String(c.canzoniNote ?? "non impostata")]
-      : [String(c.vicinanza ?? "non impostata")];
+      : [typeof c.vicinanza === "number" ? `${c.vicinanza} (${VICINANZA_LABELS[c.vicinanza]})` : String(c.vicinanza ?? "non impostata")];
     const byKey = new Map<string, FlatConcert[]>();
     for (const c of matches) for (const k of keysOf(c)) byKey.set(k, [...(byKey.get(k) || []), c]);
     const sortBy = q.sortGroupsBy || "count";
