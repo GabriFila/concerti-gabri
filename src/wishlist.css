@@ -44,9 +44,9 @@
      con lo scarto del gap due biglietti stanno sempre in riga anche a 360px,
      e la bacheca resta un muro, non una colonna. */
   .rt-ticket:nth-child(5n+1){width:min(238px,50%);min-height:66px;--rot:-2.2deg;--dy:6px}
-  .rt-ticket:nth-child(5n+2){width:min(168px,40%);min-height:56px;--rot:1.8deg;--dy:-8px}
+  .rt-ticket:nth-child(5n+2){width:min(182px,40%);min-height:56px;--rot:1.8deg;--dy:-8px}
   .rt-ticket:nth-child(5n+3){width:min(206px,48%);min-height:72px;--rot:.9deg;--dy:10px}
-  .rt-ticket:nth-child(5n+4){width:min(178px,42%);min-height:54px;--rot:-1.4deg;--dy:-4px}
+  .rt-ticket:nth-child(5n+4){width:min(194px,42%);min-height:54px;--rot:-1.4deg;--dy:-4px}
   .rt-ticket:nth-child(5n){width:min(218px,44%);min-height:62px;--rot:2.4deg;--dy:3px}
   .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(calc(var(--dy) - 4px)) rotate(0deg);border-color:var(--tk)}
   .rt-ticket:active{transform:translateY(var(--dy)) scale(.95)}
