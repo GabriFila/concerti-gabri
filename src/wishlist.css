@@ -1,41 +1,40 @@
   /* ============================================================
-     LA LISTA DEI DESIDERI — variante 3: il muro dei biglietti.
+     LA LISTA DEI DESIDERI — il muro dei biglietti.
      Stili dell'atto montato da WishlistAct.tsx; vive in un file suo
-     perché variante e stili si sostituiscono in blocco.
+     così atto e stili si sostituiscono in blocco.
      ============================================================ */
-  .rt-ticketact .rt-h2{text-shadow:0 0 26px var(--lamp-soft)}
-  .rt-ticketwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));
+  .rt-ticketwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));
     gap:clamp(12px,2.6vw,22px);margin-top:clamp(16px,4vw,40px);margin-top:clamp(16px,min(4vw,3.6svh),40px);width:100%}
-  .rt-ticket{position:relative;display:flex;align-items:stretch;text-align:left;overflow:hidden;
-    font:inherit;color:var(--text);cursor:pointer;min-height:112px;
-    background:radial-gradient(90% 120% at 0% 0%,var(--lamp-faint),transparent 55%),var(--panel);
-    border:1px solid var(--line-2);border-radius:14px;padding:0;
-    transition:transform .18s ease,border-color .2s ease,box-shadow .2s ease}
+  /* Il biglietto: matrice "admit one" a sinistra oltre la perforazione, nome al
+     centro, codice a barre a destra. I due intagli semicircolari sulla linea
+     tratteggiata sono veri buchi: una mask ritaglia biglietto e bordo insieme,
+     così sotto si vede la pagina (per questo niente box-shadow: la mask la
+     taglierebbe — l'hover si affida a bordo e sollevamento). */
+  .rt-ticket{--stub:38px;--notch:8px;
+    position:relative;display:flex;align-items:stretch;text-align:left;overflow:hidden;
+    font:inherit;color:var(--text);cursor:pointer;min-height:92px;
+    background:radial-gradient(90% 130% at 0% 0%,var(--lamp-faint),transparent 55%),var(--panel);
+    border:1px solid var(--line-2);border-radius:12px;padding:0;
+    -webkit-mask-image:radial-gradient(circle var(--notch) at var(--stub) 0,transparent 97%,#000),
+      radial-gradient(circle var(--notch) at var(--stub) 100%,transparent 97%,#000);
+    -webkit-mask-composite:source-in;
+    mask-image:radial-gradient(circle var(--notch) at var(--stub) 0,transparent 97%,#000),
+      radial-gradient(circle var(--notch) at var(--stub) 100%,transparent 97%,#000);
+    mask-composite:intersect;
+    transition:transform .18s ease,border-color .2s ease,background-color .2s ease}
   /* leggermente storti, come biglietti appesi a una bacheca */
   .rt-ticket:nth-child(3n+1){transform:rotate(-.7deg)}
   .rt-ticket:nth-child(3n+2){transform:rotate(.5deg)}
   .rt-ticket:nth-child(3n){transform:rotate(-.2deg)}
-  .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(-4px) rotate(0deg);border-color:var(--lamp);box-shadow:0 14px 40px rgba(0,0,0,.25)}
-  .rt-ticket-stub{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(-4px) rotate(0deg);border-color:var(--lamp);background-color:var(--panel-2)}
+  .rt-ticket-stub{flex:0 0 var(--stub);display:flex;align-items:center;justify-content:center;
     writing-mode:vertical-rl;transform:rotate(180deg);
-    padding:10px 7px;border-right:2px dashed var(--line-2);
+    border-right:2px dashed var(--line-2);
     font-size:.6rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--muted)}
-  .rt-ticket-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px;padding:13px 14px}
-  .rt-ticket-kicker{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-  .rt-ticket-art{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.1;letter-spacing:-.01em;
-    font-size:clamp(1.25rem,3.6vw,1.6rem);overflow-wrap:anywhere}
-  .rt-ticket-note{font-size:.82rem;color:var(--muted);line-height:1.45}
-  .rt-ticket-want{margin-top:auto;padding-top:4px;color:var(--lamp);font-size:.95rem;letter-spacing:2px}
-  .rt-ticket-want .off{color:var(--line-2)}
-  .rt-ticket-barcode{flex:0 0 14px;margin:10px 10px 10px 0;border-radius:2px;opacity:.75;
+  .rt-ticket-art{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;
+    padding:14px 12px;text-align:center;
+    font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.15;letter-spacing:-.01em;
+    font-size:clamp(1.25rem,3.4vw,1.55rem);overflow-wrap:anywhere}
+  .rt-ticket-barcode{flex:0 0 14px;margin:12px 12px 12px 0;border-radius:2px;opacity:.75;
     background:repeating-linear-gradient(180deg,currentColor 0 2px,transparent 2px 5px,currentColor 5px 6px,transparent 6px 10px);color:var(--line-2)}
-  /* esaudito: il timbro obliquo in teal, il biglietto si spegne un po' */
-  .rt-ticket.done{border-style:dashed;opacity:.85}
-  .rt-ticket.done .rt-ticket-art{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--planned);text-decoration-thickness:2px}
-  .rt-ticket-stamp{position:absolute;top:50%;right:12%;transform:translateY(-50%) rotate(-12deg);
-    display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 12px;
-    border:2px solid var(--planned);border-radius:8px;color:var(--planned);
-    font-size:.72rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-    background:var(--planned-faint)}
-  .rt-ticket-stamp b{font-size:.66rem;font-weight:700;letter-spacing:.08em}
   .rt-tickethint{margin-top:clamp(12px,2.6vw,20px);text-align:center;align-self:center;color:var(--muted);font-size:.88rem}
