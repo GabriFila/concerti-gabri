@@ -3,38 +3,51 @@
      Stili dell'atto montato da WishlistAct.tsx; vive in un file suo
      così atto e stili si sostituiscono in blocco.
      ============================================================ */
-  .rt-ticketwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));
-    gap:clamp(12px,2.6vw,22px);margin-top:clamp(16px,4vw,40px);margin-top:clamp(16px,min(4vw,3.6svh),40px);width:100%}
-  /* Il biglietto: matrice "admit one" a sinistra oltre la perforazione, nome al
-     centro, codice a barre a destra. I due intagli semicircolari sulla linea
-     tratteggiata sono veri buchi: una mask ritaglia biglietto e bordo insieme,
-     così sotto si vede la pagina (per questo niente box-shadow: la mask la
-     taglierebbe — l'hover si affida a bordo e sollevamento). */
-  .rt-ticket{--stub:38px;--notch:8px;
-    position:relative;display:flex;align-items:stretch;text-align:left;overflow:hidden;
-    font:inherit;color:var(--text);cursor:pointer;min-height:92px;
-    background:radial-gradient(90% 130% at 0% 0%,var(--lamp-faint),transparent 55%),var(--panel);
-    border:1px solid var(--line-2);border-radius:12px;padding:0;
-    -webkit-mask-image:radial-gradient(circle var(--notch) at var(--stub) 0,transparent 97%,#000),
-      radial-gradient(circle var(--notch) at var(--stub) 100%,transparent 97%,#000);
+  /* Quattro colori di cartoncino che ruotano sui biglietti: i due accenti del
+     sito (lampada e teal) più corallo e viola, usati SOLO qui — un muro di
+     biglietti tutti uguali non è un muro di biglietti. */
+  .rt-ticketwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(165px,100%),1fr));
+    gap:clamp(10px,2vw,16px);margin:clamp(16px,4vw,36px) auto 0;margin:clamp(16px,min(4vw,3.4svh),36px) auto 0;
+    width:100%;max-width:880px;
+    --tk-coral:#d96d5a;--tk-viola:#9a86e8}
+  [data-theme="light"] .rt-ticketwall{--tk-coral:#cf5a48;--tk-viola:#8570d6}
+  /* Il biglietto: proporzioni da biglietto vero (largo e basso), matrice
+     colorata col numero, perforazione coi due intagli veri (una mask ritaglia
+     biglietto e bordo insieme, così sotto si vede la pagina — per questo
+     niente box-shadow: la mask la taglierebbe), nome in maiuscolo mono da
+     stampa termica, codice a barre nel colore del cartoncino. */
+  .rt-ticket{--stub:26px;--notch:6px;--tk:var(--lamp);
+    position:relative;display:flex;align-items:stretch;overflow:hidden;
+    font:inherit;color:var(--text);cursor:pointer;min-height:60px;
+    background:linear-gradient(105deg,color-mix(in srgb,var(--tk) 12%,transparent),transparent 62%),var(--panel);
+    border:1px solid color-mix(in srgb,var(--tk) 42%,var(--line-2));border-radius:9px;padding:0;
+    -webkit-mask-image:radial-gradient(circle var(--notch) at calc(var(--stub) + 1px) 0,transparent 97%,#000),
+      radial-gradient(circle var(--notch) at calc(var(--stub) + 1px) 100%,transparent 97%,#000);
     -webkit-mask-composite:source-in;
-    mask-image:radial-gradient(circle var(--notch) at var(--stub) 0,transparent 97%,#000),
-      radial-gradient(circle var(--notch) at var(--stub) 100%,transparent 97%,#000);
+    mask-image:radial-gradient(circle var(--notch) at calc(var(--stub) + 1px) 0,transparent 97%,#000),
+      radial-gradient(circle var(--notch) at calc(var(--stub) + 1px) 100%,transparent 97%,#000);
     mask-composite:intersect;
-    transition:transform .18s ease,border-color .2s ease,background-color .2s ease}
+    transition:transform .18s ease,border-color .2s ease}
+  .rt-ticket:nth-child(4n+2){--tk:var(--planned)}
+  .rt-ticket:nth-child(4n+3){--tk:var(--tk-coral)}
+  .rt-ticket:nth-child(4n){--tk:var(--tk-viola)}
   /* leggermente storti, come biglietti appesi a una bacheca */
-  .rt-ticket:nth-child(3n+1){transform:rotate(-.7deg)}
-  .rt-ticket:nth-child(3n+2){transform:rotate(.5deg)}
-  .rt-ticket:nth-child(3n){transform:rotate(-.2deg)}
-  .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(-4px) rotate(0deg);border-color:var(--lamp);background-color:var(--panel-2)}
+  .rt-ticket:nth-child(3n+1){transform:rotate(-.8deg)}
+  .rt-ticket:nth-child(3n+2){transform:rotate(.6deg)}
+  .rt-ticket:nth-child(3n){transform:rotate(-.3deg)}
+  .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(-3px) rotate(0deg);border-color:var(--tk)}
+  .rt-ticket:active{transform:scale(.96)}
   .rt-ticket-stub{flex:0 0 var(--stub);display:flex;align-items:center;justify-content:center;
     writing-mode:vertical-rl;transform:rotate(180deg);
-    border-right:2px dashed var(--line-2);
-    font-size:.6rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--muted)}
+    background:var(--tk);color:#1a1408;
+    border-right:2px dashed var(--bg);
+    font-family:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,monospace;
+    font-size:.58rem;font-weight:700;letter-spacing:.16em}
   .rt-ticket-art{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;
-    padding:14px 12px;text-align:center;
-    font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.15;letter-spacing:-.01em;
-    font-size:clamp(1.25rem,3.4vw,1.55rem);overflow-wrap:anywhere}
-  .rt-ticket-barcode{flex:0 0 14px;margin:12px 12px 12px 0;border-radius:2px;opacity:.75;
-    background:repeating-linear-gradient(180deg,currentColor 0 2px,transparent 2px 5px,currentColor 5px 6px,transparent 6px 10px);color:var(--line-2)}
+    padding:9px 10px;text-align:center;
+    font-family:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,monospace;
+    font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.3;
+    font-size:clamp(.8rem,2.2vw,.95rem);overflow-wrap:anywhere}
+  .rt-ticket-barcode{flex:0 0 10px;margin:8px 9px 8px 0;border-radius:1px;opacity:.8;
+    background:repeating-linear-gradient(180deg,currentColor 0 2px,transparent 2px 5px,currentColor 5px 6px,transparent 6px 9px);color:var(--tk)}
   .rt-tickethint{margin-top:clamp(12px,2.6vw,20px);text-align:center;align-self:center;color:var(--muted);font-size:.88rem}
