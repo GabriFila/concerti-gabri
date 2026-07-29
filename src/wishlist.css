@@ -1,36 +1,41 @@
   /* ============================================================
-     LA LISTA DEI DESIDERI — variante 2: poster da festival.
+     LA LISTA DEI DESIDERI — variante 3: il muro dei biglietti.
      Stili dell'atto montato da WishlistAct.tsx; vive in un file suo
      perché variante e stili si sostituiscono in blocco.
      ============================================================ */
-  .rt-poster{margin:clamp(16px,4vw,44px) auto 0;margin:clamp(16px,min(4vw,3.6svh),44px) auto 0;
-    width:min(680px,100%);text-align:center;
-    padding:clamp(24px,5vw,52px) clamp(16px,4.5vw,46px);
-    background:radial-gradient(120% 75% at 50% 0%,var(--lamp-faint),transparent 62%),var(--panel);
-    border:1px solid var(--line-2);border-radius:6px;
-    outline:1px solid var(--line);outline-offset:7px;
-    box-shadow:0 18px 60px rgba(0,0,0,.22)}
-  .rt-poster-kicker{font-size:.7rem;letter-spacing:.34em;text-transform:uppercase;color:var(--muted)}
-  .rt-poster-title{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--lamp);line-height:1;letter-spacing:-.01em;
-    margin-top:10px;font-size:clamp(1.9rem,6.4vw,3.6rem);font-size:clamp(1.9rem,min(6.4vw,7svh),3.6rem)}
-  .rt-poster-sub{margin-top:8px;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
-  .rt-poster-tier{margin-top:clamp(18px,4vw,34px);margin-top:clamp(18px,min(4vw,3.4svh),34px);line-height:1.4}
-  .rt-poster-name{position:relative;display:inline;color:var(--text);overflow-wrap:anywhere}
-  .rt-poster-dot{color:var(--lamp);margin:0 .45em;font-family:system-ui,sans-serif}
-  /* headliner: un nome per riga, enorme e maiuscolo */
-  .rt-poster-t3 .rt-poster-name{font-family:'Fraunces',Georgia,serif;font-weight:500;text-transform:uppercase;letter-spacing:.02em;
-    font-size:clamp(1.6rem,5.8vw,2.9rem);font-size:clamp(1.6rem,min(5.8vw,6.4svh),2.9rem);line-height:1.2;display:block}
-  .rt-poster-t3 .rt-poster-dot{display:none}
-  /* fascia centrale: nomi in fila separati dal punto */
-  .rt-poster-t2 .rt-poster-name .rt-poster-art{font-family:'Fraunces',Georgia,serif;font-weight:500;
-    font-size:clamp(1.1rem,3.4vw,1.65rem);font-size:clamp(1.1rem,min(3.4vw,3.8svh),1.65rem)}
-  /* ultima riga: i "prima o poi", piccoli e discreti */
-  .rt-poster-t1 .rt-poster-name .rt-poster-art{font-size:clamp(.9rem,2.6vw,1.05rem);color:var(--muted);letter-spacing:.04em}
-  .rt-poster-t1 .rt-poster-dot{margin:0 .4em}
-  /* esaudito: depennato sul poster come una data annullata, col timbro accanto */
-  .rt-poster-name.done .rt-poster-art{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--planned);text-decoration-thickness:2px}
-  .rt-poster-stamp{display:inline-block;margin-left:.55em;padding:2px 7px;border:1.5px solid var(--planned);border-radius:4px;
-    color:var(--planned);font-family:system-ui,sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
-    transform:rotate(-6deg);vertical-align:middle}
-  .rt-poster-foot{margin-top:clamp(20px,4.5vw,40px);margin-top:clamp(20px,min(4.5vw,3.8svh),40px);padding-top:14px;border-top:1px dashed var(--line-2);
-    font-size:.64rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  .rt-ticketact .rt-h2{text-shadow:0 0 26px var(--lamp-soft)}
+  .rt-ticketwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));
+    gap:clamp(12px,2.6vw,22px);margin-top:clamp(16px,4vw,40px);margin-top:clamp(16px,min(4vw,3.6svh),40px);width:100%}
+  .rt-ticket{position:relative;display:flex;align-items:stretch;text-align:left;overflow:hidden;
+    font:inherit;color:var(--text);cursor:pointer;min-height:112px;
+    background:radial-gradient(90% 120% at 0% 0%,var(--lamp-faint),transparent 55%),var(--panel);
+    border:1px solid var(--line-2);border-radius:14px;padding:0;
+    transition:transform .18s ease,border-color .2s ease,box-shadow .2s ease}
+  /* leggermente storti, come biglietti appesi a una bacheca */
+  .rt-ticket:nth-child(3n+1){transform:rotate(-.7deg)}
+  .rt-ticket:nth-child(3n+2){transform:rotate(.5deg)}
+  .rt-ticket:nth-child(3n){transform:rotate(-.2deg)}
+  .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(-4px) rotate(0deg);border-color:var(--lamp);box-shadow:0 14px 40px rgba(0,0,0,.25)}
+  .rt-ticket-stub{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    writing-mode:vertical-rl;transform:rotate(180deg);
+    padding:10px 7px;border-right:2px dashed var(--line-2);
+    font-size:.6rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--muted)}
+  .rt-ticket-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px;padding:13px 14px}
+  .rt-ticket-kicker{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  .rt-ticket-art{font-family:'Fraunces',Georgia,serif;font-weight:500;line-height:1.1;letter-spacing:-.01em;
+    font-size:clamp(1.25rem,3.6vw,1.6rem);overflow-wrap:anywhere}
+  .rt-ticket-note{font-size:.82rem;color:var(--muted);line-height:1.45}
+  .rt-ticket-want{margin-top:auto;padding-top:4px;color:var(--lamp);font-size:.95rem;letter-spacing:2px}
+  .rt-ticket-want .off{color:var(--line-2)}
+  .rt-ticket-barcode{flex:0 0 14px;margin:10px 10px 10px 0;border-radius:2px;opacity:.75;
+    background:repeating-linear-gradient(180deg,currentColor 0 2px,transparent 2px 5px,currentColor 5px 6px,transparent 6px 10px);color:var(--line-2)}
+  /* esaudito: il timbro obliquo in teal, il biglietto si spegne un po' */
+  .rt-ticket.done{border-style:dashed;opacity:.85}
+  .rt-ticket.done .rt-ticket-art{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--planned);text-decoration-thickness:2px}
+  .rt-ticket-stamp{position:absolute;top:50%;right:12%;transform:translateY(-50%) rotate(-12deg);
+    display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 12px;
+    border:2px solid var(--planned);border-radius:8px;color:var(--planned);
+    font-size:.72rem;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+    background:var(--planned-faint)}
+  .rt-ticket-stamp b{font-size:.66rem;font-weight:700;letter-spacing:.08em}
+  .rt-tickethint{margin-top:clamp(12px,2.6vw,20px);text-align:center;align-self:center;color:var(--muted);font-size:.88rem}
