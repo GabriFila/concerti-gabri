@@ -107,7 +107,7 @@ export const CANZONI_NOTE_LABELS = { 1: "Nessuna", 2: "Poche", 3: "Circa metà",
    così un numero più alto è sempre "meglio" e i grafici salgono nel verso giusto. */
 export const VICINANZA_LABELS = { 6: "Transenna", 5: "Sottopalco", 4: "Centro", 3: "Fondo", 2: "Tribuna", 1: "Anello alto" } as const;
 
-/* ── La lista dei desideri ─────────────────────────────────
+/* ── La lista dei desideri ─────────────────────────────────────
    Concerti che sogno di vedere, tenuti FUORI da ALLDATA: un desiderio non ha
    data, biglietto né viaggio, quindi non deve entrare in nessuna statistica.
    `desiderio` sale col vantaggio come ogni altra scala del sito (3 = massimo).

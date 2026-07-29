@@ -5,6 +5,7 @@ import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, VICINA
 import type { Entry, Festival, FlatConcert, Person } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget, { type ChatApi, type ChatSiteContext } from "./chat/ChatWidget.tsx";
+import WishlistAct from "./WishlistAct.tsx";
 
 /* Structural view shared by ALLDATA rows (Entry) and flattened concerts
    (FlatConcert): the fields the cross-cutting helpers below read. */
@@ -2332,6 +2333,12 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
         </div>
       </Act>
       )}
+
+      {/* ── Act VII — la lista dei desideri. L'atto vive in WishlistAct.tsx
+          (+ wishlist.css): un file per variante, così le proposte si
+          confrontano e si sostituiscono in blocco. Si nasconde da solo
+          quando WISHLIST è vuota. ── */}
+      <WishlistAct Act={Act} cue={nextCue()} openChat={openChat}/>
 
       {/* ── Final Act — L'Oracolo ── */}
       <Act className="rt-oracoloact" threshold={0.15}>
