@@ -1,0 +1,18 @@
+  /* ============================================================
+     LA LISTA DEI DESIDERI — variante 1: lista editoriale.
+     Stili dell'atto montato da WishlistAct.tsx; vive in un file suo
+     perché variante e stili si sostituiscono in blocco.
+     ============================================================ */
+  .rt-wishlist{list-style:none;margin:clamp(14px,4vw,40px) 0 0;margin:clamp(14px,min(4vw,3.6svh),40px) 0 0;padding:0;display:flex;flex-direction:column}
+  .rt-wishrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:2px 14px;
+    padding:clamp(8px,2vw,17px) 0;padding:clamp(8px,min(2vw,1.8svh),17px) 0;border-bottom:1px solid var(--line)}
+  .rt-wishrow:last-child{border-bottom:none}
+  .rt-wish-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
+    font-size:clamp(1.25rem,4.2vw,2.2rem);font-size:clamp(1.25rem,min(4.2vw,5svh),2.2rem);overflow-wrap:anywhere}
+  .rt-wish-meta{grid-row:2;color:var(--muted);font-size:.86rem}
+  .rt-wish-meta b{color:var(--planned);font-weight:600}
+  .rt-wish-mark{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);
+    font-size:clamp(.8rem,2.3vw,1.1rem);letter-spacing:2px;white-space:nowrap}
+  /* esaudito: depennato come su una lista vera, e il segno diventa una spunta */
+  .rt-wishrow.done .rt-wish-art{text-decoration:line-through;text-decoration-color:var(--planned);text-decoration-thickness:2px;color:var(--muted)}
+  .rt-wishrow.done .rt-wish-mark{color:var(--planned);font-weight:700;font-size:clamp(1rem,2.6vw,1.3rem)}
