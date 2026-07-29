@@ -334,9 +334,12 @@ function KPIs(){
   const totalKm=sum(tripRows.map(d=>distKm(d) as number))*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
   // alla cieca — concerti visti conoscendo nessuna o poche canzoni; la percentuale
-  // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi)
-  const cnKnown=CONC.filter(hasCN).length;
-  const ciecaC=CONC.filter(c=>hasCN(c)&&c.canzoniNote<=2);
+  // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi).
+  // Solo già visti: "alla cieca" racconta come sono entrato, quindi un
+  // canzoniNote messo in anticipo su un concerto futuro non ne fa parte —
+  // e numeratore e denominatore devono guardare le stesse righe.
+  const cnKnown=ATT_C.filter(hasCN).length;
+  const ciecaC=ATT_C.filter(c=>hasCN(c)&&c.canzoniNote<=2);
   const cieca=ciecaC.length;
   // `src` = le righe da cui esce il numero, e da lì i due pallini in basso a
   // destra (vedi KpiDots): non tutte le card guardano lo stesso tempo — i
