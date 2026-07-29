@@ -112,18 +112,17 @@ export const VICINANZA_LABELS = { 6: "Transenna", 5: "Sottopalco", 4: "Centro", 
    data, biglietto né viaggio, quindi non entra in nessuna statistica. Solo il
    nome, nell'ordine in cui vanno mostrati. Quando un desiderio si avvera si
    toglie a mano da qui: da lì in poi vive come concerto vero in ALLDATA. */
-// ── SEGNAPOSTO — Gabri: sostituisci questi 10 con la tua lista vera ──
 export const WISHLIST: string[] = [
-  "Radiohead",
-  "Arctic Monkeys",
-  "Bon Iver",
-  "Hozier",
-  "The Lumineers",
-  "Brunori Sas",
-  "Calcutta",
-  "Sigur Rós",
-  "Lucio Corsi",
-  "Niccolò Fabi",
+  "alt-J",
+  "Cosmo",
+  "Madame",
+  "Dua Lipa",
+  "Bruno Mars",
+  "The Weeknd",
+  "Ghali",
+  "VazzaNikki",
+  "Marracash",
+  "Faccianuvola",
 ];
 
 export const ALLDATA: Entry[] = [

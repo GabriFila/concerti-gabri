@@ -17,11 +17,10 @@ export default function WishlistAct({Act,cue,openChat}:{Act:any;cue:any;openChat
   return (
     <Act className="rt-ticketact" cue={cue}>
       <div className="rt-head"><h2 className="rt-h2">La lista dei desideri</h2></div>
-      <p className="rt-lead"><b>{WISHLIST.length}</b> biglietti che non esistono ancora.</p>
       <div className="rt-ticketwall">
         {WISHLIST.map((artist,i)=>(
           <button type="button" key={artist} className="rt-ticket"
-            onClick={()=>openChat&&openChat(artist+" è in tour? Quando potrei vederlo dal vivo in Italia?")}
+            onClick={()=>openChat&&openChat(artist+" è in tour? Quando potrei vederlo dal vivo in Italia o in Europa?")}
             aria-label={artist+". Chiedi all'Oracolo se è in tour."}>
             <span className="rt-ticket-stub" aria-hidden="true">{"nº "+String(i+1).padStart(2,"0")}</span>
             <span className="rt-ticket-art">{artist}</span>
