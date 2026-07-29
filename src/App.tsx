@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from "react";
 import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import Fuse from "fuse.js";
-import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
+import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, VICINANZA_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
 import type { Entry, Festival, FlatConcert, Person } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget, { type ChatApi, type ChatSiteContext } from "./chat/ChatWidget.tsx";
@@ -156,13 +156,18 @@ const DATE_LO=keyToISO(Math.min(...ALLDATA.map(sortKey)));
 const DATE_HI=keyToISO(Math.max(...ALLDATA.map(sortKey)));
 const ALL_CITIES=[...new Set(ALLDATA.map(d=>d.city))].sort((a,b)=>a.localeCompare(b,"it"));
 const ALL_PEOPLE=[...new Set(FLAT_ALL.flatMap(c=>c.with||[]))].sort((a,b)=>a.localeCompare(b,"it"));
-// ---- Vicinanza (vantaggio sul palco): scala ordinale 1..6 -------------------
-// 1 Transenna, 2 Sottopalco, 3 Centro = "vicino"; 4 Fondo, 5 Tribuna, 6 Anello alto = "lontano".
+// ---- Vicinanza (vantaggio sul palco): scala ordinale 1..6, PIÙ ALTO = PIÙ VICINO
+// 6 Transenna, 5 Sottopalco, 4 Centro = "vicino"; 3 Fondo, 2 Tribuna, 1 Anello alto = "lontano".
+// Come voto e canzoni note la scala sale col vantaggio, quindi un grafico che sale
+// vuol sempre dire "meglio" e nessun asse va rovesciato.
 // Per-CONCERTO: nei festival ogni set ha la sua. Assente = non ancora definita (eventi futuri).
-const VIC_LABELS:Record<number,string>={1:"Transenna",2:"Sottopalco",3:"Centro",4:"Fondo",5:"Tribuna",6:"Anello alto"};
-// typed view of the imported (const-asserted) canzoni-note labels, so numeric lookups compile
+// typed views of the imported (const-asserted) label maps, so numeric lookups compile
+const VIC_LABELS:Record<number,string>=VICINANZA_LABELS;
 const CN_LABELS:Record<number,string>=CANZONI_NOTE_LABELS;
-const VIC_ORDER=[1,2,3,4,5,6];
+// ordine di lettura, dal posto migliore al peggiore: la scala è al contrario del
+// numero, quindi liste e assi partono dal 6 (chip dei filtri, card "Quanto sono
+// vicino", tacche del grafico a dispersione)
+const VIC_ORDER=[6,5,4,3,2,1];
 const hasVic=<T extends {vicinanza?:number}>(d:T):d is T&{vicinanza:number}=>typeof d.vicinanza==="number";        // valore vero, entra nel recap
 const vicMissing=(c:Datum)=>!isPlanned(c)&&!hasVic(c);        // concerto passato senza valore -> da segnalare
 const votoMissing=(c:Datum)=>!isPlanned(c)&&!hasVoto(c);      // concerto passato senza voto -> da segnalare
@@ -314,7 +319,8 @@ function KPIs(){
   // artista più visto, per set (un festival conta ogni concerto separatamente)
   const topArtist=ranked(counter(ATT_C,"artist"))[0]||["—",0];
   // concerts watched alone (a festival set counts even if I had company earlier that day)
-  const solo=ATT_C.filter(c=>!(c.with&&c.with.length)).length;
+  const soloC=ATT_C.filter(c=>!(c.with&&c.with.length));
+  const solo=soloC.length;
   // voto — per concerto: average over rated (attended) sets
   const voted=ATT_C.filter(hasVoto);
   const avgVoto=voted.length?sum(voted.map(c=>c.voto))/voted.length:0;
@@ -324,30 +330,57 @@ function KPIs(){
   const avgSpent=priced.length?totalSpent/priced.length:0;
   // km — round trip from the origin city, per event, only attended with a known `from`
   // (planned trips haven't happened yet, so they don't belong in a "km traveled" total)
-  const trips=ATTENDED.map(d=>distKm(d)).filter(k=>k!==null);
-  const totalKm=sum(trips)*2;
+  const tripRows=ATTENDED.filter(d=>distKm(d)!==null);
+  const totalKm=sum(tripRows.map(d=>distKm(d) as number))*2;
   const nextPlanned=[...PLANNED].sort((a,b)=>sortKey(a)-sortKey(b))[0];
   // alla cieca — concerti visti conoscendo nessuna o poche canzoni; la percentuale
-  // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi)
-  const cnKnown=CONC.filter(hasCN).length;
-  const cieca=CONC.filter(c=>hasCN(c)&&c.canzoniNote<=2).length;
+  // è sui concerti con un valore vero di canzoniNote ("na"/assenti esclusi).
+  // Solo già visti: "alla cieca" racconta come sono entrato, quindi un
+  // canzoniNote messo in anticipo su un concerto futuro non ne fa parte —
+  // e numeratore e denominatore devono guardare le stesse righe.
+  const cnKnown=ATT_C.filter(hasCN).length;
+  const ciecaC=ATT_C.filter(c=>hasCN(c)&&c.canzoniNote<=2);
+  const cieca=ciecaC.length;
+  // `src` = le righe da cui esce il numero, e da lì i due pallini in basso a
+  // destra (vedi KpiDots): non tutte le card guardano lo stesso tempo — i
+  // concerti visti sono passato, "in programma" è futuro, la spesa mescola i
+  // due (comprende i biglietti già comprati per l'anno prossimo).
   const items:any[]=[
-    {num:total,lbl:"Concerti",hint:"sino ad oggi",ic:"ticket",accent:"amber"},
-    {num:planned,lbl:"In programma",ic:"calendar",accent:"planned",hint:nextPlanned?"prossimo "+nextPlanned.date:undefined},
-    {num:avgSince,lbl:"media per anno",hint:"dal 2022 a oggi",ic:"repeat"},
-    {num:voted.length?<>{voto1(avgVoto)}<span className="star" style={{fontSize:"0.58em"}}>★</span></>:"—",lbl:"Voto medio",hint:voted.length+" concerti votati",ic:"star"},
-    {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" biglietti",ic:"coins"},
-    {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" biglietti",ic:"wallet"},
-    {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin"},
-    {num:artists,lbl:"Artisti diversi",hint:topArtist[1]?topArtist[0]+" "+topArtist[1]+"x":undefined,ic:"mic"},
-    {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0]},
-    {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale"},
-    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?Math.round(cieca/cnKnown*100)+"% dei concerti":undefined},
-    {num:Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map"},
+    {num:total,lbl:"Concerti",hint:"sino ad oggi",ic:"ticket",accent:"amber",src:ATT_C},
+    {num:planned,lbl:"In programma",ic:"calendar",accent:"planned",hint:nextPlanned?"prossimo "+nextPlanned.date:undefined,src:PL_C},
+    {num:avgSince,lbl:"media per anno",hint:"dal 2022 a oggi",ic:"repeat",src:dataSince},
+    {num:voted.length?<>{voto1(avgVoto)}<span className="star" style={{fontSize:"0.58em"}}>★</span></>:"—",lbl:"Voto medio",hint:voted.length+" concerti votati",ic:"star",src:voted},
+    {num:eur0(totalSpent),lbl:"Speso in totale",hint:priced.length+" biglietti",ic:"coins",src:priced},
+    {num:eur0(avgSpent),lbl:"Spesa media",hint:priced.length+" biglietti",ic:"wallet",src:priced},
+    {num:cities,lbl:"Città",hint:milano+"% a Milano",ic:"pin",src:ATTENDED},
+    {num:artists,lbl:"Artisti diversi",hint:topArtist[1]?topArtist[0]+" "+topArtist[1]+"x":undefined,ic:"mic",src:ATT_C},
+    {num:companions,lbl:"Compagni",ic:"users",hint:"#1 "+topMate[0],src:ATT_C},
+    {num:solo,lbl:"Concerti da solo",ic:"user",hint:(total?Math.round(solo/total*100):0)+"% del totale",src:soloC},
+    {num:cieca,lbl:"Alla cieca",ic:"eyeclosed",hint:cnKnown?Math.round(cieca/cnKnown*100)+"% dei concerti":undefined,src:ciecaC},
+    {num:Math.round(totalKm).toLocaleString("it-IT"),lbl:"Km di viaggi",hint:"andata e ritorno",ic:"map",src:tripRows},
   ];
   return <section className="kpis">{items.map((k,i)=>(
-    <div className="kpi" key={i}><div className={"num"+(k.accent?" acc-"+k.accent:"")}>{k.num}</div><div className="lbl"><Icon name={k.ic} size={13} className="kic"/>{k.lbl}</div>{k.hint&&<div className="hint">{k.hint}</div>}{k.note&&<div className="pnote">{k.note}</div>}</div>
+    <div className="kpi" key={i}><KpiDots rows={k.src}/><div className={"num"+(k.accent?" acc-"+k.accent:"")}>{k.num}</div><div className="lbl"><Icon name={k.ic} size={13} className="kic"/>{k.lbl}</div>{k.hint&&<div className="hint">{k.hint}</div>}{k.note&&<div className="pnote">{k.note}</div>}</div>
   ))}</section>;
+}
+
+/* I due pallini in basso a destra di una card KPI: da che tempo viene il numero.
+   Ambra = ci sono dentro concerti già visti, teal = ce ne sono in programma;
+   due pallini = la card mescola le due cose. Sono indicatori, non bottoni: il
+   colore è già quello che tutta la pagina usa per passato e futuro (barre,
+   legende, timeline), quindi si leggono senza istruzioni.
+   Un pallino appare solo se quelle righe esistono davvero, quindi coi filtri
+   attivi sparisce da sé (nessun concerto passato → niente pallino ambra). */
+function KpiDots({rows}:{rows?:{date:string}[]}){
+  const list=rows||[];
+  const past=list.some(r=>!isPlanned(r)), future=list.some(isPlanned);
+  if(!past&&!future) return null;
+  return (
+    <div className="kdots">
+      {past&&<span className="kdot kd-past" role="img" aria-label="Include concerti già visti" title="Include concerti già visti"/>}
+      {future&&<span className="kdot kd-future" role="img" aria-label="Include concerti in programma" title="Include concerti in programma"/>}
+    </div>
+  );
 }
 
 function YearChart(){
@@ -951,10 +984,13 @@ function VoteScatter(){
   const iw=W-ML-MR,ih=H-MT-MB;
   const yOf=(v:number)=>MT+ih*(1-(v-0.5)/5); // votes 1..5 with half-step padding
   const costMax=Math.max(50,Math.ceil(Math.max(0,...pts.map(d=>hasCost(d)?d.cost:0))/25)*25);
+  // vicinanza: l'asse segue l'ordine di lettura (VIC_ORDER), non il numero — la
+  // transenna resta a sinistra come nella card e nei filtri, anche se vale 6
+  const xVic=(v:number)=>ML+((VIC_ORDER.indexOf(v)+0.5)/6)*iw;
   const xOf=(d:FlatConcert)=>dim==="cost"
     ? ML+((d.cost as number)/costMax)*iw
     : dim==="vic"
-    ? ML+(((d.vicinanza as number)-0.5)/6)*iw
+    ? xVic(d.vicinanza as number)
     : ML+(((d.canzoniNote as number)-0.5)/5)*iw;
   const xTicks=dim==="cost"
     ? Array.from({length:costMax/25+1},(_,i)=>i*25).filter(t=>costMax<=150||t%50===0)
@@ -1001,7 +1037,7 @@ function VoteScatter(){
             </g>
           ))}
           {xTicks.map(t=>{
-            const x=dim==="cost"?ML+(t/costMax)*iw:dim==="vic"?ML+((t-0.5)/6)*iw:ML+((t-0.5)/5)*iw;
+            const x=dim==="cost"?ML+(t/costMax)*iw:dim==="vic"?xVic(t):ML+((t-0.5)/5)*iw;
             return <g key={t}>
               <line x1={x} y1={MT} x2={x} y2={MT+ih} stroke="var(--line)" strokeWidth="1" strokeDasharray="2 5" opacity="0.6"/>
               <text x={x} y={H-14} textAnchor="middle" fontSize={dim==="cost"?14:12} fill="var(--muted)" fontFamily="Inter,sans-serif">{dim==="cost"?"€"+t:dim==="vic"?VIC_LABELS[t]:CN_LABELS[t]}</text>

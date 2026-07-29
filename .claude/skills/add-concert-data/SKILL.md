@@ -51,13 +51,13 @@ CON CHI (with) — list names, comma-separated:
 VOTO (overall rating, 1 worst → 5 best):
   [ ] 1   [ ] 2   [ ] 3   [ ] 4   [ ] 5
 
-VICINANZA (how close to the stage):
-  [ ] 1  Transenna (front rail)
-  [ ] 2
-  [ ] 3
-  [ ] 4
-  [ ] 5
-  [ ] 6  Anello alto (top tier / farthest)
+VICINANZA (how close to the stage, 6 best → 1 worst):
+  [ ] 6  Transenna   (front rail)
+  [ ] 5  Sottopalco  (right by the stage)
+  [ ] 4  Centro      (mid floor)
+  [ ] 3  Fondo       (back of the floor)
+  [ ] 2  Tribuna     (seated stand)
+  [ ] 1  Anello alto (top tier / farthest)
 
 CANZONI NOTE (share of setlist you already knew):
   [ ] 1  Nessuna     (none)
@@ -91,7 +91,8 @@ be registered in `PEOPLE`.
 When he pastes it back:
 
 - Map answers to the `Concert`/`Festival` fields. Enum values come straight from the
-  types in `src/data.ts` — `voto` 1–5, `vicinanza` 1–6, `canzoniNote`
+  types in `src/data.ts` — `voto` 1–5, `vicinanza` 1–6 (6 = transenna, the closest:
+  the scale rises with the advantage, see `VICINANZA_LABELS`), `canzoniNote`
   1–5|"na", `from` "m"|"g". Ticket: Paid → `cost` (a number), Paid-but-forgotten →
   `cost:"na"`, Gift → `gift:true`, Accredito → `accredito:true`.
 - **`cost:"na"` vs omitting `cost`:** `"na"` means a ticket was bought and the price

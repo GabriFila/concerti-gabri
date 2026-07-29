@@ -668,9 +668,18 @@
   @media(max-width:760px){ .kpis{grid-template-columns:repeat(3,1fr)} }
   @media(max-width:620px){ .kpis{grid-template-columns:repeat(2,1fr)} }
   @media(max-width:360px){ .kpis{grid-template-columns:1fr} }
-  .kpi{padding:clamp(22px,2.8vw,34px) clamp(18px,3vw,30px);
+  .kpi{position:relative;padding:clamp(22px,2.8vw,34px) clamp(18px,3vw,30px);
     background:var(--panel);border:1px solid var(--line);border-radius:14px;
     transition:transform .2s ease,border-color .2s ease}
+  /* i due pallini "da che tempo viene questo numero": ambra = passato, teal =
+     in programma. Stessi colori del resto della pagina, misura di .pnote::before.
+     Angolo in basso a destra: è l'unico che su schermo stretto non finisce
+     addosso al numero (i più larghi, "€2.961", arrivano a filo del bordo) e
+     resta fuori dall'ordine di lettura numero → etichetta → nota */
+  .kpi .kdots{position:absolute;bottom:12px;right:12px;display:flex;gap:5px}
+  .kpi .kdot{width:7px;height:7px;border-radius:50%;opacity:.9}
+  .kpi .kd-past{background:var(--lamp);box-shadow:0 0 8px var(--lamp-soft)}
+  .kpi .kd-future{background:var(--planned);box-shadow:0 0 8px var(--planned-soft)}
   /* hover lift only on devices with a real hover — on touch the tap would "stick" the style */
   @media(hover:hover){ .kpi:hover{transform:translateY(-2px);border-color:var(--line-2)} }
   .kpi .num{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.2rem,5.4vw,3.4rem);line-height:1;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
