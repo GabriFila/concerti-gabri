@@ -38,12 +38,16 @@
   .rt-ticket:nth-child(4n+2){--tk:var(--planned)}
   .rt-ticket:nth-child(4n+3){--tk:var(--tk-coral)}
   .rt-ticket:nth-child(4n){--tk:var(--tk-viola)}
-  /* le cinque "pose": larghezza, altezza, inclinazione e scarto verticale */
-  .rt-ticket:nth-child(5n+1){width:min(238px,58%);min-height:66px;--rot:-2.2deg;--dy:6px}
-  .rt-ticket:nth-child(5n+2){width:min(168px,38%);min-height:56px;--rot:1.8deg;--dy:-8px}
-  .rt-ticket:nth-child(5n+3){width:min(206px,52%);min-height:72px;--rot:.9deg;--dy:10px}
-  .rt-ticket:nth-child(5n+4){width:min(178px,48%);min-height:54px;--rot:-1.4deg;--dy:-4px}
-  .rt-ticket:nth-child(5n){width:min(218px,56%);min-height:62px;--rot:2.4deg;--dy:3px}
+  /* Le cinque "pose": larghezza, altezza, inclinazione e scarto verticale.
+     Le percentuali (che comandano sui telefoni, dove min() sceglie loro) sono
+     calibrate perché OGNI coppia ciclica di pose consecutive sommi ≤92%:
+     con lo scarto del gap due biglietti stanno sempre in riga anche a 360px,
+     e la bacheca resta un muro, non una colonna. */
+  .rt-ticket:nth-child(5n+1){width:min(238px,50%);min-height:66px;--rot:-2.2deg;--dy:6px}
+  .rt-ticket:nth-child(5n+2){width:min(168px,40%);min-height:56px;--rot:1.8deg;--dy:-8px}
+  .rt-ticket:nth-child(5n+3){width:min(206px,48%);min-height:72px;--rot:.9deg;--dy:10px}
+  .rt-ticket:nth-child(5n+4){width:min(178px,42%);min-height:54px;--rot:-1.4deg;--dy:-4px}
+  .rt-ticket:nth-child(5n){width:min(218px,44%);min-height:62px;--rot:2.4deg;--dy:3px}
   .rt-ticket:hover,.rt-ticket:focus-visible{transform:translateY(calc(var(--dy) - 4px)) rotate(0deg);border-color:var(--tk)}
   .rt-ticket:active{transform:translateY(var(--dy)) scale(.95)}
   .rt-ticket-stub{flex:0 0 var(--stub);display:flex;align-items:center;justify-content:center;
@@ -52,11 +56,25 @@
     border-right:2px dashed var(--bg);
     font-family:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,monospace;
     font-size:.58rem;font-weight:700;letter-spacing:.16em}
-  .rt-ticket-art{flex:1 1 auto;min-width:0;display:flex;align-items:center;justify-content:center;
+  /* display:block (non flex): dentro un flex il testo diventa un item anonimo
+     che non può scendere sotto la sua larghezza minima, quindi un nome lungo
+     sborda invece di andare a capo; da blocco, overflow-wrap funziona davvero.
+     align-content centra in verticale (i browser vecchi lo ignorano: il nome
+     resta in alto, mai tagliato). Il corpo del font scala col viewport così
+     sui telefoni stretti i nomi lunghi restano su una riga. */
+  .rt-ticket-art{flex:1 1 auto;min-width:0;display:block;align-content:center;
     padding:9px 10px;text-align:center;
     font-family:ui-monospace,"SF Mono","Cascadia Mono","Roboto Mono",Menlo,monospace;
     font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.3;
-    font-size:clamp(.8rem,2.2vw,.95rem);overflow-wrap:break-word}
+    font-size:clamp(.7rem,2.9vw,.95rem);overflow-wrap:break-word}
   .rt-ticket-barcode{flex:0 0 10px;margin:8px 9px 8px 0;border-radius:1px;opacity:.8;
     background:repeating-linear-gradient(180deg,currentColor 0 2px,transparent 2px 5px,currentColor 5px 6px,transparent 6px 9px);color:var(--tk)}
   .rt-tickethint{margin-top:clamp(14px,3vw,24px);text-align:center;align-self:center;color:var(--muted);font-size:.88rem}
+  /* Su tutti i telefoni (≤520px) matrice, spaziatura e codice a barre si stringono per
+     lasciare al nome ogni pixel utile nella posa stretta. Questo blocco DEVE
+     stare dopo le regole base: a parità di specificità vince l'ultima. */
+  @media (max-width:520px){
+    .rt-ticket{--stub:22px}
+    .rt-ticket-art{padding:8px 7px;letter-spacing:.01em}
+    .rt-ticket-barcode{flex-basis:8px;margin:7px 5px 7px 0}
+  }
