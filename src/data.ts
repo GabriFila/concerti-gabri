@@ -107,6 +107,36 @@ export const CANZONI_NOTE_LABELS = { 1: "Nessuna", 2: "Poche", 3: "Circa metà",
    così un numero più alto è sempre "meglio" e i grafici salgono nel verso giusto. */
 export const VICINANZA_LABELS = { 6: "Transenna", 5: "Sottopalco", 4: "Centro", 3: "Fondo", 2: "Tribuna", 1: "Anello alto" } as const;
 
+/* ── La lista dei desideri ─────────────────────────────────
+   Concerti che sogno di vedere, tenuti FUORI da ALLDATA: un desiderio non ha
+   data, biglietto né viaggio, quindi non deve entrare in nessuna statistica.
+   `desiderio` sale col vantaggio come ogni altra scala del sito (3 = massimo).
+   Un desiderio non si cancella: quando l'artista compare in ALLDATA con un
+   concerto nell'anno del desiderio o dopo, l'app lo marca da sola come
+   esaudito — il nome deve combaciare esattamente (maiuscole a parte). */
+export interface Wish {
+  artist: string;
+  desiderio?: 1 | 2 | 3; // quanto lo voglio: 3 = a ogni costo, 1 = prima o poi; assente = 1
+  note?: string; // motivo o vincolo, in una riga
+  since?: number; // anno in cui è entrato in lista
+}
+
+export const DESIDERIO_LABELS = { 3: "A ogni costo", 2: "Appena posso", 1: "Prima o poi" } as const;
+
+// ── SEGNAPOSTO — Gabri: sostituisci questi 10 con la tua lista vera ──
+export const WISHLIST: Wish[] = [
+  { artist: "Radiohead", desiderio: 3, note: "il sogno di sempre, a qualsiasi costo", since: 2017 },
+  { artist: "Arctic Monkeys", desiderio: 3, note: "prima che smettano coi tour", since: 2022 },
+  { artist: "Bon Iver", desiderio: 3, note: "in un posto piccolo, se mai capiterà", since: 2020 },
+  { artist: "Hozier", desiderio: 2, note: "solo se torna in Italia", since: 2024 },
+  { artist: "The Lumineers", desiderio: 2, note: "dopo Mumford & Sons tocca a loro", since: 2025 },
+  { artist: "Brunori Sas", desiderio: 2, note: "in un teatro, non un palasport", since: 2023 },
+  { artist: "Calcutta", desiderio: 2, since: 2023 },
+  { artist: "Kodaline", desiderio: 2, note: "biglietto preso: si va", since: 2024 }, // esaudito: in ALLDATA il 03/12/2026
+  { artist: "Lucio Corsi", desiderio: 1, note: "prima che diventi gigante", since: 2025 },
+  { artist: "Niccolò Fabi", desiderio: 1, since: 2024 },
+];
+
 export const ALLDATA: Entry[] = [
   {y:2017,date:"30/03/2017",artist:"2CELLOS",venue:"Mediolanum Forum",city:"Assago",with:["Alessia P","Enrico A","Davide B"],vicinanza:1,voto:3,canzoniNote:"na",from:"g",km:133},
   {y:2017,date:"25/05/2017",artist:"Marco Masini",venue:"Politeama Genovese",city:"Genova",with:["Silvia P"],vicinanza:5,voto:3,canzoniNote:"na",from:"g",km:2},
