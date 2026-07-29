@@ -3,10 +3,12 @@ import type { Wish } from "./data.ts";
 import "./wishlist.css";
 
 /* ============================================================
-   LA LISTA DEI DESIDERI — variante 1: lista editoriale.
+   LA LISTA DEI DESIDERI — variante 2: poster da festival.
+   La wishlist impaginata come la locandina di un festival che non esiste:
+   la gerarchia è tutta tipografica (desiderio 3 = headliner, nome enorme;
+   1 = ultima riga in piccolo), quindi non serve nessuna legenda.
    Un atto autonomo del Ritratto: App.tsx lo monta tra "E adesso?" e
-   "L'Oracolo" passandogli il componente Act e la cue "Avanti". Tutta la
-   variante vive in questo file + wishlist.css, così si sostituisce in blocco.
+   "L'Oracolo". Tutta la variante vive in questo file + wishlist.css.
    ============================================================ */
 
 // Stesse regole di data di App.tsx (sortKey/isPlanned), duplicate qui per non
@@ -27,32 +29,35 @@ function wishStatus(w:Wish):{date:string;planned:boolean}|null{
   return {date:first.date,planned:isPlanned(first)};
 }
 
-// best-first, come ogni altra classifica della pagina; lo stato "esaudito" si
-// deduce da ALLDATA, mai a mano
-const WISHES=[...WISHLIST].sort((a,b)=>(b.desiderio||1)-(a.desiderio||1)).map(w=>({...w,granted:wishStatus(w)}));
+const WISHES=WISHLIST.map(w=>({...w,granted:wishStatus(w)}));
 const GRANTED=WISHES.filter(w=>w.granted).length;
+// i tre "cartelloni" del poster: headliner (3), fascia centrale (2), ultima riga (1)
+const TIERS=[3,2,1].map(t=>WISHES.filter(w=>(w.desiderio||1)===t)).filter(t=>t.length>0);
 
 export default function WishlistAct({Act,cue}:{Act:any;cue:any;openChat?:(q?:string)=>void}){
   if(!WISHES.length) return null;
   return (
-    <Act className="rt-wishact" cue={cue}>
-      <div className="rt-head"><h2 className="rt-h2">Prima o poi</h2></div>
-      <p className="rt-lead"><b>{WISHES.length}</b> artisti sulla lista dei desideri{GRANTED>0&&<>, <b>{GRANTED}</b> già {GRANTED===1?"esaudito":"esauditi"}</>}. I cuori dicono quanto ci tengo.</p>
-      <ol className="rt-wishlist">
-        {WISHES.map((w,i)=>(
-          <li className={"rt-wishrow"+(w.granted?" done":"")} key={i}>
-            <span className="rt-wish-art">{w.artist}</span>
-            <span className="rt-wish-meta">{w.granted
-              ?<>esaudito · {w.granted.planned?"in programma il":"visto il"} <b>{w.granted.date}</b></>
-              :(w.note||(w.since?"in lista dal "+w.since:"prima o poi"))}</span>
-            <span className="rt-wish-mark" role="img"
-              aria-label={w.granted?"Desiderio esaudito":"Desiderio: "+DESIDERIO_LABELS[w.desiderio||1]}
-              title={w.granted?undefined:DESIDERIO_LABELS[w.desiderio||1]}>
-              {w.granted?"✓":"♥".repeat(w.desiderio||1)}
-            </span>
-          </li>
+    <Act className="rt-posteract" cue={cue}>
+      <div className="rt-head"><h2 className="rt-h2">Il poster dei sogni</h2></div>
+      <p className="rt-lead">La lineup che non esiste (ancora): <b>{WISHES.length}</b> artisti che sogno di vedere{GRANTED>0&&<>, <b>{GRANTED}</b> già {GRANTED===1?"esaudito":"esauditi"}</>}. Più il nome è grande, più ci tengo.</p>
+      <div className="rt-poster">
+        <div className="rt-poster-kicker">Gabri presenta</div>
+        <div className="rt-poster-title">Prima o poi Fest</div>
+        <div className="rt-poster-sub">data da destinarsi · da qualche parte nel mondo</div>
+        {TIERS.map((acts,t)=>(
+          <div className={"rt-poster-tier rt-poster-t"+(acts[0].desiderio||1)} key={t}>
+            {acts.map((w,i)=>(
+              <span className={"rt-poster-name"+(w.granted?" done":"")} key={i}
+                title={w.granted?("esaudito · "+(w.granted.planned?"in programma il ":"visto il ")+w.granted.date):(w.note||DESIDERIO_LABELS[w.desiderio||1])}>
+                <span className="rt-poster-art">{w.artist}</span>
+                {w.granted&&<span className="rt-poster-stamp" role="img" aria-label={"Desiderio esaudito, "+(w.granted.planned?"in programma il ":"visto il ")+w.granted.date}>esaudito</span>}
+                {i<acts.length-1&&<span className="rt-poster-dot" aria-hidden="true">•</span>}
+              </span>
+            ))}
+          </div>
         ))}
-      </ol>
+        <div className="rt-poster-foot">biglietti mai in vendita · lineup soggetta ai sogni</div>
+      </div>
     </Act>
   );
 }
