@@ -2494,22 +2494,30 @@ function Shell(){
     mq.addEventListener("change",on);
     return ()=>mq.removeEventListener("change",on);
   },[]);
+  /* Qui stava la misura di --page-h, l'altezza dei fasci ambientali: un
+     ResizeObserver su <body> che rileggeva scrollHeight a ogni cambio di
+     dimensione (un reflow forzato dell'intero documento, 18-43ms su /dati) e
+     che, siccome .ambient è alto quanto la pagina, misurava anche sé stesso —
+     bastava che sforasse di poco il fondo di #root perché la pagina crescesse a
+     ogni passata. Ora .ambient si stira da solo con top:0/bottom:0, quindi
+     l'altezza la risolve il layout e non serve più niente di tutto questo.
+     Vedi styles.css, regola .ambient. */
+
+  /* Fasci in pausa mentre si scorre — la regola sta in styles.css accanto al
+     blocco (pointer:coarse), col perché e coi numeri. Qui c'è solo
+     l'interruttore: una classe su <html>, un listener passivo, zero stato React
+     (uno useState qui rifarebbe il render dell'intera pagina a ogni scroll, che
+     è esattamente il lavoro che stiamo togliendo). */
   React.useEffect(()=>{
-    const root=document.getElementById("root");
-    if(!root) return;
-    const setH=()=>{
-      // full scrollable page height, independent of viewport
-      const h=Math.max(document.documentElement.scrollHeight, root.scrollHeight, document.body.scrollHeight);
-      root.style.setProperty("--page-h", h+"px");
+    const root=document.documentElement;
+    let t=0;
+    const onScroll=()=>{
+      root.classList.add("scrolling");
+      clearTimeout(t);
+      t=window.setTimeout(()=>root.classList.remove("scrolling"),150);
     };
-    setH();
-    const ro=new ResizeObserver(setH);
-    ro.observe(document.body);
-    window.addEventListener("resize",setH);
-    window.addEventListener("load",setH);
-    // re-measure after async content (map, fonts) settles
-    const t1=setTimeout(setH,400), t2=setTimeout(setH,1500), t3=setTimeout(setH,3500);
-    return ()=>{ ro.disconnect(); window.removeEventListener("resize",setH); window.removeEventListener("load",setH); clearTimeout(t1);clearTimeout(t2);clearTimeout(t3); };
+    window.addEventListener("scroll",onScroll,{passive:true});
+    return ()=>{ window.removeEventListener("scroll",onScroll); clearTimeout(t); root.classList.remove("scrolling"); };
   },[]);
   const shellCtx=React.useMemo(()=>({owner, openChat:(q?:string)=>chatApi.current?.open(q)}),[owner]);
   return (

@@ -20,9 +20,9 @@
     }catch(e){ document.documentElement.setAttribute("data-theme","dark"); }
   })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Fraunces e Inter sono self-hosted: le @font-face stanno in cima a
+     src/styles.css e i .woff2 escono in dist/. Niente <link> a
+     fonts.googleapis.com, che bloccava il primo paint su un'origine terza. -->
 </head>
 <body>
 <div id="root"></div>

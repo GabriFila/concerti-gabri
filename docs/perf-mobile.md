@@ -9,6 +9,110 @@ allegato), o come puro spostamento di lavoro nel tempo.
 
 ---
 
+## Aggiornamento: implementato e verificato
+
+Il primo giro è stato scritto e misurato. Stesso scroll di 36 passi, i due build serviti in
+parallelo sulla stessa macchina, mediana di 3 giri, CPU a 1/4:
+
+| pagina | prima | dopo | Δ |
+|---|---:|---:|---:|
+| `/dati` | 4609 ms | **2531 ms** | **−45%** |
+| `/` (Ritratto) | 5481 ms | **4369 ms** | **−20%** |
+
+Il tempo di ricalcolo stile durante lo scroll — la voce che l'animazione dei fasci gonfiava —
+passa su `/dati` da 402 ms a 108 ms (**−73%**). `/` guadagna meno perché i suoi fasci sono
+quelli del palco in cima, che restano come sono.
+
+Cosa è stato toccato:
+
+1. **Fasci in pausa mentre si scorre** (`.scrolling` su `<html>`, listener passivo in `Shell`)
+2. **Su `pointer:coarse`: 8 fasci ambientali invece di 14, blur ≤ 8px**
+3. **`content-visibility:auto` su `.tocsec`**, escluse le tre sezioni che misurano sé stesse
+4. **Font self-hosted** (`@fontsource-variable`), via il `<link>` a `fonts.googleapis.com`
+
+E tre cose che l'implementazione ha fatto emergere, che l'analisi da sola non aveva visto —
+tutte e tre descritte sotto.
+
+---
+
+## Tre correzioni all'analisi qui sotto
+
+**1. Esisteva già un blocco `@media (pointer:coarse)`** (`styles.css`) che spegneva
+l'oscillazione dei fasci e ne nascondeva 8 su 22. Quindi il "baseline" misurato era già il
+percorso mobile ottimizzato, non quello desktop: i 4609 ms restavano *dopo* quelle cure. Il
+commento lì diceva che la dissolvenza «vive sul livello ::before ed è essenzialmente
+gratis» — ed è proprio quella la voce cara, perché pulsare l'opacità dentro un
+`filter: blur()` obbliga a ri-sfocare a ogni frame. Il conto ora è scritto accanto alla
+regola. Di conseguenza il "8 fasci invece di 22" della tabella qui sotto era in realtà
+*5 visibili*, e quello spedito è 8 su 14.
+
+**2. `--page-h` aveva un anello di retroazione.** `.ambient` è alto quanto la pagina e sta
+dentro `#root`; un `ResizeObserver` rileggeva `scrollHeight` per calcolarne l'altezza — cioè
+misurava anche sé stesso. Appena sforava il fondo di `#root` la pagina cresceva a ogni
+passata: **9696 px di contenuto diventavano 9762+ px di documento**, mezzo schermo di vuoto
+in coda. Il primo tentativo di rattoppo (azzera-poi-misura) ha scatenato una tempesta di
+ricalcoli durante lo scroll — 1175 ms di stile contro 101 — ed è stato buttato. La soluzione
+è che l'altezza non la misuri nessuno: `top:0` + `bottom:0` la fa risolvere al layout.
+Via il `ResizeObserver`, via la variabile, via il reflow forzato dell'intero documento da
+18-43 ms che era il punto C3 dell'analisi.
+
+**3. Il file di font giusto è `full`, non `opsz`.** @fontsource pubblica un file per asse:
+quello `opsz` porta **solo** l'asse opsz, con `wght` congelato a 400. I pesi 500/600/700
+finivano in grassetto sintetico e il titolo veniva fuori più tozzo — 217/255 di scarto
+massimo nel diff. Con `full` ([opsz,wght,SOFT,WONK]) si torna a 24.
+
+### Verifiche visive
+
+Ogni modifica isolata e confrontata pixel a pixel contro sé stessa disattivata, sullo stesso
+build e con le animazioni congelate allo stesso istante:
+
+| modifica | delta medio | delta max | pixel > 8/255 |
+|---|---:|---:|---:|
+| 8 fasci + blur ≤ 8px | 0,00 – 0,28 / 255 | **13** | ≤ 1,4% |
+| `content-visibility` | 0,11 – 1,20 / 255 | 217¹ | ≤ 1,9% |
+
+¹ Il 217 non è una differenza di resa: geometria alla mano le sezioni iniziano tutte alla
+**stessa identica y** e il documento è alto uguale (9696 px in entrambi i casi). Il residuo
+è lo scroll che atterra 4 px più in basso in una delle due sessioni, quindi antialiasing sui
+bordi del testo — si vede ritagliando la banda che differisce: stesso contenuto, spostato.
+Una sola sezione si spostava davvero, `sec-kpis`, di 28 px: il contenimento che
+`content-visibility` porta con sé impediva a un margine di collassare. È esclusa (ed essendo
+la prima cosa a schermo non avrebbe comunque risparmiato nulla).
+
+Controlli funzionali su `/dati` dopo le modifiche: 18 sezioni su 18 con altezza reale, le
+ancore del sommario atterrano a 24 px dal bordo come prima, nessun errore in console.
+
+### Caricamento: quello che non posso dimostrare da qui
+
+| | prima | dopo |
+|---|---:|---:|
+| `/` FCP / LCP | 13 816 ms | **4 472 / 5 168 ms** |
+| `/dati` FCP / LCP | 14 480 ms | **4 648 ms** |
+
+⚠️ **Non prendere questi numeri per buoni.** In questo ambiente il proxy non raggiunge
+`fonts.googleapis.com`: la richiesta resta appesa ~12,9 s e trascina con sé il primo paint.
+Su rete vera il risparmio è dell'ordine di qualche centinaio di ms, non di nove secondi.
+Quello che è reale e permanente: dal percorso critico spariscono una richiesta bloccante e
+due connessioni a un'origine terza.
+
+C'è però un dettaglio che vale la pena notare, ed è la ragione per cui il diff di screenshot
+prima/dopo era inutilizzabile: **con Google Fonts irraggiungibile il build attuale ripiega su
+Georgia**, e il sito non è più il sito. Con i font self-hosted quel modo di rompersi non
+esiste più.
+
+Costo: 169 kB di woff2 (Fraunces 121 + Inter 48, solo latin — il latin-ext si scarica solo se
+serve). Più di quanto mandi Google, che sottoinsiemizza per peso richiesto, ma non
+bloccante, cache immutabile, stessa origine. Se un giorno pesasse, la strada è sottoinsiemare
+i .woff2 in build.
+
+### Cosa resta da fare
+
+Il secondo giro dell'analisi è intatto: **B2** (chat e `fuse.js` pigri, 171 kB = 30% del
+bundle d'ingresso) e il resto della micro-igiene **C**. Il TBT su `/dati` è ancora ~1,5 s a
+CPU 1/4: è lì che va il prossimo colpo.
+
+---
+
 ## Il risultato in una riga
 
 Lo scroll non è lento per colpa dei dati (78 eventi, ~130 concerti: briciole) né di React.

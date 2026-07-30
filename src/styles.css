@@ -1,3 +1,44 @@
+  /* ============ FONTS — self-hosted, same origin ============
+     I due font stavano su fonts.googleapis.com dietro un <link rel=stylesheet>
+     in <head>: render-blocking su un'origine terza, quindi prima del primo
+     pixel il telefono doveva fare DNS+TLS verso googleapis, leggere il CSS e
+     poi DNS+TLS verso gstatic per i file. Due connessioni nuove nel percorso
+     critico, pagate a ogni primo caricamento.
+     Qui i .woff2 arrivano da @fontsource-variable e finiscono in dist/, serviti
+     dal dominio a cui il browser è già connesso e con la cache immutabile di
+     Netlify. Li dichiaro con i nomi che il resto del file già usa ('Fraunces',
+     'Inter'), così nessuna delle ~30 regole a valle cambia.
+     Solo latin e latin-ext: sono i due sottoinsiemi che servono all'italiano,
+     e l'unicode-range fa scaricare al browser solo quello che gli serve.
+     Di Fraunces serve il file "full", non "opsz": @fontsource pubblica un file
+     per asse, e quello opsz porta SOLO l'asse opsz — con wght congelato a 400 i
+     pesi 500/600/700 finivano in grassetto sintetico, e il titolo veniva fuori
+     più tozzo e meno contrastato. Verificato col diff pixel a pixel: 217/255 di
+     scarto massimo col file sbagliato, 24 con questo. "full" porta
+     [opsz,wght,SOFT,WONK], quindi copre quello che chiedeva il vecchio link
+     ("opsz,wght@9..144") e il `font-optical-sizing:auto` degli h1 torna a fare
+     il suo. Inter chiedeva solo wght, e il file wght basta. */
+  @font-face{
+    font-family:'Fraunces';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2") format('woff2-variations');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'Fraunces';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/fraunces/files/fraunces-latin-ext-full-normal.woff2") format('woff2-variations');
+    unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+  }
+  @font-face{
+    font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format('woff2-variations');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'Inter';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2") format('woff2-variations');
+    unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+  }
+
   :root{
     --bg:#0a0a0b;        /* the dark room */
     --bg-2:#0d0d0f;
@@ -514,7 +555,16 @@
 
   /* ============ AMBIENT BEAMS: span the whole page, revealed while scrolling ============ */
   #root{position:relative}
-  .ambient{position:absolute;top:0;left:0;right:0;height:var(--page-h,100%);z-index:2;pointer-events:none;overflow:hidden}
+  /* Alto quanto #root, cioè quanto la pagina, senza che nessuno debba misurarlo.
+     Prima l'altezza arrivava da --page-h, che un ResizeObserver ricalcolava
+     leggendo scrollHeight: ma .ambient è dentro #root e alto quanto la pagina,
+     quindi quella lettura misurava anche sé stessa e, appena sforava il fondo
+     di #root, la pagina si allungava a ogni passata (9696px di contenuto →
+     10244px di documento, mezzo schermo di vuoto in coda). Con top:0 e bottom:0
+     l'altezza la risolve il layout: niente anello, niente reflow forzato
+     dell'intero documento a ogni resize (ne costava 18-43ms), niente JS.
+     I `top:%` dei singoli .abeam continuano a risolversi su questa altezza. */
+  .ambient{position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;pointer-events:none;overflow:hidden}
   .abeam{position:absolute;mix-blend-mode:screen;opacity:.6;
     width:52vw;height:46vh;--rot:0deg;
     transform:rotate(var(--rot));
@@ -698,7 +748,20 @@
   .sitefooter p{margin:0;font-size:.9rem;color:var(--muted);letter-spacing:.01em}
   .grid2{display:grid;gap:clamp(18px,2.6vw,30px);grid-template-columns:1fr}
   @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
-  .tocsec{min-width:0;scroll-margin-top:24px}
+  /* Ogni sezione della dashboard è un blocco a sé: finché è lontana dallo
+     schermo il browser può saltarne layout e paint. /dati monta 3300 nodi e 61
+     SVG in un colpo solo, e senza questo li calcola tutti subito e li ricalcola
+     a ogni scroll. `contain-intrinsic-size:auto` fa memorizzare l'altezza vera
+     dopo il primo render, quindi la scrollbar non salta e gli ancoraggi del
+     sommario restano esatti; i 520px servono solo al primo giro.
+     Tre sezioni sono escluse. Mappa e grafico ECharts misurano il proprio
+     contenitore per dimensionarsi, e un contenitore "saltato" misura 0.
+     I KPI perché il contenimento che `content-visibility` porta con sé impedisce
+     al margine di collassare col blocco del palco sopra, e la fascia si alzava
+     di 28px (misurato) — sono la prima cosa a schermo, quindi saltarli non
+     avrebbe comunque fatto risparmiare niente. */
+  .tocsec{min-width:0;scroll-margin-top:24px;content-visibility:auto;contain-intrinsic-size:auto 520px}
+  #sec-kpis,#sec-mappa,#sec-trend{content-visibility:visible}
   .panel{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(20px,3vw,32px);overflow:hidden}
   .panel h2{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.4rem,3vw,1.8rem);font-weight:400;letter-spacing:-.015em;color:var(--text);display:flex;align-items:center;gap:11px}
   .panel h2 .h2ic{color:var(--lamp);flex-shrink:0}
@@ -1201,7 +1264,37 @@
     .abeam{animation:none}
     .abeam.a3,.abeam.a6,.abeam.a7,.abeam.a10,
     .abeam.a11,.abeam.a14,.abeam.a17,.abeam.a20{display:none}
+    /* Secondo giro di sfoltimento, dai 14 rimasti agli 8 qui sotto. I sei che
+       se ne vanno (a2 a4 a9 a12 a16 a18) sono scelti a coppie in modo che
+       l'alternanza destra/sinistra scendendo la pagina resti intatta: quel che
+       resta è R,L,R,L,R,L,R,L dal 17% al 96% dell'altezza.
+       E il blur scende a 8px: un blur(22px) su uno schermo DPR 3 è un raggio di
+       66 pixel fisici, e il costo cresce con l'area del kernel, quindi 22px
+       costa ~7 volte 8px. Su un gradiente già morbido la differenza non si vede
+       — verificata col diff pixel a pixel, scarto massimo sotto 24/255 su meno
+       del 2% dei pixel. Su desktop non cambia niente: là i 22 fasci restano
+       come sono sempre stati. */
+    .abeam.a2,.abeam.a4,.abeam.a9,
+    .abeam.a12,.abeam.a16,.abeam.a18{display:none}
+    .abeam.a1,.abeam.a5,.abeam.a8,.abeam.a13,
+    .abeam.a15,.abeam.a19,.abeam.a21,.abeam.a22{filter:blur(8px)}
   }
+  /* ...ma "essenzialmente gratis" quella dissolvenza non lo era. Rimisurata col
+     trace di DevTools su uno scroll identico (profilo Pixel 7, CPU a 1/4,
+     mediana di 3 giri): con la sola dissolvenza attiva il main thread fa 4555 ms
+     di lavoro, con tutto fermo 1396 ms. Il motivo è che l'opacità pulsa su un
+     figlio ::before che sta DENTRO un elemento con filter:blur() — e un cambio
+     di opacità dentro un filtro obbliga a ri-applicare la sfocatura a ogni
+     frame, invece di rasterizzare il livello una volta e riusarlo.
+     La cura senza toccare l'estetica: mentre la pagina scorre nessuno percepisce
+     una dissolvenza da 3s né un'oscillazione da 16s (il movimento è mascherato
+     da quello della pagina), quindi lì i fasci si fermano e riprendono 150 ms
+     dopo l'ultimo evento di scroll. A pagina ferma tutto è esattamente com'era.
+     La classe la mette Shell in App.tsx. Vale su desktop quanto su telefono.
+     NB: si mette in pausa, non si azzera — `animation-play-state` congela il
+     fotogramma corrente, così alla ripresa non c'è nessun salto di luminosità. */
+  .scrolling .abeam,.scrolling .abeam::before,
+  .scrolling .beam,.scrolling .beam::before{animation-play-state:paused}
   /* ============================================================
      MODE SWITCH — segmented control (Ritratto / I dati), top center
      ============================================================ */
