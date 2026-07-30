@@ -7,6 +7,9 @@ dist/
 # Netlify
 .netlify/
 
+# scripts/preview-shot.mjs output
+preview-shots/
+
 # Editor/OS
 .DS_Store
 *.local
