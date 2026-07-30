@@ -152,6 +152,9 @@ export const queryConcertsDef = toolDefinition({
     eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once)" }),
     totalCost: z.number().meta({ description: "Sum of the known ticket costs over the matching events, euros (a festival ticket counts once)" }),
     costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost (a ticket paid for but whose price Gabri no longer recalls counts as unknown here, and shows as 'prezzo non ricordato' in the list)" }),
+    giftCount: z.number().meta({ description: "Of those events/tickets, how many were a present (regalo). Use THIS number when saying some entries were gifts — never count the 'regalo' lines yourself." }),
+    accreditoCount: z.number().meta({ description: "Of those events/tickets, how many were free entry via guest list/press pass (accredito). Use THIS number, never count the lines yourself." }),
+    unknownCostCount: z.number().meta({ description: "Of those events/tickets, how many were paid but with no price recorded ('prezzo non ricordato'), excluding gifts and accrediti. Use THIS number, never count the lines yourself." }),
     avgCost: z.number().nullable().meta({ description: "Average cost per ticket/event, not per concert" }),
     avgVoto: z.number().nullable().meta({ description: "Average rating over the matching concerts that have one" }),
     avgCanzoniNote: z.number().nullable().meta({ description: "Average canzoni-note level (1..5) over the matching concerts that have one" }),
@@ -216,6 +219,12 @@ export function runConcertQuery(q: ConcertQuery) {
       eventCount: events.length,
       totalCost: round2(totalCost),
       costKnownCount: withCost.length,
+      // Counted here, never by the model: the caveat "some of these were
+      // gifts" is the natural thing to add to a spending answer, and left
+      // to count the "regalo" lines itself the model gets it wrong.
+      giftCount: events.filter(d => d.gift).length,
+      accreditoCount: events.filter(d => d.accredito).length,
+      unknownCostCount: events.filter(d => typeof d.cost !== "number" && !d.gift && !d.accredito).length,
       avgCost: withCost.length ? round2(totalCost / withCost.length) : null,
       avgVoto: withVoto.length ? round2(withVoto.reduce((s, c) => s + (c.voto as number), 0) / withVoto.length) : null,
       avgCanzoniNote: withCN.length ? round2(withCN.reduce((s, c) => s + (c.canzoniNote as number), 0) / withCN.length) : null,
@@ -238,7 +247,9 @@ export function runConcertQuery(q: ConcertQuery) {
     const sortBy = q.sortGroupsBy || "count";
     groups = [...byKey.entries()]
       .map(([key, list]) => {
-        const { costKnownCount: _ignored, eventCount: _ignored2, ...stats } = costVotoStats(list);
+        // groups keep only the comparable stats: the per-group ticket
+        // bookkeeping (known/gift/accredito counts) would just be noise
+        const { costKnownCount: _c, eventCount: _e, giftCount: _g, accreditoCount: _a, unknownCostCount: _u, ...stats } = costVotoStats(list);
         return { key, count: list.length, ...stats };
       })
       .sort((a, b) =>
