@@ -518,7 +518,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
                   {messages.length === 0 && histError && <div className="chat-error">{histError}</div>}
                   {messages.length === 0 && !histBusy && (
                     <div className="chat-empty">
-                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
+                      <p>Sono l'Oracolo. Un tempo rispondevo a re; oggi vivo in questa pagina e conosco soltanto i concerti di Gabri — ogni data, ogni prezzo, ogni voto che ha dato. Per il resto interrogo gli oracoli minori del web (artisti, band, tour). E mi restano tre poteri: far svanire i concerti che non ti interessano, trascinarti a una sezione, calare le tenebre sul tuo schermo. Chiedi.</p>
                       <div className="chat-sugg">
                         {SUGGESTIONS.map(s => (
                           <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
