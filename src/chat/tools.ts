@@ -48,35 +48,35 @@ export const COMPANIONS = [...new Set(ALL_CONCERTS.flatMap(c => c.with || []))].
 export const setFiltersDef = toolDefinition({
   name: "set_filters",
   description:
-    "Change the dashboard's active filters. Every chart on the page updates to show only matching concerts. " +
-    "Omitted fields keep their current value; pass `replace: true` to reset everything else first. " +
-    "Returns how many concerts match afterwards.",
+    "Cambia i filtri attivi della dashboard. Ogni grafico della pagina si aggiorna per mostrare solo i concerti corrispondenti. " +
+    "I campi omessi mantengono il valore attuale; passa `replace: true` per azzerare prima tutto il resto. " +
+    "Restituisce quanti concerti corrispondono dopo il cambiamento.",
   inputSchema: z.object({
-    replace: z.boolean().optional().meta({ description: "true = clear all current filters before applying these; false/omitted = merge into the current ones" }),
-    status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = already seen, planned = upcoming" }),
-    dateFrom: z.string().optional().meta({ description: "Only concerts on/after this date, ISO YYYY-MM-DD. Empty string clears it." }),
-    dateTo: z.string().optional().meta({ description: "Only concerts on/before this date, ISO YYYY-MM-DD. Empty string clears it." }),
-    cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them). Empty array = all cities." }),
-    people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Companions Gabri went with (OR between them). Empty array = anyone." }),
-    solo: z.boolean().optional().meta({ description: "true = only concerts attended alone" }),
-    vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Closeness to the stage, higher = closer: 6 Transenna, 5 Sottopalco, 4 Centro, 3 Fondo, 2 Tribuna, 1 Anello alto. Empty array = all." }),
-    canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte. Empty array = all." }),
-    price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, accredito = free entry via guest list/press pass, unknown = no price recorded" }),
-    costMin: z.number().optional().meta({ description: "Minimum ticket cost in euros (only constrains concerts with a known price)" }),
-    costMax: z.number().optional().meta({ description: "Maximum ticket cost in euros" }),
-    kmMin: z.number().optional().meta({ description: "Minimum one-way trip distance in km (only constrains concerts with a known trip distance)" }),
-    kmMax: z.number().optional().meta({ description: "Maximum one-way trip distance in km" }),
+    replace: z.boolean().optional().meta({ description: "true = azzera tutti i filtri attuali prima di applicare questi; false/omesso = uniscili a quelli attuali" }),
+    status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = già visti, planned = in programma" }),
+    dateFrom: z.string().optional().meta({ description: "Solo concerti da questa data in poi, ISO YYYY-MM-DD. La stringa vuota lo azzera." }),
+    dateTo: z.string().optional().meta({ description: "Solo concerti fino a questa data compresa, ISO YYYY-MM-DD. La stringa vuota lo azzera." }),
+    cities: z.array(z.enum(CITIES)).optional().meta({ description: "Città dei concerti (in OR tra loro). Array vuoto = tutte le città." }),
+    people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Compagni con cui è andato Gabri (in OR tra loro). Array vuoto = chiunque." }),
+    solo: z.boolean().optional().meta({ description: "true = solo i concerti visti da solo" }),
+    vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: "Vicinanza al palco, più alto = più vicino: 6 Transenna, 5 Sottopalco, 4 Centro, 3 Fondo, 2 Tribuna, 1 Anello alto. Array vuoto = tutte." }),
+    canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — quanta scaletta Gabri già conosceva: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte. Array vuoto = tutte." }),
+    price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = ha un prezzo noto, gift = ricevuto in regalo, accredito = ingresso gratuito con lista/accredito stampa, unknown = nessun prezzo registrato" }),
+    costMin: z.number().optional().meta({ description: "Costo minimo del biglietto in euro (vincola solo i concerti con un prezzo noto)" }),
+    costMax: z.number().optional().meta({ description: "Costo massimo del biglietto in euro" }),
+    kmMin: z.number().optional().meta({ description: "Distanza minima del viaggio di andata in km (vincola solo i concerti con una distanza nota)" }),
+    kmMax: z.number().optional().meta({ description: "Distanza massima del viaggio di andata in km" }),
   }),
   outputSchema: z.object({
     ok: z.boolean(),
-    matchCount: z.number().meta({ description: "Concerts matching the new filters" }),
-    summary: z.string().meta({ description: "Human-readable recap of the now-active filters" }),
+    matchCount: z.number().meta({ description: "Concerti che corrispondono ai nuovi filtri" }),
+    summary: z.string().meta({ description: "Riepilogo leggibile dei filtri ora attivi" }),
   }),
 });
 
 export const clearFiltersDef = toolDefinition({
   name: "clear_filters",
-  description: "Remove every active filter so the dashboard shows all concerts again.",
+  description: "Rimuovi ogni filtro attivo, così la dashboard torna a mostrare tutti i concerti.",
   inputSchema: z.object({}),
   outputSchema: z.object({ ok: z.boolean(), matchCount: z.number() }),
 });
@@ -84,10 +84,10 @@ export const clearFiltersDef = toolDefinition({
 export const goToSectionDef = toolDefinition({
   name: "go_to_section",
   description:
-    "Scroll the page (behind the chat) to one of its sections. " +
-    "After calling it, remind the user to close the chat to see the section.",
+    "Porta la pagina (dietro la chat) su una delle sue sezioni. " +
+    "Dopo averlo chiamato, ricorda all'utente di chiudere la chat per vedere la sezione.",
   inputSchema: z.object({
-    section: z.enum(SECTION_IDS).meta({ description: "Section id; the label next to each id in the system prompt says what it shows" }),
+    section: z.enum(SECTION_IDS).meta({ description: "Id della sezione; l'etichetta accanto a ogni id nel system prompt dice cosa mostra" }),
   }),
   // ok:false = that section is not on the page right now (sec-commenti only shows
   // when at least one evening has a comment): say so, don't claim you scrolled.
@@ -97,9 +97,9 @@ export const goToSectionDef = toolDefinition({
 export const setThemeDef = toolDefinition({
   name: "set_theme",
   description:
-    "Switch the page's color theme. The change is visible immediately, even behind the open chat.",
+    "Cambia il tema di colore della pagina. Il cambiamento si vede subito, anche dietro la chat aperta.",
   inputSchema: z.object({
-    theme: z.enum(["dark", "light", "system"]).meta({ description: "dark = tema scuro, light = tema chiaro, system = follow the visitor's OS preference" }),
+    theme: z.enum(["dark", "light", "system"]).meta({ description: "dark = tema scuro, light = tema chiaro, system = segui la preferenza del sistema operativo del visitatore" }),
   }),
   outputSchema: z.object({ ok: z.boolean(), theme: z.enum(["dark", "light", "system"]) }),
 });
@@ -121,17 +121,17 @@ const isPlanned = (d: { date: string }) => sortKey(d) >= todayKey();
 const MAX_LISTED_CONCERTS = 200; // > dataset size today; the cap only guards future growth
 
 const queryInputSchema = z.object({
-  status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = date before today, planned = today or later. Omitted = all. Past-tense questions ('è andato', 'ha visto') want attended." }),
-  people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Exact companion names; matches concerts with at least one of them (OR). One person = that person's concerts." }),
-  solo: z.boolean().optional().meta({ description: "true = only concerts attended alone (no companions)" }),
-  artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name; festival names (e.g. 'MI AMI 2023') also match every set watched there" }),
-  cities: z.array(z.enum(CITIES)).optional().meta({ description: "Concert cities (OR between them)" }),
-  years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
-  gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
-  accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
-  canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — how much of the setlist Gabri already knew: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte (OR between them)" }),
-  groupBy: z.enum(["person", "artist", "year", "city", "venue", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion)" }),
-  sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost", "avgCanzoniNote"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
+  status: z.enum(["all", "attended", "planned"]).optional().meta({ description: "attended = data precedente a oggi, planned = oggi o dopo. Omesso = tutti. Le domande al passato ('è andato', 'ha visto') vogliono attended." }),
+  people: z.array(z.enum(COMPANIONS)).optional().meta({ description: "Nomi esatti dei compagni; seleziona i concerti con almeno uno di loro (OR). Una sola persona = i concerti di quella persona." }),
+  solo: z.boolean().optional().meta({ description: "true = solo i concerti visti da solo (senza compagni)" }),
+  artist: z.string().optional().meta({ description: "Sottostringa del nome dell'artista, senza distinzione tra maiuscole e minuscole; i nomi dei festival (es. 'MI AMI 2023') selezionano anche ogni set visto lì" }),
+  cities: z.array(z.enum(CITIES)).optional().meta({ description: "Città dei concerti (in OR tra loro)" }),
+  years: z.array(z.number()).optional().meta({ description: "Anni dei concerti, es. [2025]" }),
+  gift: z.boolean().optional().meta({ description: "true = solo i concerti ricevuti in regalo, false = solo i biglietti pagati da lui" }),
+  accredito: z.boolean().optional().meta({ description: "true = solo i concerti con ingresso gratuito tramite lista/accredito stampa, false = escludili" }),
+  canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: "\"Canzoni note\" — quanta scaletta Gabri già conosceva: 1 Nessuna, 2 Poche, 3 Circa metà, 4 Quasi tutte, 5 Tutte (in OR tra loro)" }),
+  groupBy: z.enum(["person", "artist", "year", "city", "venue", "vicinanza", "canzoniNote"]).optional().meta({ description: "Restituisci anche le statistiche per gruppo (conteggio, voto medio, canzoni note medie, costi) sui concerti selezionati (person = una voce per ogni compagno)" }),
+  sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost", "avgCanzoniNote"]).optional().meta({ description: "Ordinamento decrescente di `groups` (default count). Per le classifiche, scegli la chiave giusta e riporta i gruppi esattamente nell'ordine restituito." }),
 });
 
 export type ConcertQuery = z.infer<typeof queryInputSchema>;
@@ -139,22 +139,22 @@ export type ConcertQuery = z.infer<typeof queryInputSchema>;
 export const queryConcertsDef = toolDefinition({
   name: "query_concerts",
   description:
-    "The ONLY source of the concert data. A CONCERT is one act's set; a festival (e.g. MI AMI) is one EVENT/ticket containing several concerts, " +
-    "so counts are per concert while costs are per ticket/event. Returns, for the concerts matching the filters (combined with AND): " +
-    "exact count, attended/planned split, distinct event/ticket count, total and average ticket cost, average rating, average canzoni note, optional breakdown by " +
-    "person/artist/year/city/venue/vicinanza/canzoniNote, and the full matching list in chronological order. " +
-    "Call it (possibly more than once) before answering ANY question about the data.",
+    "L'UNICA fonte dei dati sui concerti. Un CONCERTO è il set di un artista; un festival (es. MI AMI) è un EVENTO/biglietto che contiene più concerti, " +
+    "quindi i conteggi sono per concerto mentre i costi sono per biglietto/evento. Restituisce, per i concerti che corrispondono ai filtri (combinati in AND): " +
+    "conteggio esatto, divisione già visti/in programma, numero di eventi/biglietti distinti, costo totale e medio del biglietto, voto medio, canzoni note medie, facoltativamente la ripartizione per " +
+    "persona/artista/anno/città/locale/vicinanza/canzoniNote, e l'elenco completo in ordine cronologico. " +
+    "Chiamalo (anche più di una volta) prima di rispondere a QUALSIASI domanda sui dati.",
   inputSchema: queryInputSchema,
   outputSchema: z.object({
-    count: z.number().meta({ description: "Concerts (sets) matching all filters — a festival contributes one per set watched" }),
+    count: z.number().meta({ description: "Concerti (set) che corrispondono a tutti i filtri — un festival ne conta uno per ogni set visto" }),
     attendedCount: z.number(),
     plannedCount: z.number(),
-    eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once)" }),
-    totalCost: z.number().meta({ description: "Sum of the known ticket costs over the matching events, euros (a festival ticket counts once)" }),
-    costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost (a ticket paid for but whose price Gabri no longer recalls counts as unknown here, and shows as 'prezzo non ricordato' in the list)" }),
-    avgCost: z.number().nullable().meta({ description: "Average cost per ticket/event, not per concert" }),
-    avgVoto: z.number().nullable().meta({ description: "Average rating over the matching concerts that have one" }),
-    avgCanzoniNote: z.number().nullable().meta({ description: "Average canzoni-note level (1..5) over the matching concerts that have one" }),
+    eventCount: z.number().meta({ description: "Eventi/biglietti distinti dietro i concerti selezionati (un festival conta una volta sola)" }),
+    totalCost: z.number().meta({ description: "Somma dei costi noti dei biglietti sugli eventi selezionati, in euro (il biglietto di un festival conta una volta sola)" }),
+    costKnownCount: z.number().meta({ description: "Quanti di quegli eventi/biglietti hanno un costo noto (un biglietto pagato ma di cui Gabri non ricorda più il prezzo qui conta come sconosciuto, e nell'elenco compare come 'prezzo non ricordato')" }),
+    avgCost: z.number().nullable().meta({ description: "Costo medio per biglietto/evento, non per concerto" }),
+    avgVoto: z.number().nullable().meta({ description: "Voto medio sui concerti selezionati che ne hanno uno" }),
+    avgCanzoniNote: z.number().nullable().meta({ description: "Livello medio di canzoni note (1..5) sui concerti selezionati che ne hanno uno" }),
     groups: z.array(z.object({
       key: z.string(),
       count: z.number(),
@@ -162,8 +162,8 @@ export const queryConcertsDef = toolDefinition({
       avgCost: z.number().nullable(),
       avgVoto: z.number().nullable(),
       avgCanzoniNote: z.number().nullable(),
-    })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking. count = concerts; costs = distinct tickets in the group" }),
-    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is Gabri's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
+    })).optional().meta({ description: "Già ordinati per sortGroupsBy (decrescente): una classifica pronta. count = concerti; i costi = biglietti distinti del gruppo" }),
+    concerts: z.array(z.string()).meta({ description: "In ordine cronologico; ogni riga è 'data · artista[ (nome del festival)] · locale (città) · con compagni|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note ETICHETTA][ · in programma][ · commento: \"…\"]'. I set di festival mostrano il festival tra parentesi e nessun costo per set: il biglietto appartiene all'intero evento. Il commento è l'osservazione in testo libero che Gabri ha scritto sulla SERATA (il commento di un festival vale per tutto il festival, quindi i suoi set lo ripetono): citalo, non parafrasarlo mai in fatti nuovi." }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -174,11 +174,11 @@ export const queryConcertsDef = toolDefinition({
 export const reportUnsupportedDef = toolDefinition({
   name: "report_unsupported_query",
   description:
-    "Report a data question that query_concerts cannot compute (missing filter, aggregation or capability). " +
-    "Call this INSTEAD of guessing, then tell the user you cannot compute it and that they can ask Gabri to extend the chat.",
+    "Segnala una domanda sui dati che query_concerts non riesce a calcolare (manca un filtro, un'aggregazione o una funzionalità). " +
+    "Chiamalo INVECE di tirare a indovinare, poi di' all'utente che non puoi calcolarlo e che può chiedere a Gabri di estendere la chat.",
   inputSchema: z.object({
-    question: z.string().meta({ description: "The user's question, as asked" }),
-    missing: z.string().meta({ description: "Short description of the missing capability, e.g. 'median cost', 'filter by weekday'" }),
+    question: z.string().meta({ description: "La domanda dell'utente, così come l'ha posta" }),
+    missing: z.string().meta({ description: "Breve descrizione della funzionalità mancante, es. 'costo mediano', 'filtro per giorno della settimana'" }),
   }),
   outputSchema: z.object({ ok: z.boolean() }),
 });
