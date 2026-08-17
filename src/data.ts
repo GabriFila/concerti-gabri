@@ -124,6 +124,8 @@ export const WISHLIST: string[] = [
   "Marracash",
   "Faccianuvola",
   "Harry Styles",
+  "AJR",
+  "RAYE",
 ];
 
 export const ALLDATA: Entry[] = [
