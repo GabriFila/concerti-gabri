@@ -126,6 +126,7 @@ export const WISHLIST: string[] = [
   "Harry Styles",
   "AJR",
   "RAYE",
+  "Rancore",
 ];
 
 export const ALLDATA: Entry[] = [
@@ -210,6 +211,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"24/07/2026",artist:"Caparezza",venue:"Arena del Mare",city:"Genova",with:["Cami <3","Anna DF","Richi"],cost:60.99,vicinanza:5,voto:5,canzoniNote:4,from:"g",km:4},
   {y:2026,date:"25/07/2026",artist:"I Cani",venue:"Arena del Mare",city:"Genova",with:["Cami <3"],cost:44.28,vicinanza:4,voto:3,canzoniNote:2,from:"g",km:4},
   {y:2026,date:"05/09/2026",artist:"Dov'è Liana",venue:"Castello Sforzesco",city:"Milano",with:["Waitz"],cost:25},
+  {y:2026,date:"19/09/2026",artist:"Rares",venue:"Da definire",city:"Da definire",with:[],cost:0,from:"m"},
   {y:2026,date:"29/09/2026",artist:"Emma Nolde",venue:"Santeria Toscana 31",city:"Milano",with:["Cami <3"],cost:25.86,from:"m",km:3},
   {y:2026,date:"01/10/2026",artist:"Dargen D'Amico",venue:"Alcatraz",city:"Milano",with:["Anna M"],cost:37.45},
   {y:2026,date:"18/11/2026",artist:"Portugal. The Man",venue:"Fabrique",city:"Milano",with:["Filippo","Oscar","Waitz"],cost:36.92},
