@@ -23,7 +23,7 @@
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
-export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Costanza","Dani","Daniela","Davide B","Dicce","Diletta","Ditta","Elena","Elena B","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco I","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
+export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Costanza","Dani","Daniela","Davide B","Dicce","Diletta","Ditta","Elena B","Elena G","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco I","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
 
@@ -176,7 +176,7 @@ export const ALLDATA: Entry[] = [
   {y:2025,date:"27/05/2025",artist:"Imagine Dragons",venue:"Ippodromo Snai La Maura",city:"Milano",with:["Cami <3","Marco D","Ludo"],cost:123.05,vicinanza:5,voto:4,canzoniNote:3,from:"m",km:8},
   {y:2025,date:"11/06/2025",artist:"Pinguini Tattici Nucleari",venue:"Stadio San Siro",city:"Milano",with:["Fra M"],cost:78.97,vicinanza:4,voto:2,canzoniNote:4,from:"m",km:6},
   {y:2025,date:"22/06/2025",artist:"Gazzelle",venue:"Stadio San Siro",city:"Milano",with:["Cami <3"],gift:true,vicinanza:2,voto:4,canzoniNote:3,from:"m",km:6},
-  {y:2025,date:"24/06/2025",artist:"Linkin Park",venue:"Ippodromo Snai La Maura",city:"Milano",with:["Marco D","Fra G","Elena"],cost:122.72,vicinanza:5,voto:4,canzoniNote:2,from:"m",km:8},
+  {y:2025,date:"24/06/2025",artist:"Linkin Park",venue:"Ippodromo Snai La Maura",city:"Milano",with:["Marco D","Fra G","Elena G"],cost:122.72,vicinanza:5,voto:4,canzoniNote:2,from:"m",km:8},
   {y:2025,date:"10/07/2025",artist:"Benjamin Clementine",venue:"Castello Sforzesco",city:"Milano",with:[],gift:true,vicinanza:4,voto:4,canzoniNote:3,from:"m",km:2},
   {y:2025,date:"04/10/2025",artist:"Olly",venue:"Palateknoship",city:"Genova",with:["Marco D","Ludo","Sammy"],cost:52.29,vicinanza:4,voto:3,canzoniNote:4,from:"g",km:8},
   {y:2025,date:"30/10/2025",artist:"Carl Brave",venue:"Fabrique",city:"Milano",with:["Ditta"],cost:36.91,vicinanza:4,voto:3,canzoniNote:3,from:"m",km:9},
@@ -221,6 +221,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"12/12/2026",artist:"Madame",venue:"Fabrique",city:"Milano",with:["Cami <3","Fra M"],cost:52,from:"m",km:9},
   {y:2027,date:"17/03/2027",artist:"Kaleo",venue:"Fabrique",city:"Milano",with:["Costanza","Diletta"],cost:54.18,from:"m",km:9},
   {y:2027,date:"06/06/2027",artist:"Vasco Rossi",venue:"Stadio Olimpico",city:"Roma",with:[],gift:true},
+  {y:2027,date:"19/06/2027",artist:"Fontaines D.C.",venue:"Ippodromo Snai San Siro",city:"Milano",with:["Elena G"],cost:71.55,from:"m",km:5},
   {y:2027,date:"23/06/2027",artist:"Olly",venue:"Stadio San Siro",city:"Milano",with:["Cami <3","Marco D","Ludo"],cost:96.12},
 ];
 
