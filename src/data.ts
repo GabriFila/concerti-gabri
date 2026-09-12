@@ -191,7 +191,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"15/04/2026",artist:"Fulminacci",venue:"Unipol Forum",city:"Assago",with:["Perla","Waitz"],cost:41.62,vicinanza:5,voto:4,canzoniNote:4,from:"m",km:10},
   {y:2026,date:"21–24/05/2026",name:"MI AMI 2026",venue:"Idroscalo",city:"Milano",cost:147.25,from:"m",km:13,concerts:[
     {artist:"Rares",date:"22/05/2026",with:["Perla","Waitz","Giorgia G"],voto:3,vicinanza:6,canzoniNote:1},
-    {artist:"Paragarri",date:"22/05/2026",with:["Perla","Waitz","Giorgia G"],voto:3,vicinanza:5,canzoniNote:2},
+    {artist:"Patagarri",date:"22/05/2026",with:["Perla","Waitz","Giorgia G"],voto:4,vicinanza:5,canzoniNote:2},
     {artist:"Dutch Nazari",date:"22/05/2026",with:[],voto:3,vicinanza:4,canzoniNote:4},
     {artist:"Faccianuvola",date:"22/05/2026",with:[],voto:3,vicinanza:3,canzoniNote:2},
     {artist:"Angelica Bove",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:5,canzoniNote:2},
