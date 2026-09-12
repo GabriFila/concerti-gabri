@@ -89,6 +89,11 @@ Once he's confirmed the recap:
   is forgotten; leaving `cost` out means the price isn't defined yet (a future row).
   Both stay out of every money stat — the difference is only what the archive shows
   ("n.d." vs "—"). Never invent or estimate a forgotten price.
+- **`cost` is always the TOTAL actually paid**, commissions included — the grand
+  total of the order, not the face value of the seat. On a ticketing confirmation
+  that means the nominal price plus every fee line ("commissioni ordine",
+  "commissioni spedizione", prevendita, ...), summed. Don't ask which one he wants:
+  it's always the total.
 - **`comments`:** copy his words verbatim into `comments` (skip the field when he
   left it blank — never write a comment he didn't write). It belongs to the EVENT,
   so on a festival it goes on the row, not on a single set.
