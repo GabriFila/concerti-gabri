@@ -214,6 +214,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"19/09/2026",artist:"Rares",venue:"Da definire",city:"Da definire",with:[],cost:0,from:"m"},
   {y:2026,date:"29/09/2026",artist:"Emma Nolde",venue:"Santeria Toscana 31",city:"Milano",with:["Cami <3"],cost:25.86,from:"m",km:3},
   {y:2026,date:"01/10/2026",artist:"Dargen D'Amico",venue:"Alcatraz",city:"Milano",with:["Anna M"],cost:37.45},
+  {y:2026,date:"20/10/2026",artist:"Willie Peyote",venue:"Fabrique",city:"Milano",with:["Cami <3","Anna DF"],cost:37,from:"m",km:9},
   {y:2026,date:"18/11/2026",artist:"Portugal. The Man",venue:"Fabrique",city:"Milano",with:["Filippo","Oscar","Waitz"],cost:36.92},
   {y:2026,date:"30/11/2026",artist:"Ditonellapiaga",venue:"Fabrique",city:"Milano",with:["Filippo"],cost:31.03},
   {y:2026,date:"02/12/2026",artist:"Mobrici",venue:"Fabrique",city:"Milano",with:["Marco I","Cami <3"],cost:37,from:"m",km:9},
