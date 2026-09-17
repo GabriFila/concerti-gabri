@@ -992,7 +992,12 @@
   thead th:nth-child(2),tbody td:nth-child(2){width:var(--col1-w,118px);min-width:var(--col1-w,118px);max-width:var(--col1-w,118px);overflow:hidden;text-overflow:ellipsis}
   td.cost{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
   td.cost .cval{color:var(--text);font-weight:500}
-  td.cost .cgift{color:var(--text);display:flex;align-items:center;justify-content:center}
+  td.cost .cgift{color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px}
+  /* logo di chi ha fatto il regalo, accanto al pacchetto: è una favicon, quindi
+     spesso un marchio scuro su trasparente — la pastiglia bianca lo tiene
+     leggibile anche sul tema scuro. */
+  .gifterlink{display:flex;line-height:0}
+  .gifterlogo{width:15px;height:15px;border-radius:3px;object-fit:contain;flex:0 0 auto;background:#fff;padding:1px;box-shadow:0 0 0 1px var(--line-2)}
   thead th:last-child{text-align:right;padding-right:0}
   td.city b{color:var(--text);font-weight:500}
   td.vic .viccell{color:var(--muted);font-size:.86rem;white-space:nowrap}
