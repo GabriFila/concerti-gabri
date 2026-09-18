@@ -997,7 +997,7 @@
      sito, nuda — niente sfondo né bordo, così il marchio si posa sulla riga
      come le altre icone della tabella. */
   .gifterlink{display:flex;line-height:0}
-  .gifterlogo{width:15px;height:15px;object-fit:contain;flex:0 0 auto}
+  .gifterlogo{width:15px;height:15px;border-radius:4px;object-fit:contain;flex:0 0 auto}
   thead th:last-child{text-align:right;padding-right:0}
   td.city b{color:var(--text);font-weight:500}
   td.vic .viccell{color:var(--muted);font-size:.86rem;white-space:nowrap}

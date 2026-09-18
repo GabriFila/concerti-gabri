@@ -127,16 +127,18 @@ const isAccredito=<T extends {accredito?:boolean}>(d:T):d is T&{accredito:true}=
 // un regalo può avere un mittente (una chiave di GIFTERS): il tooltip lo nomina...
 const giftTitle=<T extends {giftFrom?:Gifter}>(d:T)=>d.giftFrom?"Regalo da "+GIFTERS[d.giftFrom].label:"Regalo";
 /* ...e il suo logo — la favicon del sito di chi ha regalato — sta accanto
-   all'icona del pacchetto, linkata al sito. Se la favicon non carica (o
-   l'entry non ne ha una) sparisce da sola: resta il solo pacchetto, col nome
-   comunque nel tooltip della cella. */
+   all'icona del pacchetto: in hover dice "Con il contributo di X", in click
+   porta al sito. Se la favicon non carica (o l'entry non ne ha una) sparisce
+   da sola: resta il solo pacchetto, col nome comunque nel tooltip della
+   cella. */
 function GifterMark({id,size=15}:{id?:Gifter;size?:number}){
   const [broken,setBroken]=useState(false);
   if(!id) return null;
   const g=GIFTERS[id];
   if(!g.logo||broken) return null;
   const img=<img className="gifterlogo" src={g.logo} alt={g.label} width={size} height={size} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBroken(true)}/>;
-  return g.url?<a className="gifterlink" href={g.url} target="_blank" rel="noreferrer" title={"Regalo da "+g.label}>{img}</a>:img;
+  const credit="Con il contributo di "+g.label;
+  return g.url?<a className="gifterlink" href={g.url} target="_blank" rel="noreferrer" title={credit} aria-label={credit}>{img}</a>:<span className="gifterlink" title={credit}>{img}</span>;
 }
 // voto — personal 1..5-star rating, given only after attending. Planned concerts
 // can't have one yet; any past concert without a voto is simply left out of vote stats.
