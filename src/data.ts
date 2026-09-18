@@ -8,7 +8,7 @@
    voto, vicinanza and canzoniNote; the row-level `artist` is then
    the event name (e.g. "MI AMI 2023") and the per-concert fields
    stay at the set level (the types forbid mixing the two shapes).
-   Ticket (`cost`/`gift`/`accredito`), trip (`from`/`km`),
+   Ticket (`cost`/`gift`/`giftFrom`/`accredito`), trip (`from`/`km`),
    `comments`, `date`, `venue` and `city` always belong to the event.
 
    Rules enforced by the types (pnpm build fails otherwise):
@@ -26,6 +26,18 @@
 export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Costanza","Dani","Daniela","Davide B","Dicce","Diletta","Ditta","Elena B","Elena G","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco I","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
+
+/* Chi mi ha regalato il biglietto. A present can come from a company or from a
+   person, and the giver gets its own logo next to the gift icon in the archive.
+   This is the single source of that label/logo (App.tsx reads it, like
+   VICINANZA_LABELS); `logo` is a URL and is optional — an entry without one is
+   shown by name alone. The keys are the values `giftFrom` accepts, so a typo
+   fails the build. */
+export const GIFTERS = {
+  wiseair: { label: "Wiseair", url: "https://wiseair.vision", logo: "https://wiseair.vision/favicon.svg" },
+} as const;
+
+export type Gifter = keyof typeof GIFTERS;
 
 // The per-concert facts — what makes a concert a concert, independent of the
 // ticket/trip/place. A standalone show carries these inline (see Concert); a
@@ -46,6 +58,7 @@ interface EventInfo {
   city: string;
   cost?: number | "na"; // euros — the ticket; "na" = paid, but the price can't be recalled (kept out of the money stats, like an unknown); absent = not yet defined
   gift?: boolean;
+  giftFrom?: Gifter; // who the present came from, a key of GIFTERS — only meaningful together with `gift: true`; absent = a gift with no giver recorded
   accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
   from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
   km?: number; // one-way trip km, precomputed offline (recipe in CLAUDE.md) — set together with `from`; reuse the value of an existing (from, venue) pair. Never derive it in app code: home coordinates must not ship in the bundle.
@@ -87,6 +100,7 @@ export interface FlatConcert extends ConcertFacts {
   city: string;
   cost?: number | "na";
   gift?: boolean;
+  giftFrom?: Gifter;
   accredito?: boolean;
   from?: "m" | "g";
   km?: number;
@@ -96,7 +110,7 @@ export interface FlatConcert extends ConcertFacts {
 export const concertsOf = (e: Entry): FlatConcert[] =>
   isFestival(e)
     ? e.concerts.map(c => ({ y: e.y, date: c.date || e.date, artist: c.artist, venue: e.venue, city: e.city, with: c.with, voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, ev: e }))
-    : [{ y: e.y, date: e.date, artist: e.artist, venue: e.venue, city: e.city, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, accredito: e.accredito, from: e.from, km: e.km, ev: e }];
+    : [{ y: e.y, date: e.date, artist: e.artist, venue: e.venue, city: e.city, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, giftFrom: e.giftFrom, accredito: e.accredito, from: e.from, km: e.km, ev: e }];
 
 export const flatConcerts = (data: Entry[]): FlatConcert[] => data.flatMap(concertsOf);
 
@@ -126,7 +140,6 @@ export const WISHLIST: string[] = [
   "AJR",
   "RAYE",
   "Rancore",
-  "Margherita Vicario",
 ];
 
 export const ALLDATA: Entry[] = [
@@ -220,6 +233,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"02/12/2026",artist:"Mobrici",venue:"Fabrique",city:"Milano",with:["Marco I","Cami <3"],cost:37,from:"m",km:9},
   {y:2026,date:"03/12/2026",artist:"Kodaline",venue:"Alcatraz",city:"Milano",with:["Perla"],cost:50.5},
   {y:2026,date:"12/12/2026",artist:"Madame",venue:"Fabrique",city:"Milano",with:["Cami <3","Fra M"],cost:52,from:"m",km:9},
+  {y:2027,date:"10/02/2027",artist:"Margherita Vicario",venue:"Teatro degli Arcimboldi",city:"Milano",with:["Cami <3"],gift:true,giftFrom:"wiseair",from:"m",km:10},
   {y:2027,date:"17/03/2027",artist:"Kaleo",venue:"Fabrique",city:"Milano",with:["Costanza","Diletta"],cost:54.18,from:"m",km:9},
   {y:2027,date:"06/06/2027",artist:"Vasco Rossi",venue:"Stadio Olimpico",city:"Roma",with:[],gift:true},
   {y:2027,date:"19/06/2027",artist:"Fontaines D.C.",venue:"Ippodromo Snai San Siro",city:"Milano",with:["Elena G"],cost:71.55,from:"m",km:5},

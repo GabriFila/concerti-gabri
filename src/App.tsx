@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useRef } from "react";
 import { createRootRoute, createRoute, createRouter, RouterProvider, Outlet, Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import Fuse from "fuse.js";
-import { ALLDATA, PEOPLE, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, VICINANZA_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
-import type { Entry, Festival, FlatConcert, Person } from "./data.ts";
+import { ALLDATA, PEOPLE, GIFTERS, VENUE_COORDS, CITY_COORDS, CANZONI_NOTE_LABELS, VICINANZA_LABELS, concertsOf, flatConcerts, isFestival } from "./data.ts";
+import type { Entry, Festival, FlatConcert, Gifter, Person } from "./data.ts";
 import { SECTIONS } from "./chat/tools.ts";
 import ChatWidget, { type ChatApi, type ChatSiteContext } from "./chat/ChatWidget.tsx";
 import WishlistAct from "./WishlistAct.tsx";
@@ -11,7 +11,7 @@ import WishlistAct from "./WishlistAct.tsx";
    (FlatConcert): the fields the cross-cutting helpers below read. */
 type Datum = {
   y: number; date: string; venue: string; city: string;
-  cost?: number | "na"; gift?: boolean; accredito?: boolean; from?: "m" | "g"; km?: number;
+  cost?: number | "na"; gift?: boolean; giftFrom?: Gifter; accredito?: boolean; from?: "m" | "g"; km?: number;
   artist?: string; with?: Person[];
   voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na";
 };
@@ -123,6 +123,29 @@ const isCostNa=<T extends {cost?:number|"na"}>(d:T):boolean=>d.cost==="na";
 // gifts, accrediti and unknowns never enter the money stats.
 const isGift=<T extends {gift?:boolean}>(d:T):d is T&{gift:true}=>d.gift===true;
 const isAccredito=<T extends {accredito?:boolean}>(d:T):d is T&{accredito:true}=>d.accredito===true;
+
+// un regalo può avere un mittente (una chiave di GIFTERS): il tooltip lo nomina...
+const giftTitle=<T extends {giftFrom?:Gifter}>(d:T)=>d.giftFrom?"Regalo da "+GIFTERS[d.giftFrom].label:"Regalo";
+/* ...e il suo logo — la favicon del sito di chi ha regalato — sta accanto
+   all'icona del pacchetto: in hover dice "Con il contributo di X", in click
+   porta al sito. Se la favicon non carica (o l'entry non ne ha una) sparisce
+   da sola: resta il solo pacchetto, col nome comunque nel tooltip della
+   cella. */
+function GifterMark({id,size=15}:{id?:Gifter;size?:number}){
+  const [broken,setBroken]=useState(false);
+  if(!id) return null;
+  const g=GIFTERS[id];
+  if(!g.logo||broken) return null;
+  const img=<img className="gifterlogo" src={g.logo} alt={g.label} width={size} height={size} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBroken(true)}/>;
+  const credit="Con il contributo di "+g.label;
+  // il tooltip è CSS (data-tip), non il `title` nativo: compare subito invece che
+  // dopo un secondo. Il title="" serve a zittire quello della cella, che altrimenti
+  // spunterebbe sopra anche qui dentro.
+  const tip={"data-tip":credit,title:"","aria-label":credit} as const;
+  return g.url
+    ? <a className="gifterlink" href={g.url} target="_blank" rel="noreferrer" {...tip}>{img}</a>
+    : <span className="gifterlink" {...tip}>{img}</span>;
+}
 // voto — personal 1..5-star rating, given only after attending. Planned concerts
 // can't have one yet; any past concert without a voto is simply left out of vote stats.
 const hasVoto=<T extends {voto?:number}>(d:T):d is T&{voto:number}=>typeof d.voto==="number";
@@ -1286,7 +1309,7 @@ function ArchiveTable(){
                 <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
                 <td>{hl(c.venue,q)}</td>
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isCostNa(c)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(c)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isCostNa(c)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(c)?<span className="cgift" title={giftTitle(c)}><Icon name="gift" size={17}/><GifterMark id={c.giftFrom}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
@@ -1320,7 +1343,7 @@ function ArchiveTable(){
                   <td className="date">{pl?<span className="d-planned">{ev.date}</span>:<span className="d-past">{ev.date}</span>}</td>
                   <td>{hl(ev.venue,q)}</td>
                   <td className="city"><b>{hl(ev.city,q)}</b></td>
-                  <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title="Regalo"><Icon name="gift" size={17}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title={giftTitle(ev)}><Icon name="gift" size={17}/><GifterMark id={ev.giftFrom}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                   <td className="comment"><CommentCell ev={ev} onOpen={setCommentEv}/></td>

@@ -10,7 +10,7 @@
 
 import { toolDefinition } from "@tanstack/ai";
 import { z } from "zod";
-import { ALLDATA, CANZONI_NOTE_LABELS, VICINANZA_LABELS, flatConcerts, isFestival, type FlatConcert, type Person } from "../data.ts";
+import { ALLDATA, CANZONI_NOTE_LABELS, GIFTERS, VICINANZA_LABELS, flatConcerts, isFestival, type FlatConcert, type Person } from "../data.ts";
 
 // Single source of truth for the page sections (the TOC adds icons on top).
 export const SECTIONS = [
@@ -163,7 +163,7 @@ export const queryConcertsDef = toolDefinition({
       avgVoto: z.number().nullable(),
       avgCanzoniNote: z.number().nullable(),
     })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking. count = concerts; costs = distinct tickets in the group" }),
-    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is Gabri's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
+    concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo[ di CHI]][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is Gabri's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
     concertsTruncated: z.boolean(),
   }),
 });
@@ -255,7 +255,7 @@ export function runConcertQuery(q: ConcertQuery) {
       `${c.date} · ${c.artist}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
       ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
       (typeof c.cost === "number" ? ` · ${c.cost}€` : c.cost === "na" ? " · prezzo non ricordato" : "") +
-      (c.gift ? " · regalo" : "") +
+      (c.gift ? (c.giftFrom ? ` · regalo di ${GIFTERS[c.giftFrom].label}` : " · regalo") : "") +
       (c.accredito ? " · accredito" : "") +
       (typeof c.voto === "number" ? ` · voto ${c.voto}` : "") +
       (typeof c.canzoniNote === "number" ? ` · canzoni note ${CANZONI_NOTE_LABELS[c.canzoniNote]}` : "") +
