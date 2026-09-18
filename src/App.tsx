@@ -138,7 +138,13 @@ function GifterMark({id,size=15}:{id?:Gifter;size?:number}){
   if(!g.logo||broken) return null;
   const img=<img className="gifterlogo" src={g.logo} alt={g.label} width={size} height={size} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBroken(true)}/>;
   const credit="Con il contributo di "+g.label;
-  return g.url?<a className="gifterlink" href={g.url} target="_blank" rel="noreferrer" title={credit} aria-label={credit}>{img}</a>:<span className="gifterlink" title={credit}>{img}</span>;
+  // il tooltip è CSS (data-tip), non il `title` nativo: compare subito invece che
+  // dopo un secondo. Il title="" serve a zittire quello della cella, che altrimenti
+  // spunterebbe sopra anche qui dentro.
+  const tip={"data-tip":credit,title:"","aria-label":credit} as const;
+  return g.url
+    ? <a className="gifterlink" href={g.url} target="_blank" rel="noreferrer" {...tip}>{img}</a>
+    : <span className="gifterlink" {...tip}>{img}</span>;
 }
 // voto — personal 1..5-star rating, given only after attending. Planned concerts
 // can't have one yet; any past concert without a voto is simply left out of vote stats.
