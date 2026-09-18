@@ -993,11 +993,11 @@
   td.cost{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
   td.cost .cval{color:var(--text);font-weight:500}
   td.cost .cgift{color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px}
-  /* logo di chi ha fatto il regalo, accanto al pacchetto: è una favicon, quindi
-     spesso un marchio scuro su trasparente — la pastiglia bianca lo tiene
-     leggibile anche sul tema scuro. */
+  /* logo di chi ha fatto il regalo, accanto al pacchetto: la favicon del suo
+     sito, nuda — niente sfondo né bordo, così il marchio si posa sulla riga
+     come le altre icone della tabella. */
   .gifterlink{display:flex;line-height:0}
-  .gifterlogo{width:15px;height:15px;border-radius:3px;object-fit:contain;flex:0 0 auto;background:#fff;padding:1px;box-shadow:0 0 0 1px var(--line-2)}
+  .gifterlogo{width:15px;height:15px;object-fit:contain;flex:0 0 auto}
   thead th:last-child{text-align:right;padding-right:0}
   td.city b{color:var(--text);font-weight:500}
   td.vic .viccell{color:var(--muted);font-size:.86rem;white-space:nowrap}

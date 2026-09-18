@@ -34,7 +34,7 @@ export type Person = (typeof PEOPLE)[number];
    shown by name alone. The keys are the values `giftFrom` accepts, so a typo
    fails the build. */
 export const GIFTERS = {
-  wiseair: { label: "Wiseair", url: "https://wiseair.vision", logo: "https://wiseair.vision/favicon.ico" },
+  wiseair: { label: "Wiseair", url: "https://wiseair.vision", logo: "https://wiseair.vision/favicon.svg" },
 } as const;
 
 export type Gifter = keyof typeof GIFTERS;
