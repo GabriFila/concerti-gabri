@@ -1998,6 +1998,12 @@ function TocButton(){
   );
 }
 
+/* Gli avvisi di manutenzione sono per definizione rari: quasi sempre le tre
+   liste sono vuote e non si vede niente. Serve però saperlo PRIMA di aprire
+   l'<header>, che ha un padding suo e lascerebbe un buco sopra le KPI anche
+   con dentro tre componenti che rendono null. */
+const anyMissing=()=>FLAT_ALL.some(vicMissing)||FLAT_ALL.some(votoMissing)||ALLDATA.some(fromMissing);
+
 function VicinanzaAlert(){
   // segnala i concerti GIÀ passati a cui non ho ancora assegnato una posizione
   // (per-concerto: anche i singoli set dei festival). i futuri (planned) sono
@@ -2381,8 +2387,11 @@ function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()
 }
 
 /* The full analytics dashboard — the original page, intact, now the "I dati"
-   view. Owner-only maintenance notices are gated behind `owner`. */
-function FullDashboard({owner}: {owner:boolean}){
+   view. Le segnalazioni di dati mancanti compaiono da sole quando ce ne sono,
+   per chiunque apra la pagina: sono un promemoria di data-entry, non un
+   segreto, e nasconderle dietro un flag per-browser voleva dire non vederle
+   proprio dal telefono con cui si torna a casa dal concerto. */
+function FullDashboard(){
   const DATA=useData();
   const CONC=React.useMemo(()=>DATA.flatMap(concertsOf),[DATA]);
   return (<>
@@ -2402,7 +2411,7 @@ function FullDashboard({owner}: {owner:boolean}){
         <span className="fixture f6"></span>
       </div>
       <span className="spot"></span>
-      {owner&&<header><VicinanzaAlert/><VotoAlert/><FromAlert/></header>}
+      {anyMissing()&&<header><VicinanzaAlert/><VotoAlert/><FromAlert/></header>}
       <div id="sec-kpis" className="tocsec"><KPIs/></div>
     </div>
     <main>
@@ -2436,20 +2445,11 @@ function FullDashboard({owner}: {owner:boolean}){
   </>);
 }
 
-/* Owner unlock, captured once at module load — before the router can touch the
-   URL — so ?owner reliably flips the persisted flag regardless of routing. */
-const OWNER_UNLOCKED: boolean = (()=>{
-  try{
-    if(new URLSearchParams(window.location.search).has("owner")){ localStorage.setItem("owner","1"); return true; }
-    return localStorage.getItem("owner")==="1";
-  }catch(e){ return false; }
-})();
+/* Shared page context: the chat opener, provided by the Shell (root route)
+   and consumed by the routed pages. */
+const ShellContext=React.createContext<{openChat:(q?:string)=>void}>({openChat:()=>{}});
 
-/* Shared page context: the owner flag and the chat opener, provided by the
-   Shell (root route) and consumed by the routed pages. */
-const ShellContext=React.createContext<{owner:boolean; openChat:(q?:string)=>void}>({owner:false, openChat:()=>{}});
-
-/* Root route: owns all shared state (filters, theme, chat, owner) and the page
+/* Root route: owns all shared state (filters, theme, chat) and the page
    chrome (theme toggle, the Sul palco / I dati switch, ambient lights, chat,
    bottom bar); the active route renders into <Outlet/>. */
 function Shell(){
@@ -2464,8 +2464,6 @@ function Shell(){
   const pathname=useRouterState({select:s=>s.location.pathname});
   const isDati=pathname.startsWith("/dati");
   const view=isDati?"dati":"ritratto";
-  // owner: unlocks maintenance notices (captured at module load, see OWNER_UNLOCKED)
-  const owner=OWNER_UNLOCKED;
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure;
@@ -2542,7 +2540,7 @@ function Shell(){
     window.addEventListener("scroll",onScroll,{passive:true});
     return ()=>{ window.removeEventListener("scroll",onScroll); clearTimeout(t); root.classList.remove("scrolling"); };
   },[]);
-  const shellCtx=React.useMemo(()=>({owner, openChat:(q?:string)=>chatApi.current?.open(q)}),[owner]);
+  const shellCtx=React.useMemo(()=>({openChat:(q?:string)=>chatApi.current?.open(q)}),[]);
   return (
     <FilterContext.Provider value={filterCtx}>
     <ShellContext.Provider value={shellCtx}>
@@ -2608,8 +2606,7 @@ function SulPalcoPage(){
   return <Ritratto openChat={openChat} onExplore={()=>navigate({to:"/dati"})}/>;
 }
 function DatiPage(){
-  const {owner}=React.useContext(ShellContext);
-  return <FullDashboard owner={owner}/>;
+  return <FullDashboard/>;
 }
 
 const rootRoute=createRootRoute({component:Shell});
