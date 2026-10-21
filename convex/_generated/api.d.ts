@@ -10,6 +10,7 @@
 
 import type * as activity from "../activity.js";
 import type * as agents from "../agents.js";
+import type * as authMcp from "../authMcp.js";
 import type * as chat from "../chat.js";
 import type * as crons from "../crons.js";
 import type * as departures from "../departures.js";
@@ -46,6 +47,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   activity: typeof activity;
   agents: typeof agents;
+  authMcp: typeof authMcp;
   chat: typeof chat;
   crons: typeof crons;
   departures: typeof departures;

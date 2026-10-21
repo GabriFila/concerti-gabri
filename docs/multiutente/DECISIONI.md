@@ -135,6 +135,8 @@ Stato al 2026-10-21: 25 conversazioni nell'indice di produzione
 | `GEMINI_API_KEY` | ✓ | Production + Preview (sensitive) | – |
 | `GEMINI_MODEL` | ✓ (default) | Production + Preview | – |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN_RW` | ✓ | – | – |
+| `CHAT_SERVER_SECRET` | come `CHAT_SERVER_SECRET` (dev) / `…_PREVIEW` | Preview (sensitive); Production allo switch | dev, default preview, `preview/multiutente`; prod allo switch |
+| `AUTH_DEV_OTP=1` | – | – | dev, default preview, `preview/multiutente`; **mai** prod |
 
 ## Da fare allo switch (oltre alla checklist di SPEC.md)
 
@@ -144,6 +146,8 @@ Stato al 2026-10-21: 25 conversazioni nell'indice di produzione
   pronte.
 - Google Auth Platform → Branding: home page e privacy puntano già a
   `concerti.gabrifila.me` (`/privacy` deve esistere).
+- `CHAT_SERVER_SECRET` di produzione: generarlo in fnox (profilo `prod`) e
+  metterlo su Convex prod e su Vercel Production.
 - Resend (se si libera uno slot): dominio `concerti.gabrifila.me` in EU,
   `RESEND_API_KEY` + `EMAIL_FROM` su Convex prod.
 
@@ -173,3 +177,42 @@ Gabri ha approvato `PIANO.md` e tutte le proposte di §12:
   `prod` (`[profiles.prod.secrets]`): non finiscono in `.env.local` né
   nell'ambiente delle sessioni. Servono solo a mano, caricando quel profilo.
   `check-setup` senza profilo prod salta la riga "deploy key prod".
+
+## Fase 3: esiti degli spike e scelte del traguardo 2 (2026-10-21)
+
+- **Convex nelle corsie:** backend locale **anonimo** (agent mode), creato da
+  `scripts/convex-locale.mjs init`; dati in `.convex/local/default`, selezione
+  in `.env.worktree`. `convex dev` riscrive `.env.local`, quindi lo script
+  toglie quelle righe. `scripts/wt.mjs` dà alla CLI un token finto: da un
+  worktree non si raggiunge nessun deployment cloud.
+- **Nominatim dal Convex cloud** (`agile-leopard-908`, runtime predefinito,
+  2026-10-21 23:28): risponde con il nostro User-Agent, niente 403/429; la
+  coda da 1 richiesta al secondo funziona con `setTimeout` (seconda richiesta
+  dopo ~0,8 s), quindi niente `"use node"`. "Forum di Assago" con
+  `layer=poi` restituisce solo una fermata del bus, che il filtro scarta
+  (si ripiega sulla città); "Unipol Forum Assago" dà il POI.
+- **`--preview-run seed:ensure`:** verificato nel sorgente della CLI 1.47 (stesso
+  percorso di `convex run`, con la chiave admin). Scatta solo su una preview
+  **nuova**: `preview/multiutente` esisteva già, quindi il primo seed lì è a mano.
+- **`@types/papaparse`:** la 5.7.0 non esiste su npm, c'è la 5.5.2.
+- **Deroga a §1.13 (`/ingest`):** le `routeRules` filtrano gli header
+  `cookie` e `authorization`, così il cookie di sessione non arriva mai a
+  PostHog. Per questo su Vercel il proxy gira nella funzione (`dub1`) e non
+  nel CDN. Da verificare sulla preview nel traguardo 8.
+- **Venue (contratto cambiato nel traguardo 2):** `search_venue` dà candidati con
+  un `ref`; `add_venue` accetta solo `{ref, name?}` e rilegge coordinate, id
+  OSM e città dalla cache del server. Nessuno può mettere nel catalogo
+  coordinate inventate.
+- **`get_stats`** → `agents:stats` (traguardo 7).
+- **Stesso indirizzo:** un candidato entro 50 m da quello salvato non è una
+  correzione: niente nuovo scarto e nessun limite consumato.
+- **Rischi residui, accettati per ora:**
+  - `add_venue` accetta ancora un nome visualizzato: un utente può dare un nome
+    a un POI reale (con coordinate vere di OpenStreetMap);
+  - chi ha un token agente può aggiungere concerti in posti reali vicini a una
+    casa ipotizzata e leggere i km con lo scarto; l'arrotondamento al km
+    intero limita la precisione a circa 1 km sulle distanze brevi.
+- **Ondata unica:** dopo il traguardo 2, le corsie 3, 4, 8, 5, 7, 6 e lo script
+  di migrazione partono insieme, con i contratti di
+  `docs/multiutente/CONTRATTI-ONDATA.md`; le spec con sessione (`@sessione`)
+  girano all'integrazione.
