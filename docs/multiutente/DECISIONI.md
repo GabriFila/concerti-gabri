@@ -146,3 +146,30 @@ Stato al 2026-10-21: 25 conversazioni nell'indice di produzione
   `concerti.gabrifila.me` (`/privacy` deve esistere).
 - Resend (se si libera uno slot): dominio `concerti.gabrifila.me` in EU,
   `RESEND_API_KEY` + `EMAIL_FROM` su Convex prod.
+
+## Risposte alle domande del piano (2026-10-21)
+
+Gabri ha approvato `PIANO.md` e tutte le proposte di §12:
+1. credito "supporto di Cami" e link Loop: campi facoltativi del profilo, solo su `gabrifila`;
+2. esporta dati: testo degli indirizzi sì, coordinate mai; solo da dashboard;
+3. elimina account: solo da dashboard, mai da un agente;
+4. coordinate di casa nella storia git: per ora si accetta (si tolgono da `CLAUDE.md` al traguardo 9);
+5. Claude.ai/ChatGPT veri sull'MCP: dopo lo switch;
+6. forma neutra: si rivede sugli screenshot;
+7. chat dell'Oracolo in modalità scrittura: private, mai nello storico pubblico;
+8. in produzione si registra solo chi è in `SIGNUP_ALLOWLIST`; dev e preview aperti;
+9. protezione della produzione dagli agenti: fatta subito, vedi sotto;
+10. correzione dell'indirizzo di una partenza al massimo una volta al giorno.
+
+### Protezione della produzione (fatta il 2026-10-21)
+
+- `.claude/settings.json` del repo nega agli agenti i comandi che toccano la
+  produzione: il deploy di Convex, i comandi Convex col flag di produzione, il
+  nome del deployment prod, il profilo fnox `prod`, deploy/promote/rollback di
+  Vercel, i push su `main` e i push forzati. Le regole guardano tutta la riga
+  di comando: un messaggio di commit che cita quei comandi viene bloccato,
+  quindi si committa con `git commit -F <file>`.
+- In fnox `CONVEX_DEPLOY_KEY_PROD` e `BETTER_AUTH_SECRET_PROD` stanno nel profilo
+  `prod` (`[profiles.prod.secrets]`): non finiscono in `.env.local` né
+  nell'ambiente delle sessioni. Servono solo a mano, caricando quel profilo.
+  `check-setup` senza profilo prod salta la riga "deploy key prod".

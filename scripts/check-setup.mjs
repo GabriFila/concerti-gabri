@@ -218,7 +218,8 @@ async function checkConvex(r) {
   // Deploy keys: right kind/target (non-secret prefix), then a read-only call
   // authenticated by the key alone (env list), so a revoked key fails.
   const prodKey = env.CONVEX_DEPLOY_KEY_PROD;
-  if (!prodKey) r("deploy key prod", "KO", "manca CONVEX_DEPLOY_KEY_PROD in fnox");
+  // The prod key lives in the fnox "prod" profile, loaded only on request.
+  if (!prodKey) r("deploy key prod", "SKIP", "nel profilo fnox prod: fnox -P prod exec -- pnpm check:setup");
   else if (keyKind(prodKey) !== `prod:${CONVEX_PROD_DEPLOYMENT}`)
     r("deploy key prod", "KO", `è una chiave "${keyKind(prodKey).split(":")[0]}", non del deployment prod ${CONVEX_PROD_DEPLOYMENT}`);
   else {

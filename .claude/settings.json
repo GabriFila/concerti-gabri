@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(*convex deploy*)",
+      "Bash(*convex*--prod*)",
+      "Bash(*brave-chickadee*)",
+      "Bash(*fnox*-P prod*)",
+      "Bash(*fnox*--profile prod*)",
+      "Bash(*FNOX_PROFILE=prod*)",
+      "Bash(*vercel --prod*)",
+      "Bash(*vercel deploy*)",
+      "Bash(*vercel promote*)",
+      "Bash(*vercel rollback*)",
+      "Bash(*git push*origin main*)",
+      "Bash(*git push*:main*)",
+      "Bash(*git push --force*)",
+      "Bash(*git push -f*)"
+    ]
+  }
+}
