@@ -30,6 +30,9 @@ vince la decisione più recente qui sotto.
   default, `beforeSend` che toglie indirizzi e coordinate.
 - `SENTRY_AUTH_TOKEN` è un Organization Token (solo release/source map): serve
   solo al build Vercel.
+- Impostazione di progetto **Prevent Storing of IP Addresses: ON** (2026-10-21):
+  senza, Sentry salvava l'IP di chi invia l'evento e ne ricavava la città.
+  Su PostHog l'equivalente è *Discard client IP data*.
 
 ## Email (2026-10-21): solo Google per ora
 
