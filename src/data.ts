@@ -1,15 +1,12 @@
 /* ──────────────────────────────────────────────────────────────
-   Concert data. This is the only file to touch for data entry.
+   Dati statici del profilo `gabrifila` (fino al traguardo 2, quando
+   diventano il seed di Convex in shared/seed/gabrifila.ts).
 
-   Model: one ALLDATA row = one EVENT (a ticket, a trip, an evening
-   or a festival weekend). A normal row is an event with one implicit
-   concert, described inline. A festival row instead lists its full
-   sets in `sets`: each entry is a CONCERT with its own artist, with,
-   voto, vicinanza and canzoniNote; the row-level `artist` is then
-   the event name (e.g. "MI AMI 2023") and the per-concert fields
-   stay at the set level (the types forbid mixing the two shapes).
-   Ticket (`cost`/`gift`/`giftFrom`/`accredito`), trip (`from`/`km`),
-   `comments`, `date`, `venue` and `city` always belong to the event.
+   Model: one row = one EVENT (a ticket, a trip, an evening or a festival
+   weekend); see shared/model/concert.ts for Concert / Festival /
+   FestivalConcert. Ticket (`cost`/`gift`/`giftFrom`/`accredito`), trip
+   (`from`/`km`), `comments`, `date`, `venue` and `city` always belong to
+   the event.
 
    Rules enforced by the types (pnpm build fails otherwise):
    - every name in `with` must exist in PEOPLE
@@ -23,103 +20,34 @@
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
+import type { Entry, GifterInfo, LngLat } from "../shared/model/concert.ts";
+import type { DatasetInput } from "../shared/lib/dataset.ts";
+
+// Le scale stanno in shared/model/scale.ts (fonte unica): qui solo riesportate.
+export { CANZONI_NOTE_LABELS, VICINANZA_LABELS } from "../shared/model/scale.ts";
+
 export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Costanza","Dani","Daniela","Davide B","Dicce","Diletta","Ditta","Elena B","Elena G","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco I","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 
 export type Person = (typeof PEOPLE)[number];
 
 /* Chi mi ha regalato il biglietto. A present can come from a company or from a
    person, and the giver gets its own logo next to the gift icon in the archive.
-   This is the single source of that label/logo (App.tsx reads it, like
-   VICINANZA_LABELS); `logo` is a URL and is optional — an entry without one is
-   shown by name alone. The keys are the values `giftFrom` accepts, so a typo
-   fails the build. */
+   `logo` is a URL and is optional — an entry without one is shown by name
+   alone. The keys are the values `giftFrom` accepts, so a typo fails the build. */
 export const GIFTERS = {
   wiseair: { label: "Wiseair", url: "https://wiseair.vision", logo: "https://wiseair.vision/favicon.svg" },
-} as const;
+} as const satisfies Record<string, GifterInfo>;
 
 export type Gifter = keyof typeof GIFTERS;
 
-// The per-concert facts — what makes a concert a concert, independent of the
-// ticket/trip/place. A standalone show carries these inline (see Concert); a
-// festival carries one of these per set in its `concerts` array.
-interface ConcertFacts {
-  artist: string;
-  with: Person[];
-  voto?: 1 | 2 | 3 | 4 | 5;
-  vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; // how close to the stage, HIGHER = CLOSER: 6 Transenna .. 1 Anello alto, see VICINANZA_LABELS; absent = not yet defined (future events)
-  canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na"; // "Canzoni note": share of the setlist already known, see CANZONI_NOTE_LABELS; "na" = can't recall; absent = not yet defined (future events)
-}
+/* Partenze dei viaggi: chiave di `from` → nome pubblico (quello che l'archivio
+   mostra in "~N km da Milano"). Nessuna coordinata: i km sono già nei dati. */
+export const DEPARTURES = { m: "Milano", g: "Genova" } as const;
 
-// The event facts — one ticket, one trip, one place/date.
-interface EventInfo {
-  y: number;
-  date: string; // "dd/mm/yyyy"; multi-day: "30–31/03/2017"
-  venue: string;
-  city: string;
-  cost?: number | "na"; // euros — the ticket; "na" = paid, but the price can't be recalled (kept out of the money stats, like an unknown); absent = not yet defined
-  gift?: boolean;
-  giftFrom?: Gifter; // who the present came from, a key of GIFTERS — only meaningful together with `gift: true`; absent = a gift with no giver recorded
-  accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
-  from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
-  km?: number; // one-way trip km, precomputed offline (recipe in CLAUDE.md) — set together with `from`; reuse the value of an existing (from, venue) pair. Never derive it in app code: home coordinates must not ship in the bundle.
-  comments?: string; // free-text memory of the evening (a festival comment covers the whole weekend, not one set). Shown in the "I miei commenti" card and behind the archive's Commenti button; absent/empty = nothing written.
-}
+export type Departure = keyof typeof DEPARTURES;
 
-// The unit. A single concert that is also its own event: it carries both the
-// per-concert facts and the ticket/trip/place inline. This is the common row.
-export interface Concert extends ConcertFacts, EventInfo {}
-
-// One concert inside a festival: per-concert facts, plus its own day for a
-// multi-day event (absent = the festival's date).
-export interface FestivalConcert extends ConcertFacts {
-  date?: string; // "dd/mm/yyyy"
-}
-
-// The only kind of event: one ticket/trip bundling SEVERAL concerts. The
-// tuple ([a, b, ...rest]) forces at least two — a single-concert event is
-// unrepresentable, so it can only ever be a plain Concert.
-export interface Festival extends EventInfo {
-  name: string; // e.g. "MI AMI 2026"
-  concerts: [FestivalConcert, FestivalConcert, ...FestivalConcert[]]; // in lineup order
-}
-
-// A row of ALLDATA is either a standalone Concert or a Festival.
-export type Entry = Concert | Festival;
-
-export const isFestival = (e: Entry): e is Festival => "concerts" in e;
-
-/* A concert flattened out of its row: per-concert facts plus the event context
-   (place, date). Ticket/trip fields are present only when the concert IS
-   its own event — a festival concert has no price or km of its own, so
-   cost-based stats skip it. `ev` points back to the owning row (a Concert is
-   its own event) for anything event-scoped (dedup, money, trips, `comments`). */
-export interface FlatConcert extends ConcertFacts {
-  y: number;
-  date: string; // the concert's own day when known, else the row date
-  venue: string;
-  city: string;
-  cost?: number | "na";
-  gift?: boolean;
-  giftFrom?: Gifter;
-  accredito?: boolean;
-  from?: "m" | "g";
-  km?: number;
-  ev: Entry;
-}
-
-export const concertsOf = (e: Entry): FlatConcert[] =>
-  isFestival(e)
-    ? e.concerts.map(c => ({ y: e.y, date: c.date || e.date, artist: c.artist, venue: e.venue, city: e.city, with: c.with, voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, ev: e }))
-    : [{ y: e.y, date: e.date, artist: e.artist, venue: e.venue, city: e.city, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, giftFrom: e.giftFrom, accredito: e.accredito, from: e.from, km: e.km, ev: e }];
-
-export const flatConcerts = (data: Entry[]): FlatConcert[] => data.flatMap(concertsOf);
-
-export const CANZONI_NOTE_LABELS = { 1: "Nessuna", 2: "Poche", 3: "Circa metà", 4: "Molte", 5: "Tutte" } as const;
-
-/* `vicinanza` — quanto sono vicino al palco. La scala sale col vantaggio, come
-   voto e canzoni note: 6 = transenna (il massimo), 1 = anello alto (il minimo),
-   così un numero più alto è sempre "meglio" e i grafici salgono nel verso giusto. */
-export const VICINANZA_LABELS = { 6: "Transenna", 5: "Sottopalco", 4: "Centro", 3: "Fondo", 2: "Tribuna", 1: "Anello alto" } as const;
+/** Una riga dei dati di gabrifila, coi nomi ristretti al vocabolario qui sopra. */
+export type StaticEntry = Entry<Person, Gifter, Departure>;
 
 /* ── La lista dei desideri ─────────────────────────────────────
    Artisti che sogno di vedere, tenuti FUORI da ALLDATA: un desiderio non ha
@@ -142,7 +70,7 @@ export const WISHLIST: string[] = [
   "Rancore",
 ];
 
-export const ALLDATA: Entry[] = [
+export const ALLDATA: StaticEntry[] = [
   {y:2017,date:"30/03/2017",artist:"2CELLOS",venue:"Mediolanum Forum",city:"Assago",with:["Alessia P","Enrico A","Davide B"],cost:36.6575,vicinanza:1,voto:3,canzoniNote:"na",from:"g",km:133},
   {y:2017,date:"25/05/2017",artist:"Marco Masini",venue:"Politeama Genovese",city:"Genova",with:["Silvia P"],cost:45.62,vicinanza:5,voto:3,canzoniNote:"na",from:"g",km:2},
   {y:2017,date:"10/07/2017",artist:"Imagine Dragons",venue:"Arena di Verona",city:"Verona",with:["Marco D","Fra G","Isabel C"],cost:48,vicinanza:1,voto:4,canzoniNote:"na",from:"g",km:238},
@@ -241,7 +169,7 @@ export const ALLDATA: Entry[] = [
 ];
 
 // [lng, lat]
-export const VENUE_COORDS: Record<string, [number, number]> = {
+export const VENUE_COORDS: Record<string, LngLat> = {
   "Alcatraz":[9.1826,45.4945],
   "Apollo Club":[9.1789,45.4432],
   "Arci Bellezza":[9.195,45.4487],
@@ -283,7 +211,7 @@ export const VENUE_COORDS: Record<string, [number, number]> = {
 };
 
 // [lng, lat]
-export const CITY_COORDS: Record<string, [number, number]> = {
+export const CITY_COORDS: Record<string, LngLat> = {
   "Assago":[9.1313,45.4052],"Genova":[8.9339,44.4073],"Verona":[10.9930,45.4380],
   "Milano":[9.1900,45.4640],"Brno":[16.6113,49.1922],"Saluzzo":[7.4942,44.6843],
   "Firenze":[11.2560,43.7700],"Lido di Camaiore":[10.2287,43.8933],"Lucca":[10.5030,43.8430],
@@ -291,4 +219,17 @@ export const CITY_COORDS: Record<string, [number, number]> = {
   "Rho":[9.0463,45.531],
   "Roma":[12.4829,41.8933],
   "Venaria Reale":[7.6230,45.1280],
+};
+
+/** Il profilo statico del traguardo 1 (da Convex dal traguardo 2). */
+export const GABRIFILA = { handle: "gabrifila", displayName: "Gabri" } as const;
+
+/** Tutto quello che serve a buildDataset() per la pagina di gabrifila. */
+export const GABRIFILA_INPUT: DatasetInput = {
+  entries: ALLDATA,
+  gifters: GIFTERS,
+  departures: DEPARTURES,
+  venueCoords: VENUE_COORDS,
+  cityCoords: CITY_COORDS,
+  wishlist: WISHLIST,
 };

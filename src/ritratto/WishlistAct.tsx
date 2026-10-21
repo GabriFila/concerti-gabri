@@ -1,18 +1,19 @@
-import { WISHLIST } from "./data.ts";
-import "./wishlist.css";
+import { useDataset } from "../profile/ProfileContext.tsx";
 
 /* ============================================================
    LA LISTA DEI DESIDERI — il muro dei biglietti.
    Ogni artista che sogno di vedere è un biglietto mai comprato, appeso un
    po' storto a una bacheca: solo il nome, niente punteggi né note. Toccalo
    e l'Oracolo cerca se è in tour (openChat apre la chat e invia la
-   domanda). Quando un desiderio si avvera, la riga si toglie da WISHLIST e
-   il concerto entra in ALLDATA come tutti gli altri.
-   Un atto autonomo del Ritratto: App.tsx lo monta tra "E adesso?" e
-   "L'Oracolo". Vive tutto in questo file + wishlist.css.
+   domanda). Quando un desiderio si avvera, la riga si toglie dalla wishlist
+   del profilo e il concerto entra nei dati come tutti gli altri.
+   Un atto autonomo del Ritratto: Ritratto.tsx lo monta tra "E adesso?" e
+   "L'Oracolo". Vive tutto in questo file + wishlist.css (collegato nel
+   <head> dalla route di root, così l'SSR non ha flash di stile).
    ============================================================ */
 
 export default function WishlistAct({Act,cue,openChat}:{Act:any;cue:any;openChat?:(q?:string)=>void}){
+  const WISHLIST=useDataset().wishlist;
   if(!WISHLIST.length) return null;
   return (
     <Act className="rt-ticketact" cue={cue}>

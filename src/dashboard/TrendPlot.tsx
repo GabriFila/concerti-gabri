@@ -3,12 +3,13 @@
    che non è SVG scritto a mano: serve zoom a due dita e scorrimento
    a un dito, e quello lo dà ECharts (dataZoom "inside").
 
-   Vive in un modulo a parte apposta: App.tsx lo importa con
-   React.lazy, così `echarts` finisce in un chunk suo e il resto
-   della dashboard non se lo porta dietro.
+   Vive in un modulo a parte apposta: TrendCard lo importa con
+   React.lazy dentro <ClientOnly>, così `echarts` finisce in un chunk
+   suo, il resto della dashboard non se lo porta dietro e l'SSR non lo
+   esegue mai (legge getComputedStyle già nel primo render).
 
    Qui dentro sta solo la resa: i punti (già filtrati, già scelti
-   per proprietà) arrivano da App.tsx come props.
+   per proprietà) arrivano da TrendCard come props.
    ────────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -19,14 +20,12 @@ import { CanvasRenderer } from "echarts/renderers";
 
 echarts.use([LineChart, GridComponent, DataZoomInsideComponent, CanvasRenderer]);
 
-/* Un punto sul grafico: un concerto (voto/vicinanza/canzoni note) o un
-   biglietto (costo/km) — chi chiama ha già scelto l'unità giusta. Niente
-   artista né venue: il grafico non li mostra, qui conta solo la forma. */
-export interface TrendPoint {
-  t: number;        // giorno dell'evento, timestamp a mezzanotte locale
-  v: number;        // valore della proprietà scelta
-  planned: boolean; // in programma (non ancora avvenuto)
-}
+/* Un punto sul grafico (shared/lib/trend.ts): un concerto (voto/vicinanza/
+   canzoni note) o un biglietto (costo/km) — chi chiama ha già scelto l'unità
+   giusta. Niente artista né venue: il grafico non li mostra, qui conta solo
+   la forma. */
+import type { TrendPoint } from "../../shared/lib/trend.ts";
+export type { TrendPoint };
 
 export interface TrendPlotProps {
   points: TrendPoint[];

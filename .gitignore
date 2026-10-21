@@ -15,5 +15,18 @@ preview-shots/
 *.local
 *.tsbuildinfo
 
-# Vercel CLI (vercel link)
+# Vercel CLI (vercel link) and the Vercel build output
 .vercel
+
+# TanStack Start / Nitro build output (local node-server preset) and caches
+.output/
+.nitro/
+.tanstack/
+
+# Convex local deployments (one per worktree)
+.convex/
+
+# Playwright
+test-results/
+playwright-report/
+e2e-shots/

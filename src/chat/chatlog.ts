@@ -1,7 +1,11 @@
 /* ──────────────────────────────────────────────────────────────
-   Chat transcript log — shared between the two Netlify functions
-   (chat.mts writes it, chat-history.mts reads it). Nothing here is
-   imported by browser code.
+   Chat transcript log of the Netlify era (Upstash Redis). Since the
+   move to TanStack Start only the pure helpers are used, by
+   src/server/oracolo/validate.ts (thread id and author checks); the
+   Redis layout below is what scripts/migra-storico-chat.mjs will read
+   (traguardo 9) before history moves to Convex (traguardo 6). The
+   origin allowlist now lives in src/server/oracolo/origins.ts. Nothing
+   here is imported by browser code.
 
    Redis layout: one JSON blob per conversation under
    `concerti:chat:log:<threadId>` (TTL-bounded), a sorted-set index
@@ -75,9 +79,6 @@ export const THREAD_ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
 const RESERVED_THREAD_IDS = new Set(["titles", "authors", "preview"]);
 export const isValidThreadId = (id: string) =>
   THREAD_ID_RE.test(id) && !RESERVED_THREAD_IDS.has(id);
-
-// Same origin allowlist for both chat functions.
-export const ALLOWED_ORIGINS = /^https?:\/\/(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|concerti\.gabrifila\.me|[a-z0-9-]+\.netlify\.app)$/i;
 
 /** What chat.mts stores per conversation. `ip` is for abuse review only
     and must never be returned to the browser. */

@@ -4,10 +4,18 @@
   "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@11.28.6",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "vite dev",
+    "build": "vite build && tsc -b",
+    "build:lock": "flock /tmp/concerti-build.lock env NODE_OPTIONS=--max-old-space-size=3072 pnpm build",
     "preview": "vite preview",
+    "e2e": "node scripts/e2e.mjs",
+    "e2e:preview": "node scripts/e2e.mjs --project=preview",
+    "parita:main": "node scripts/parita-main.mjs",
+    "vitest:lock": "flock /tmp/concerti-vitest.lock vitest run",
     "check:setup": "node scripts/check-setup.mjs"
   },
   "dependencies": {
@@ -18,22 +26,28 @@
     "@tanstack/ai-client": "^0.20.0",
     "@tanstack/ai-gemini": "^0.19.1",
     "@tanstack/ai-react": "^0.16.4",
-    "@tanstack/react-router": "^1.170.18",
+    "@tanstack/react-router": "1.170.45",
+    "@tanstack/react-start": "1.169.3",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "convex": "^1.47.0",
     "echarts": "^6.1.0",
     "fuse.js": "^7.4.2",
+    "nitro": "3.0.260903-beta",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@types/node": "^26.1.1",
+    "@types/pngjs": "6.0.5",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
-    "playwright-core": "^1.62.0",
+    "pixelmatch": "8.0.0",
+    "playwright-core": "1.62.1",
+    "pngjs": "7.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.1.4",
     "vitest": "^5.0.5"

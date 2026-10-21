@@ -1557,3 +1557,11 @@
   }
 
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* ============ 404 ============
+     Un handle che non esiste o un indirizzo sbagliato: la stessa stanza buia,
+     un titolo e la strada per tornare ai concerti. */
+  .notfound{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:48px 24px;text-align:center}
+  .notfound-h{font-family:'Fraunces',serif;font-weight:500;font-size:clamp(1.8rem,5vw,2.6rem);margin:0;color:var(--text)}
+  .notfound .desc{margin:0;max-width:44ch}
+  .notfound-link{color:var(--lamp);text-decoration:none;border-bottom:1px solid var(--lamp-soft);padding-bottom:2px}

@@ -1,53 +1,66 @@
 /* ──────────────────────────────────────────────────────────────
    "L'Oracolo" — the AI chat widget: trigger button (lives in the
-   bottom bar) plus the chat modal. Talks to /api/chat (Netlify
-   function) via the
-   TanStack AI SSE connection; filter/navigation tool calls from
-   the model run here in the browser through the `ctx` callbacks
-   that App provides (they own the real filter state).
+   bottom bar) plus the chat modal. Talks to /api/chat (Start server
+   route, logic in src/server/oracolo/) via the TanStack AI SSE
+   connection; filter/navigation/theme tool calls from the model run
+   here in the browser through the `ctx` callbacks that the Shell
+   provides (it owns the real filter and theme state).
 
-   Each conversation gets its own thread id (the server keys the
-   Redis transcript log on it, see netlify/functions/chat.mts) and
-   a secret write key: the id is public, the key stays in this
-   browser's localStorage and is sent with every message — the
-   server refuses to continue a thread without the matching key.
-   "Nuova chat" rotates both.
+   Each conversation gets its own thread id and a secret write key:
+   the id is public, the key stays in this browser's localStorage and
+   is sent with every message. "Nuova chat" rotates both.
 
-   The history button shows two tabs backed by /api/chat/history
-   (chat-history.mts): "Le mie" (threads whose write key this
-   device holds — continuable, resumed by rebuilding the chat
-   client with initialMessages) and "Tutte" (every visitor's chats,
-   public by design — read-only viewer for the ones you don't own).
+   The history button shows two tabs backed by /api/chat/history:
+   "Le mie" (threads whose write key this device holds — continuable,
+   resumed by rebuilding the chat client with initialMessages) and
+   "Tutte" (every visitor's chats, public by design — read-only viewer
+   for the ones you don't own). Until the history moves to Convex
+   (traguardo 6) that endpoint answers 503 and the tabs say so.
+
+   SSR: localStorage is read only in effects (the modal is closed on the
+   server anyway), and a shared `?chat=<id>` link is read from the
+   router's search, then dropped from the URL with a router navigation.
    ────────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useChat, fetchServerSentEvents } from "@tanstack/ai-react";
 import { createChatClientOptions } from "@tanstack/ai-client";
-import { setFiltersDef, clearFiltersDef, goToSectionDef, setThemeDef, SECTIONS } from "./tools.ts";
+import { SECTIONS } from "../../shared/sections.ts";
+import { useDataset } from "../profile/ProfileContext.tsx";
+import type { Tema } from "../theme/tema.ts";
+import { chatToolDefs, type ChatVocab } from "./tools.ts";
 
-export type ThemeMode = "dark" | "light" | "system";
+export type ThemeMode = Tema;
 
-/* Implemented by App, which owns filters, the theme and the page. */
+/* Implemented by the Shell, which owns filters, the theme and the page. */
 export interface ChatSiteContext {
   applyFilters(input: any): { matchCount: number; summary: string };
   clearFilters(): { matchCount: number };
   goToSection(id: string): { ok: boolean; label: string };
-  setTheme(theme: ThemeMode): { ok: boolean; theme: ThemeMode };
+  setVisitorTheme(theme: ThemeMode): { ok: boolean; theme: ThemeMode };
 }
 
-const setFiltersTool = setFiltersDef.client<ChatSiteContext>((input, c) => {
-  const r = c.context.applyFilters(input);
-  return { ok: true, matchCount: r.matchCount, summary: r.summary };
-});
-const clearFiltersTool = clearFiltersDef.client<ChatSiteContext>((_input, c) => {
-  return { ok: true, matchCount: c.context.clearFilters().matchCount };
-});
-const goToSectionTool = goToSectionDef.client<ChatSiteContext>((input, c) => {
-  return c.context.goToSection(input.section);
-});
-const setThemeTool = setThemeDef.client<ChatSiteContext>((input, c) => {
-  return c.context.setTheme(input.theme);
-});
+/* The client half of the tools: same definitions (and enums) as the server,
+   built from the profile's vocabulary, with the browser-side execution. */
+function clientTools(vocab: ChatVocab) {
+  const d = chatToolDefs(vocab);
+  return [
+    d.setFiltersDef.client<ChatSiteContext>((input, c) => {
+      const r = c.context.applyFilters(input);
+      return { ok: true, matchCount: r.matchCount, summary: r.summary };
+    }),
+    d.clearFiltersDef.client<ChatSiteContext>((_input, c) => {
+      return { ok: true, matchCount: c.context.clearFilters().matchCount };
+    }),
+    d.goToSectionDef.client<ChatSiteContext>((input, c) => {
+      return c.context.goToSection(input.section);
+    }),
+    d.setVisitorThemeDef.client<ChatSiteContext>((input, c) => {
+      return c.context.setVisitorTheme(input.theme);
+    }),
+  ];
+}
 
 const SUGGESTIONS = [
   "Quanto ha speso Gabri in concerti nel 2025?",
@@ -56,7 +69,7 @@ const SUGGESTIONS = [
   "Portami alla mappa",
 ];
 
-const SECTION_LABEL = Object.fromEntries(SECTIONS.map(s => [s.id, s.label]));
+const SECTION_LABEL: Record<string, string> = Object.fromEntries(SECTIONS.map(s => [s.id, s.label]));
 
 // randomUUID needs a secure context (https/localhost); fall back to the
 // same shape TanStack generates so the server-side key stays valid.
@@ -133,7 +146,7 @@ function ToolChip({ part }: { part: any }) {
     const label = SECTION_LABEL[part.input?.section] || "sezione";
     text = done ? `Pagina portata su “${label}”` : "Scorro la pagina…";
     icon = "→";
-  } else if (part.name === "set_theme") {
+  } else if (part.name === "set_visitor_theme") {
     const label = THEME_LABEL[part.input?.theme] || part.input?.theme || "tema";
     text = done ? `Tema impostato: ${label}` : "Cambio il tema…";
     hint = false; // the new theme is already visible, chat included
@@ -231,12 +244,18 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // id + threadId together: useChat only rebuilds its client when `id`
-  // changes, so rotating both is what actually starts a new thread.
+  // changes, so rotating both is what actually starts a new thread. (The ids
+  // never reach the HTML: the modal is closed on the server.)
   const [thread, setThread] = useState(() => ({ id: randomId(), key: randomId() }));
-  const [name, setName] = useState<string>(loadName);
+  // localStorage is read after mount, never during render (SSR)
+  const [name, setName] = useState<string>("");
   const [view, setView] = useState<"chat" | "history" | "viewer">("chat");
   const [histTab, setHistTab] = useState<"mine" | "all">("mine");
-  const [owned, setOwned] = useState<OwnedThread[]>(loadOwned);
+  const [owned, setOwned] = useState<OwnedThread[]>([]);
+  const [stored, setStored] = useState(false); // name + owned threads read from localStorage
+  useEffect(() => { setName(loadName()); setOwned(loadOwned()); setStored(true); }, []);
+  const vocab = useDataset().vocab;
+  const tools = useMemo(() => clientTools(vocab), [vocab]);
   const [publicThreads, setPublicThreads] = useState<PublicThread[] | null>(null); // null = not loaded yet
   // transcript fetched from the server, applied only while its id is current
   const [resume, setResume] = useState<{ id: string; messages: any[] } | null>(null);
@@ -250,13 +269,13 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
   const author = name.trim();
   const chatOptions = useMemo(() => createChatClientOptions({
     connection: fetchServerSentEvents("/api/chat"),
-    tools: [setFiltersTool, clearFiltersTool, goToSectionTool, setThemeTool],
+    tools,
     context: ctx,
     id: thread.id,
     threadId: thread.id,
     forwardedProps: { writeKey: thread.key, ...(author && { author }) },
     ...(resume?.id === thread.id && { initialMessages: resume.messages }),
-  }), [ctx, thread, resume, author]);
+  }), [ctx, tools, thread, resume, author]);
   const { messages, sendMessage, isLoading, error, clear } = useChat(chatOptions);
   const uiError = friendlyError(error);
 
@@ -350,17 +369,23 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     shareTimer.current = window.setTimeout(() => setShared(false), 1500);
   };
 
-  // opened via a shared link? load that thread (owned → continue, else viewer)
+  // opened via a shared link? load that thread (owned → continue, else viewer),
+  // then drop ?chat from the URL through the router (keeping the rest)
+  const navigate = useNavigate();
+  const sharedChat = useRouterState({ select: s => (s.location.search as Record<string, unknown>).chat });
   useEffect(() => {
-    const id = new URLSearchParams(location.search).get("chat");
-    if (!id) return;
-    const u = new URL(location.href);
-    u.searchParams.delete("chat");
-    history.replaceState(null, "", u.pathname + u.search + u.hash);
+    const id = typeof sharedChat === "string" || typeof sharedChat === "number" ? String(sharedChat) : "";
+    if (!id || !stored) return; // wait for the owned threads: an owned link resumes the chat
+    void navigate({
+      to: ".",
+      search: (prev: Record<string, unknown>) => { const { chat: _drop, ...rest } = prev; return rest; },
+      hash: (h: string) => h,
+      replace: true,
+    } as any);
     setOpen(true);
     void openThread(id, "Chat");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sharedChat, stored]);
 
   const startNewChat = () => {
     clear();
