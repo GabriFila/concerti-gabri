@@ -14,3 +14,6 @@ preview-shots/
 .DS_Store
 *.local
 *.tsbuildinfo
+
+# Vercel CLI (vercel link)
+.vercel

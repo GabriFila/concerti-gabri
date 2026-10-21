@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "packageManager": "pnpm@11.12.0",
+  "packageManager": "pnpm@11.28.6",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -20,6 +20,7 @@
     "@tanstack/react-router": "^1.170.18",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
+    "convex": "^1.47.0",
     "echarts": "^6.1.0",
     "fuse.js": "^7.4.2",
     "react": "^19.2.7",
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "playwright-core": "^1.62.0",
     "typescript": "^7.0.2",
-    "vite": "^8.1.4"
+    "vite": "^8.1.4",
+    "vitest": "^5.0.5"
   }
 }
