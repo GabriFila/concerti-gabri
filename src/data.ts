@@ -57,7 +57,7 @@ interface EventInfo {
   venue: string;
   city: string;
   cost?: number | "na"; // euros — the ticket; "na" = paid, but the price can't be recalled (kept out of the money stats, like an unknown); absent = not yet defined
-  gift?: boolean;
+  gift?: boolean; // a present; together with a `cost` number = bought with a gift voucher (the cost is what I paid, shown after the gift icon and counted as spent)
   giftFrom?: Gifter; // who the present came from, a key of GIFTERS — only meaningful together with `gift: true`; absent = a gift with no giver recorded
   accredito?: boolean; // guest list/press pass: free entry, but not a present — excluded from money stats like gifts
   from?: "m" | "g"; // trip origin (home base): "m" = Milano, "g" = Genova; can be filled in later; absent = not yet defined
@@ -234,7 +234,7 @@ export const ALLDATA: Entry[] = [
   {y:2026,date:"12/12/2026",artist:"Madame",venue:"Fabrique",city:"Milano",with:["Cami <3","Fra M"],cost:52,from:"m",km:9},
   {y:2027,date:"10/02/2027",artist:"Margherita Vicario",venue:"Teatro degli Arcimboldi",city:"Milano",with:["Cami <3"],gift:true,giftFrom:"wiseair",from:"m",km:10},
   {y:2027,date:"17/03/2027",artist:"Kaleo",venue:"Fabrique",city:"Milano",with:["Costanza","Diletta"],cost:54.18,from:"m",km:9},
-  {y:2027,date:"03/04/2027",artist:"Gazzelle",venue:"Unipol Dome",city:"Milano",with:["Cami <3"],cost:57.2,from:"m",km:8},
+  {y:2027,date:"03/04/2027",artist:"Gazzelle",venue:"Unipol Dome",city:"Milano",with:["Cami <3"],cost:57.2,gift:true,from:"m",km:8},
   {y:2027,date:"06/06/2027",artist:"Vasco Rossi",venue:"Stadio Olimpico",city:"Roma",with:[],gift:true},
   {y:2027,date:"19/06/2027",artist:"Fontaines D.C.",venue:"Ippodromo Snai San Siro",city:"Milano",with:["Elena G"],cost:71.55,from:"m",km:5},
   {y:2027,date:"23/06/2027",artist:"Olly",venue:"Stadio San Siro",city:"Milano",with:["Cami <3","Marco D","Ludo"],cost:96.12},

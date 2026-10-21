@@ -255,7 +255,7 @@ export function runConcertQuery(q: ConcertQuery) {
       `${c.date} · ${c.artist}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
       ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
       (typeof c.cost === "number" ? ` · ${c.cost}€` : c.cost === "na" ? " · prezzo non ricordato" : "") +
-      (c.gift ? (c.giftFrom ? ` · regalo di ${GIFTERS[c.giftFrom].label}` : " · regalo") : "") +
+      (c.gift ? ` · ${typeof c.cost === "number" ? "buono regalo" : "regalo"}${c.giftFrom ? ` di ${GIFTERS[c.giftFrom].label}` : ""}` : "") +
       (c.accredito ? " · accredito" : "") +
       (typeof c.voto === "number" ? ` · voto ${c.voto}` : "") +
       (typeof c.canzoniNote === "number" ? ` · canzoni note ${CANZONI_NOTE_LABELS[c.canzoniNote]}` : "") +

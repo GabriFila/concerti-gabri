@@ -120,12 +120,15 @@ const hasCost=<T extends {cost?:number|"na"}>(d:T):d is T&{cost:number}=>typeof 
 const isCostNa=<T extends {cost?:number|"na"}>(d:T):boolean=>d.cost==="na";
 // a concert can be: priced (cost number) · a gift (someone paid for it) ·
 // an accredito (guest list/press pass, free entry) · unknown (absent or "na").
-// gifts, accrediti and unknowns never enter the money stats.
+// gifts, accrediti and unknowns never enter the money stats. A gift WITH a cost
+// number is a ticket bought with a gift voucher: what I paid still counts as
+// spent, and the table shows the gift icon in front of the price.
 const isGift=<T extends {gift?:boolean}>(d:T):d is T&{gift:true}=>d.gift===true;
 const isAccredito=<T extends {accredito?:boolean}>(d:T):d is T&{accredito:true}=>d.accredito===true;
 
 // un regalo può avere un mittente (una chiave di GIFTERS): il tooltip lo nomina...
 const giftTitle=<T extends {giftFrom?:Gifter}>(d:T)=>d.giftFrom?"Regalo da "+GIFTERS[d.giftFrom].label:"Regalo";
+const voucherTitle=<T extends {giftFrom?:Gifter}>(d:T)=>d.giftFrom?"Pagato con un buono regalo da "+GIFTERS[d.giftFrom].label:"Pagato con un buono regalo";
 /* ...e il suo logo — la favicon del sito di chi ha regalato — sta accanto
    all'icona del pacchetto: in hover dice "Con il contributo di X", in click
    porta al sito. Se la favicon non carica (o l'entry non ne ha una) sparisce
@@ -1309,7 +1312,7 @@ function ArchiveTable(){
                 <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
                 <td>{hl(c.venue,q)}</td>
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
-                <td className="cost">{hasCost(c)?<span className="cval">{eur2(c.cost)}</span>:isCostNa(c)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(c)?<span className="cgift" title={giftTitle(c)}><Icon name="gift" size={17}/><GifterMark id={c.giftFrom}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="cost">{hasCost(c)?(isGift(c)?<span className="cgift cgiftcost" title={voucherTitle(c)}><Icon name="gift" size={17}/><GifterMark id={c.giftFrom}/><span className="cval">{eur2(c.cost)}</span></span>:<span className="cval">{eur2(c.cost)}</span>):isCostNa(c)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(c)?<span className="cgift" title={giftTitle(c)}><Icon name="gift" size={17}/><GifterMark id={c.giftFrom}/></span>:isAccredito(c)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:fest?<span className="cfestmark" title={"Incluso nel biglietto di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
@@ -1343,7 +1346,7 @@ function ArchiveTable(){
                   <td className="date">{pl?<span className="d-planned">{ev.date}</span>:<span className="d-past">{ev.date}</span>}</td>
                   <td>{hl(ev.venue,q)}</td>
                   <td className="city"><b>{hl(ev.city,q)}</b></td>
-                  <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title={giftTitle(ev)}><Icon name="gift" size={17}/><GifterMark id={ev.giftFrom}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="cost">{hasCost(ev)?(isGift(ev)?<span className="cgift cgiftcost" title={voucherTitle(ev)}><Icon name="gift" size={17}/><GifterMark id={ev.giftFrom}/><span className="cval">{eur2(ev.cost)}</span></span>:<span className="cval">{eur2(ev.cost)}</span>):isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title={giftTitle(ev)}><Icon name="gift" size={17}/><GifterMark id={ev.giftFrom}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {FROM_LABELS[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                   <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                   <td className="comment"><CommentCell ev={ev} onOpen={setCommentEv}/></td>

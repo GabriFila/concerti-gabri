@@ -993,6 +993,7 @@
   td.cost{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
   td.cost .cval{color:var(--text);font-weight:500}
   td.cost .cgift{color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px}
+  td.cost .cgiftcost{justify-content:flex-end}
   /* logo di chi ha fatto il regalo, accanto al pacchetto: la favicon del suo
      sito, nuda — niente sfondo né bordo, così il marchio si posa sulla riga
      come le altre icone della tabella. */
