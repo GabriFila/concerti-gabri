@@ -32,7 +32,7 @@ Questo piano va approvato prima di eseguirlo (PROMPT.md, Fase 3).
   - `multiutente` si pusha dopo ogni traguardo integrato: così la preview valida subito Start e Nitro;
   - i branch `fase3/*` si pushano ogni sera, ma Vercel non li builda (§1.18);
   - niente push su `main`, niente produzione.
-- **Risorse:** su tutta la macchina girano al massimo 3 processi pesanti insieme (§4.4).
+- **Risorse:** nessun tetto fisso al numero di agenti (tolto da Gabri il 2026-10-21). Build, e2e e vitest passano da lock, con una soglia di memoria libera, perché la macchina resta da 4 vCPU e 12 GB (§4.4).
 - **Cosa serve da Gabri:** §12.
 
 ## 1. Scelte fissate dal piano
@@ -342,7 +342,7 @@ T9 (1 agente + orchestratore) ─► giro completo locale + giro completo sulla 
   - Integra, fa i commit, pusha e scrive gli esiti degli spike in `DECISIONI.md`.
 - **Corsie:** un agente per traguardo.
 - **Revisore avversariale:** un agente separato, a contesto pulito.
-- **Limite:** al massimo 3 agenti attivi tra corsie e revisore.
+- **Parallelismo:** tutte le corsie di un'ondata partono insieme, più il revisore. Lo strumento Workflow esegue al massimo 2 agenti alla volta per workflow (min(16, CPU−2) su 4 vCPU), quindi ogni corsia gira nel **proprio** workflow e le corsie di un'ondata sono workflow lanciati in parallelo. Il tetto fisso di 3 agenti è stato tolto (2026-10-21); a serializzare restano solo i lock di §4.4.
 - **Dipendenze:**
   - 5, 6 e 7 hanno bisogno della sessione del traguardo 3;
   - 4 e 8 dipendono da 2, ma le loro spec con sessione (stato proprietario dello switch, cookie di sessione, `identify`) si scrivono dopo il merge di T3, ribasando su `multiutente`;
@@ -392,6 +392,7 @@ T9 (1 agente + orchestratore) ─► giro completo locale + giro completo sulla 
    - Google non accetta `*.localhost`: nelle corsie si entra solo con l'OTP di sviluppo.
    - Il backend locale prende da solo le porte da 3210 in su.
 7. **`.gitignore`:** `.convex/`, `test-results/`, `playwright-report/`, `e2e-shots/`. `.env.worktree` è già coperto da `.env.*`.
+8. **Alternativa al backend locale** (regola di t3node aggiornata il 2026-10-21, https://docs.convex.dev/cli/agent-mode): un deployment **cloud di sviluppo per worktree** con scadenza, `npx convex deployment create <team-slug>:concerti-gabri:dev/fase3-mN --type dev --expiration "in 7 days"`, scritto in `.env.worktree` come sopra. Non tiene un backend acceso sulla macchina, quindi pesa meno in memoria, ma eredita le variabili predefinite dei deployment dev. Lo spike del traguardo 2 sceglie tra le due strade; il controllo di `globalSetup` (punto 5) accetta allora l'URL del deployment della corsia invece di `127.0.0.1`, mai `agile-leopard-908`.
 
 ### 4.4 Risorse
 
@@ -400,7 +401,7 @@ T9 (1 agente + orchestratore) ─► giro completo locale + giro completo sulla 
   - una run Playwright (Chromium più stack);
   - una run Vitest del progetto `convex` (edge-runtime);
   - uno stack acceso (vite dev, `convex dev` e backend locale).
-- **Limite:** al massimo **3 insieme su tutta la macchina**. Contano anche lo stack :3100 dell'orchestratore, quello di `integrazione` e i job del revisore.
+- **Nessun tetto fisso** (tolto il 2026-10-21): i processi pesanti si serializzano con i lock qui sotto, e `pnpm e2e` aspetta la memoria libera. Contano anche lo stack :3100 dell'orchestratore, quello di `integrazione` e i job del revisore.
 - **Lock:**
   - `pnpm build:lock`: `flock /tmp/concerti-build.lock` con `NODE_OPTIONS=--max-old-space-size=3072`;
   - `pnpm e2e`: `flock /tmp/concerti-e2e.lock`; aspetta finché `MemAvailable` non arriva a 3 GB;
@@ -1736,7 +1737,7 @@ Si fanno all'inizio del traguardo indicato. La corsia riporta l'esito e l'orches
 | Parità pixel instabile | `reducedMotion`, orologio congelato, maschere; il cancello vero sono i testi dei KPI |
 | Nominatim blocca gli IP AWS di Convex | `NOMINATIM_URL` intercambiabile, errore "riprova", cache delle venue |
 | La rewrite CDN di `/ingest` perde l'IP | verifica sulla preview; in alternativa proxy via funzione con `X-Forwarded-For` |
-| OOM con le corsie | §4.4: lock su build, e2e e vitest; nessun server acceso a vuoto; soglia di `MemAvailable`; massimo 3 processi pesanti |
+| OOM con le corsie | §4.4: lock su build, e2e e vitest; nessun server acceso a vuoto; soglia di `MemAvailable` |
 | Iscrizioni aperte che consumano le quote condivise | allowlist (domanda 8), riserva dell'Oracolo per `gabrifila`, limiti per profilo |
 | Connettori Claude.ai/ChatGPT veri non raggiungibili | Claude Code su t3node; i test reali dopo lo switch |
 

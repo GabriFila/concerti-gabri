@@ -15,7 +15,29 @@
       "Bash(*git push*origin main*)",
       "Bash(*git push*:main*)",
       "Bash(*git push --force*)",
-      "Bash(*git push -f*)"
+      "Bash(*git push -f*)",
+      "Bash(*pgrep -a*)",
+      "Bash(*pgrep -fa*)",
+      "Bash(*pgrep -af*)",
+      "Bash(*pgrep -l*)",
+      "Bash(*ps aux*)",
+      "Bash(*ps -ef*)",
+      "Bash(*ps -f*)",
+      "Bash(*ps -e*)",
+      "Bash(*ps -A*)",
+      "Bash(*ps ax*)",
+      "Bash(*ps -o*)",
+      "Bash(*ps -p*)",
+      "Bash(*/proc/*/cmdline*)",
+      "Bash(*/proc/*/environ*)",
+      "Bash(printenv*)",
+      "Bash(env)",
+      "Bash(env | *)",
+      "Bash(export -p*)",
+      "Bash(declare -x*)",
+      "Bash(declare -p*)",
+      "Bash(set)",
+      "Bash(set | *)"
     ]
   }
 }
