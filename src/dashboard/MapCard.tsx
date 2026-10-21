@@ -13,6 +13,14 @@ import { Icon } from "../ui/Icon.tsx";
    ============================================================ */
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN ?? "";
 
+/** Un elemento con classe e testo (mai HTML): i mattoni del popup della mappa. */
+function el(tag:string,className:string,text?:string){
+  const n=document.createElement(tag);
+  n.className=className;
+  if(text!==undefined) n.textContent=text;
+  return n;
+}
+
 // framing used both for the initial map view and for the "Adatta" button
 const MAP_FIT_OPTS={padding:60,maxZoom:11};
 
@@ -276,9 +284,22 @@ export function MapCard(){
         const isVenue = mode==="venue";
         let items:any[]=[];
         try{ items=JSON.parse(p.items||"[]"); }catch(_){}
-        const list=items.map((it:any)=>`<div class="pv-item"><span class="pv-art">${it.artist}</span><span class="pv-yr ${it.planned?"pv-yr-pl":"pv-yr-past"}">${it.year}</span></div>`).join("");
+        // nodi DOM con textContent, mai setHTML: nomi di venue e artisti sono
+        // dati degli utenti e non devono poter iniettare markup (PIANO §4.7)
+        const root=document.createElement("div");
+        root.append(
+          el("div","pv-name",String(p.name??"")),
+          el("div","pv-meta",isVenue?String(p.city??""):"Città"),
+        );
+        const list=el("div","pv-list");
+        for(const it of items){
+          const row=el("div","pv-item");
+          row.append(el("span","pv-art",String(it.artist??"")),el("span","pv-yr "+(it.planned?"pv-yr-pl":"pv-yr-past"),String(it.year??"")));
+          list.append(row);
+        }
+        root.append(list);
         pop.setLngLat(f.geometry.coordinates)
-           .setHTML(`<div class="pv-name">${p.name}</div><div class="pv-meta">${isVenue?p.city:"Città"}</div><div class="pv-list">${list}</div>`)
+           .setDOMContent(root)
            .addTo(map);
       });
       map.on("mouseenter","c-circles",()=>map.getCanvas().style.cursor="pointer");

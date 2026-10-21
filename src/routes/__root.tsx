@@ -6,18 +6,25 @@
    Il loader gira una volta sola, sul server (shouldReload: false): cattura
    `now` e legge il cookie `tema` (root/rootData.ts). Il risultato arriva al
    client con l'idratazione e non si ricarica a ogni navigazione.
+
+   Il contesto (RouterContext, src/router.tsx) porta i client della
+   richiesta; i provider stanno nello slot root/providers.tsx (traguardo 3)
+   e la pagina d'errore nello slot root/errors.tsx (traguardo 8).
    ────────────────────────────────────────────────────────────── */
 
 import { useEffect, type ReactNode } from "react";
-import { HeadContent, Scripts, ScriptOnce, createRootRoute } from "@tanstack/react-router";
+import { HeadContent, Scripts, ScriptOnce, createRootRouteWithContext } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import wishlistCss from "../wishlist.css?url";
+import { RootError } from "../root/errors.tsx";
+import { RootProviders } from "../root/providers.tsx";
 import { getRootData } from "../root/rootData.ts";
 import { siteTitle } from "../root/title.ts";
 import { NotFound } from "../shell/NotFound.tsx";
 import { SYSTEM_THEME_SCRIPT, ssrDataTheme } from "../theme/tema.ts";
+import type { RouterContext } from "../router.tsx";
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<RouterContext>()({
   loader: () => getRootData(),
   shouldReload: false,
   staleTime: Infinity,
@@ -40,6 +47,7 @@ export const Route = createRootRoute({
   }),
   shellComponent: RootDocument,
   notFoundComponent: NotFound,
+  errorComponent: RootError,
 });
 
 // il saluto in console di main.tsx (commit 41fb6e5): una volta per caricamento,
@@ -62,7 +70,9 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div id="root">{children}</div>
+        <div id="root">
+          <RootProviders>{children}</RootProviders>
+        </div>
         <Scripts />
       </body>
     </html>

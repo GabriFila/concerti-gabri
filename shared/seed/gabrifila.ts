@@ -1,6 +1,7 @@
 /* ──────────────────────────────────────────────────────────────
-   Dati statici del profilo `gabrifila` (fino al traguardo 2, quando
-   diventano il seed di Convex in shared/seed/gabrifila.ts).
+   Dati statici del profilo `gabrifila`: dal traguardo 2 sono il seed di
+   Convex (convex/seed.ts, `seed:ensure`) e la fixture dei test di parità.
+   I dati veri vivono in Convex; questo file non si aggiorna più a mano.
 
    Model: one row = one EVENT (a ticket, a trip, an evening or a festival
    weekend); see shared/model/concert.ts for Concert / Festival /
@@ -20,11 +21,11 @@
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
-import type { Entry, GifterInfo, LngLat } from "../shared/model/concert.ts";
-import type { DatasetInput } from "../shared/lib/dataset.ts";
+import type { Entry, GifterInfo, LngLat } from "../model/concert.ts";
+import type { DatasetInput } from "../lib/dataset.ts";
 
 // Le scale stanno in shared/model/scale.ts (fonte unica): qui solo riesportate.
-export { CANZONI_NOTE_LABELS, VICINANZA_LABELS } from "../shared/model/scale.ts";
+export { CANZONI_NOTE_LABELS, VICINANZA_LABELS } from "../model/scale.ts";
 
 export const PEOPLE=["Alessia P","Amed","Anna DF","Anna M","Annap","Barbi","Bianca","Cami <3","Camilla C","Cate","Costanza","Dani","Daniela","Davide B","Dicce","Diletta","Ditta","Elena B","Elena G","Enrico A","Espi","Fede","Filippo","Fra G","Fra M","Gio Giga","Giorgia B","Giorgia D","Giorgia G","Giulia","Isa","Isabel C","Katarina","Ludo","Mamma","Marco D","Marco I","Marco S","Matilde M","Matteo A","Ornella","Oscar","Perla","Richi","Sammy","Silvia C","Silvia P","Valeria","Waitz"] as const;
 

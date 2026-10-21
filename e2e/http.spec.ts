@@ -7,6 +7,7 @@
    - `/api/chat/history` → 503 fino al traguardo 6;
    - `/api/chat` rifiuta un Origin estraneo prima di chiamare Gemini;
    - le API rispondono 405 ai metodi sbagliati (mai la pagina vuota);
+   - un POST cross-site a una server function → 403 (CSRF di src/start.ts);
    - nel selettore di modalità una sola pagina è quella corrente;
    - il saluto "KAWABANGA!" di main in console, una volta per caricamento;
    - sulla preview, gli header di sicurezza di vercel.json.
@@ -147,6 +148,31 @@ test.describe("API dell'Oracolo", () => {
       if (method !== "HEAD") expect(await res.json()).toEqual({ error: "Method not allowed" });
     });
   }
+});
+
+test.describe("CSRF delle server function (src/start.ts)", () => {
+  // l'id non serve: il middleware CSRF gira prima di cercare la funzione
+  const SERVER_FN = "/_serverFn/csrf-e2e";
+  const post = (baseURL: string | undefined, headers: Record<string, string>) =>
+    call(baseURL, SERVER_FN, { headers, data: {} });
+
+  for (const [caso, headers] of [
+    ["Origin di un altro sito", { origin: "https://evil.example" }],
+    ["Sec-Fetch-Site: cross-site", { "sec-fetch-site": "cross-site", origin: "https://evil.example" }],
+    ["Sec-Fetch-Site: same-site", { "sec-fetch-site": "same-site" }],
+    ["senza Origin né Referer", {}],
+  ] as const) {
+    test(`POST ${caso} → 403`, async ({ baseURL }) => {
+      const res = await post(baseURL, headers);
+      expect(res.status()).toBe(403);
+      expect(await res.text()).toBe("Forbidden");
+    });
+  }
+
+  test("lo stesso POST dalla stessa origine passa il controllo (non è 403)", async ({ baseURL }) => {
+    const res = await post(baseURL, { "sec-fetch-site": "same-origin", origin: new URL(baseURL!).origin });
+    expect(res.status()).not.toBe(403);
+  });
 });
 
 test.describe("header di sicurezza (vercel.json)", () => {

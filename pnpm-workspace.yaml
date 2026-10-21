@@ -3,5 +3,15 @@
 # function works with them skipped — so they stay disabled.
 allowBuilds:
   '@google/genai': false
+  # core-js (via @vercel/og) stampa solo un annuncio
+  core-js: false
   esbuild: true
   protobufjs: false
+
+minimumReleaseAgeExclude:
+  - convex-test@0.0.63
+
+# @convex-dev/better-auth 0.12.5 vuole better-auth >=1.6.11 <1.7 (PIANO §1.1):
+# nessuna dipendenza deve tirare dentro la 1.7.
+overrides:
+  better-auth: 1.6.33

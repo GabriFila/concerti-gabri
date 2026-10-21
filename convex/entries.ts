@@ -1,0 +1,160 @@
+/* ──────────────────────────────────────────────────────────────
+   Concerti e festival del proprietario (PIANO §5.2). Gli input usano i
+   nomi (shared/schema/entry.ts), tradotti in id da convex/lib/refs.ts; i km
+   arrivano da convex/lib/km.ts (coppie per sempre). Ogni scrittura va nel
+   registro nella stessa transazione.
+   ────────────────────────────────────────────────────────────── */
+
+import type { Doc } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
+import { isPlanned, todayKey } from "../shared/lib/dates.ts";
+import {
+  cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertoInput,
+} from "../shared/schema/entry.ts";
+import { istantanea, logActivity } from "./lib/activity.ts";
+import { ownerMutation, ownerQuery } from "./lib/builders.ts";
+import { errore } from "./lib/errors.ts";
+import { campiKm } from "./lib/km.ts";
+import { getOwned, type Owner } from "./lib/owner.ts";
+import {
+  caricaRefs, campiDaInput, esterno, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, venueDa,
+} from "./lib/refs.ts";
+
+const etichetta = (e: { kind: string; artist?: string; name?: string; date: string }) => `${e.kind === "festival" ? e.name : e.artist} (${e.date})`;
+
+/** Un concerto passato senza voto, vicinanza o canzoni note. */
+export function daCompletare(e: Doc<"entries">, today: number): boolean {
+  if (isPlanned(e, today)) return false;
+  const manca = (c: { voto?: number; vicinanza?: number; canzoniNote?: number | string }) =>
+    c.voto === undefined || c.vicinanza === undefined || c.canzoniNote === undefined;
+  return e.kind === "festival" ? (e.concerts ?? []).some(manca) : manca(e);
+}
+
+async function inserisci(ctx: MutationCtx, owner: Owner, campi: Awaited<ReturnType<typeof campiDaInput>>, batchId?: string) {
+  const km = await campiKm(ctx, { profileId: owner.profile._id, departureId: campi.departureId, venueId: campi.venueId });
+  const doc = Object.fromEntries(
+    Object.entries({ ...campi, ...km, profileId: owner.profile._id, updatedAt: Date.now() }).filter(([, x]) => x !== undefined),
+  ) as Omit<Doc<"entries">, "_id" | "_creationTime">;
+  const id = await ctx.db.insert("entries", doc);
+  const nuovo = await ctx.db.get(id);
+  await logActivity(ctx, owner, { op: "create", table: "entries", docId: id, batchId, summary: `aggiunto: ${etichetta(doc)}`, after: istantanea(nuovo) });
+  return { id, kmPending: !!nuovo?.kmPending };
+}
+
+export const list = ownerQuery({
+  catalogOp: "list_concerts",
+  input: elencaConcertiInput,
+  handler: async (ctx, owner, f) => {
+    const today = todayKey(Date.now());
+    let rows = await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", owner.profile._id)).collect();
+    if (f.anno !== undefined) rows = rows.filter(e => e.y === f.anno);
+    if (f.da_completare) rows = rows.filter(e => daCompletare(e, today));
+    const nomi = await nomiPerEsterno(ctx, owner.profile._id, rows);
+    let out = rows.map(e => ({ ...esterno(e, nomi), daCompletare: daCompletare(e, today) }));
+    if (f.artista) {
+      const a = f.artista.toLowerCase();
+      out = out.filter(e =>
+        "concerts" in e ? (e.concerts ?? []).some(c => c.artist.toLowerCase().includes(a)) : (e.artist ?? "").toLowerCase().includes(a),
+      );
+    }
+    return { concerts: out };
+  },
+});
+
+export const get = ownerQuery({
+  catalogOp: "get_concert",
+  input: leggiConcertoInput,
+  handler: async (ctx, owner, { id }) => {
+    const e = await getOwned(ctx, owner, "entries", id);
+    return esterno(e, await nomiPerEsterno(ctx, owner.profile._id, [e]));
+  },
+});
+
+export const add = ownerMutation({
+  catalogOp: "add_concert",
+  input: entryInput,
+  handler: async (ctx, owner, input) => {
+    const refs = await caricaRefs(ctx, owner.profile._id);
+    const campi = await campiDaInput(ctx, refs, input);
+    const { id, kmPending } = await inserisci(ctx, owner, campi);
+    return {
+      id: id as string,
+      ...(kmPending ? { avviso: "departure_address_missing", fix: `/${owner.profile.handle}/modifica#partenze` } : {}),
+    };
+  },
+});
+
+export const update = ownerMutation({
+  catalogOp: "update_concert",
+  input: modificaConcertoInput,
+  handler: async (ctx, owner, { id, patch }) => {
+    const e = await getOwned(ctx, owner, "entries", id);
+    const refs = await caricaRefs(ctx, owner.profile._id);
+    const next: Record<string, unknown> = { ...e };
+    const togli = (k: string, val: unknown) => {
+      if (val === null) delete next[k];
+      else if (val !== undefined) next[k] = val;
+    };
+    if (patch.date !== undefined) Object.assign(next, { date: patch.date, ...tempoDi(patch.date) });
+    if (patch.venue !== undefined || patch.city !== undefined) {
+      const v = await ctx.db.get(e.venueId);
+      next.venueId = await venueDa(ctx, patch.venue ?? v?.name ?? "", patch.city ?? v?.city ?? "");
+    }
+    if (e.kind === "concert") {
+      if (patch.name !== undefined || patch.concerts !== undefined) throw errore("input_non_valido", "name e concerts valgono solo per i festival", { campo: "patch" });
+      togli("artist", patch.artist);
+      if (patch.with !== undefined) next.with = personeDa(refs, patch.with, "patch.with");
+      togli("voto", patch.voto);
+      togli("vicinanza", patch.vicinanza);
+      togli("canzoniNote", patch.canzoniNote);
+    } else {
+      if (patch.artist !== undefined || patch.with !== undefined || patch.voto !== undefined || patch.vicinanza !== undefined || patch.canzoniNote !== undefined) {
+        throw errore("input_non_valido", "in un festival artista, compagni e voti stanno in concerts", { campo: "patch" });
+      }
+      togli("name", patch.name);
+      if (patch.concerts !== undefined) {
+        next.concerts = patch.concerts.map((c, i) => ({
+          cid: e.concerts?.[i]?.cid ?? nuovoCid(),
+          artist: c.artist,
+          with: personeDa(refs, c.with, `patch.concerts.${i}.with`),
+          ...(c.voto !== undefined ? { voto: c.voto } : {}),
+          ...(c.vicinanza !== undefined ? { vicinanza: c.vicinanza } : {}),
+          ...(c.canzoniNote !== undefined ? { canzoniNote: c.canzoniNote } : {}),
+          ...(c.date !== undefined ? { date: c.date } : {}),
+        }));
+      }
+    }
+    togli("cost", patch.cost);
+    togli("gift", patch.gift);
+    togli("accredito", patch.accredito);
+    togli("comments", patch.comments);
+    if (patch.giftFrom !== undefined) togli("giftFromId", patch.giftFrom === null ? null : regaloDa(refs, patch.giftFrom));
+    if (patch.from !== undefined) togli("departureId", patch.from === null ? null : partenzaDa(refs, patch.from));
+    // km: solo se cambiano partenza o venue (la coppia decide, sempre la stessa)
+    if (next.departureId !== e.departureId || next.venueId !== e.venueId) {
+      delete next.km;
+      delete next.kmSource;
+      delete next.kmPending;
+      const km = await campiKm(ctx, { profileId: owner.profile._id, departureId: next.departureId as Doc<"entries">["departureId"], venueId: next.venueId as Doc<"entries">["venueId"] });
+      for (const [k, val] of Object.entries(km)) if (val !== undefined) next[k] = val;
+    }
+    next.updatedAt = Date.now();
+    const { _id, _creationTime, ...doc } = next as Doc<"entries">;
+    void _creationTime;
+    await ctx.db.replace(_id, doc);
+    await logActivity(ctx, owner, { op: "update", table: "entries", docId: e._id, summary: `modificato: ${etichetta(e)}`, before: istantanea(e), after: istantanea(await ctx.db.get(e._id)) });
+    return { id: e._id as string };
+  },
+});
+
+export const remove = ownerMutation({
+  catalogOp: "delete_concert",
+  input: cancellaConcertoInput,
+  handler: async (ctx, owner, { id }) => {
+    const e = await getOwned(ctx, owner, "entries", id);
+    await ctx.db.delete(e._id);
+    // le coppie km restano: riaggiungere il concerto darà lo stesso km
+    await logActivity(ctx, owner, { op: "delete", table: "entries", docId: e._id, summary: `cancellato: ${etichetta(e)}`, before: istantanea(e) });
+    return { ok: true as const };
+  },
+});

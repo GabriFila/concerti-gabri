@@ -5,6 +5,17 @@ description: Collect concert details from Gabri via the questions tool, recap fo
 
 # Adding / updating concert data
 
+## Step 0 — Check the branch
+
+If `src/data.ts` does not exist (the `multiutente` branch and the `fase3/*` lane
+branches), **stop before asking anything**: there the data lives in Convex, and
+`shared/seed/gabrifila.ts` is only the seed and test fixture, so editing it changes
+nothing live (`seed:ensure` skips the entries once the profile has any). Tell Gabri
+that, until the dashboard (milestone 5) and `add_concert` over MCP (milestone 7)
+exist, the concert goes on `main` (production, `src/data.ts`), and ask whether to
+switch to a `main` checkout and run this skill there. Milestone 9 rewrites this
+skill to write through `add_concert`/`update_concert`.
+
 The user (Gabri) logs concerts in `src/data.ts`. When he wants to record a show he
 attended — or fill in the blanks on a future row that has now happened — **do not
 ask for fields free-form and do not make him type a paste-back block**. Use the

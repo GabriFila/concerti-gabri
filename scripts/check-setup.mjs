@@ -12,6 +12,12 @@
                                    google, resend, mapbox, sentry, posthog, gemini, upstash)
      node scripts/check-setup.mjs --skip-events    niente evento Sentry/PostHog né email
      node scripts/check-setup.mjs --to=me@x.it     destinatario dell'email di prova Resend
+     node scripts/check-setup.mjs --preview        solo il deployment preview/multiutente
+                                   (PIANO §1.17, dopo ogni push; lo lancia l'orchestratore):
+                                   esiste, ha le variabili attese (quelle mancanti si
+                                   rimettono per riferimento, mai a video), anche le
+                                   predefinite delle preview, ed è seminato
+                                   (pages.byHandle('gabrifila') non nullo)
 
    Legge l'ambiente del processo e, per quello che manca, `.env.local`
    (su t3node lo scrive t3-env-sync da fnox). Servono le CLI `convex`
@@ -27,7 +33,7 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { resolveMx, resolveTxt } from "node:dns/promises";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -154,7 +160,7 @@ const isHttpsOrLocal = u => u.protocol === "https:" || ["localhost", "127.0.0.1"
 const results = [];
 const add = (service, check, status, reason) => results.push({ service, check, status, reason: scrub(reason ?? "") });
 async function service(name, fn) {
-  if (ONLY && !ONLY.has(keyOf(name))) return;
+  if (ONLY && name !== "Preview" && !ONLY.has(keyOf(name))) return;
   try { await fn((check, status, reason) => add(name, check, status, reason)); }
   catch (err) { add(name, "esecuzione", "KO", `errore inatteso (${err?.name ?? "Error"}): ${err?.message ?? err}`); }
 }
@@ -480,8 +486,98 @@ async function checkUpstash(r) {
     user === "default_ro" ? "sola lettura" : `OK, ma con permessi di scrittura (utente ${user ?? "?"}): scelta di Gabri, lo script di migrazione usa solo letture`);
 }
 
+/* ── --preview: il deployment preview/multiutente (PIANO §1.17) ─── */
+const PREVIEW_DEPLOYMENT = "preview/multiutente";
+/* Le variabili attese sul deployment della preview e da dove si rimettono se
+   mancano: `from` = nome nell'ambiente (fnox), `value` = valore pubblico
+   fisso. Senza fonte (le origini di Better Auth: URL esatti scelti a mano)
+   si segnala soltanto. */
+const PREVIEW_VARS = {
+  BETTER_AUTH_SECRET: { from: "BETTER_AUTH_SECRET_PREVIEW" },
+  SITE_URL: { value: BRANCH_URL },
+  BETTER_AUTH_TRUSTED_ORIGINS: {},
+  GOOGLE_CLIENT_ID: { from: "GOOGLE_CLIENT_ID" },
+  GOOGLE_CLIENT_SECRET: { from: "GOOGLE_CLIENT_SECRET" },
+  CHAT_SERVER_SECRET: { from: "CHAT_SERVER_SECRET" },
+  AUTH_DEV_OTP: { value: "1" },
+};
+/* Anche tra le variabili predefinite delle preview: una preview ricreata da
+   Convex (dopo il periodo di conservazione) le ritrova da sola. */
+const PREVIEW_DEFAULT_VARS = ["CHAT_SERVER_SECRET", "AUTH_DEV_OTP"];
+
+/** Il valore da rimettere per `name`, o null se non c'è una fonte (mai stampato). */
+function previewValue(name) {
+  const src = PREVIEW_VARS[name] ?? {};
+  if (src.value !== undefined) return src.value;
+  if (src.from && env[src.from]) return remember(env[src.from]);
+  return null;
+}
+
+/* `convex env set` / `env default set` da un file temporaneo 600: nessun
+   valore sulla riga di comando, nell'output o nei log. */
+async function setByReference(argv, vars) {
+  const dir = mkdtempSync(join(tmpdir(), "check-setup-env-"));
+  const file = join(dir, "vars.env");
+  try {
+    writeFileSync(file, Object.entries(vars).map(([k, v]) => `${k}=${v}`).join("\n") + "\n", { mode: 0o600 });
+    return await convex([...argv, "--from-file", file]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function checkPreview(r) {
+  const target = ["--deployment", PREVIEW_DEPLOYMENT];
+  // 1. il deployment esiste (e la CLI ci arriva)
+  const list = await convex(["env", "list", "--names-only", ...target]);
+  if (list.code !== 0) { r("deployment", "KO", `${PREVIEW_DEPLOYMENT}: ${firstLine(list.stderr || list.stdout)}`); return; }
+  r("deployment", "OK", `${PREVIEW_DEPLOYMENT} esiste`);
+
+  // 2. variabili del deployment: le mancanti si rimettono per riferimento
+  const got = new Set(names(list.stdout));
+  const missing = Object.keys(PREVIEW_VARS).filter(n => !got.has(n));
+  const fixable = Object.fromEntries(missing.map(n => [n, previewValue(n)]).filter(([, v]) => v !== null));
+  const unfixable = missing.filter(n => !(n in fixable));
+  if (Object.keys(fixable).length) {
+    const res = await setByReference(["env", "set", ...target], fixable);
+    r("variabili: rimesse", res.code === 0 ? "AVVISO" : "KO",
+      res.code === 0 ? `mancavano e sono state rimesse: ${Object.keys(fixable).join(", ")}` : `non riuscito (${firstLine(res.stderr || res.stdout)})`);
+  }
+  r("variabili", unfixable.length ? "KO" : "OK",
+    unfixable.length ? `mancano e non hanno una fonte: ${unfixable.join(", ")} (impostale a mano, per riferimento)` : `${Object.keys(PREVIEW_VARS).length} attese presenti`);
+
+  // 3. predefinite delle preview (valgono per ogni preview nuova o ricreata)
+  const def = await convex(["env", "default", "list", "--names-only", "--type", "preview"]);
+  if (def.code !== 0) r("predefinite preview", "KO", firstLine(def.stderr || def.stdout));
+  else {
+    const have = new Set(names(def.stdout));
+    const miss = PREVIEW_DEFAULT_VARS.filter(n => !have.has(n));
+    const fix = Object.fromEntries(miss.map(n => [n, previewValue(n)]).filter(([, v]) => v !== null));
+    if (Object.keys(fix).length) {
+      const res = await setByReference(["env", "default", "set", "--type", "preview"], fix);
+      r("predefinite: rimesse", res.code === 0 ? "AVVISO" : "KO",
+        res.code === 0 ? `mancavano e sono state rimesse: ${Object.keys(fix).join(", ")}` : `non riuscito (${firstLine(res.stderr || res.stdout)})`);
+    }
+    const still = miss.filter(n => !(n in fix));
+    r("predefinite preview", still.length ? "KO" : "OK", still.length ? `mancano senza fonte: ${still.join(", ")}` : `${PREVIEW_DEFAULT_VARS.join(", ")} presenti`);
+  }
+
+  // 4. seed: la pagina di gabrifila c'è (si stampano solo i conteggi)
+  const page = await convex(["run", ...target, "pages:byHandle", JSON.stringify({ handle: "gabrifila" })]);
+  let data = null;
+  try { data = JSON.parse(page.stdout); } catch {}
+  if (page.code !== 0) r("seed", "KO", firstLine(page.stderr || page.stdout));
+  // rinominato con update_profile: gabrifila è un alias (301) del profilo seminato
+  else if (data && typeof data.redirect === "string") r("seed", "OK", "seminato, poi rinominato: gabrifila reindirizza (301) all'handle nuovo");
+  else if (!data || !Array.isArray(data.entries)) r("seed", "KO", "pages.byHandle('gabrifila') è null: `convex run --deployment preview/multiutente seed:ensure`, poi il claim");
+  else r("seed", "OK", `gabrifila: ${data.entries.length} righe, ${data.people?.length ?? "?"} persone, ${data.venues?.length ?? "?"} venue`);
+}
+
 /* ── Esecuzione e tabella ───────────────────────────────────────── */
 const started = Date.now();
+if (args.preview) {
+  await service("Preview", checkPreview);
+} else {
 await Promise.all([
   service("Convex", checkConvex).then(() => service("Better Auth", checkBetterAuth)).then(() => service("Google", checkGoogle)),
   service("Vercel", checkVercel),
@@ -492,8 +588,9 @@ await Promise.all([
   service("Gemini", checkGemini),
   service("Upstash", checkUpstash),
 ]);
+}
 
-const ORDER = ["Convex", "Vercel", "Better Auth", "Google", "Resend", "Mapbox", "Sentry", "PostHog", "Gemini", "Upstash"];
+const ORDER = ["Preview", "Convex", "Vercel", "Better Auth", "Google", "Resend", "Mapbox", "Sentry", "PostHog", "Gemini", "Upstash"];
 results.sort((a, b) => ORDER.indexOf(a.service) - ORDER.indexOf(b.service));
 const W = { s: 12, c: 28, st: 14 };
 const pad = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s.padEnd(n));

@@ -43,6 +43,22 @@ export const emptyFilters = (b: FilterBounds): Filters => ({
 export const isDefaultDate = (f: Filters) => !f.dateFrom && !f.dateTo;
 export const isDefaultCost = (f: Filters, b: FilterBounds) => f.costMin === b.costMin && f.costMax === b.costMax;
 export const isDefaultKm = (f: Filters, b: FilterBounds) => f.kmMin === b.kmMin && f.kmMax === b.kmMax;
+/** true se i due estremi coincidono (i dataset si ricostruiscono a ogni aggiornamento dal vivo). */
+export const sameBounds = (a: FilterBounds, b: FilterBounds) =>
+  a.costMin === b.costMin && a.costMax === b.costMax && a.kmMin === b.kmMin && a.kmMax === b.kmMax;
+
+/* Dal vivo (Convex) gli estremi possono cambiare: un concerto nuovo più caro
+   o più lontano alza il tetto. Una fascia che era "tutto" (agli estremi
+   vecchi) resta "tutto" con gli estremi nuovi; una fascia ristretta a mano
+   resta com'è. Senza, il tetto vecchio diventerebbe un filtro attivo e
+   nasconderebbe regali e prezzi sconosciuti. */
+export function rebaseFilters(f: Filters, old: FilterBounds, b: FilterBounds): Filters {
+  const next = { ...f };
+  if (isDefaultCost(f, old)) Object.assign(next, { costMin: b.costMin, costMax: b.costMax });
+  if (isDefaultKm(f, old)) Object.assign(next, { kmMin: b.kmMin, kmMax: b.kmMax });
+  return next;
+}
+
 export const isEmptyFilters = (f: Filters, b: FilterBounds) =>
   isDefaultDate(f) && f.cities.length === 0 && f.people.length === 0 && f.vicinanze.length === 0 && f.canzoni.length === 0 &&
   f.status === "all" && f.price === "all" && !f.solo && isDefaultCost(f, b) && isDefaultKm(f, b);

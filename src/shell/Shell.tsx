@@ -8,7 +8,7 @@
 import React from "react";
 import { Link, Outlet, getRouteApi, useRouterState } from "@tanstack/react-router";
 import { flatConcerts } from "../../shared/model/concert.ts";
-import { applyFilters, describeFilters, mergeToolFilters } from "../../shared/lib/filters.ts";
+import { applyFilters, describeFilters, mergeToolFilters, rebaseFilters, sameBounds } from "../../shared/lib/filters.ts";
 import { sectionLabel } from "../../shared/sections.ts";
 import ChatWidget, { type ChatApi, type ChatSiteContext } from "../chat/ChatWidget.tsx";
 import { FilterButton } from "../filters/FilterButton.tsx";
@@ -27,6 +27,13 @@ export function Shell(){
   const {profile,dataset,today}=useProfile();
   const B=dataset.bounds;
   const [filters,setFilters]=React.useState(dataset.emptyFilters);
+  // dati dal vivo: se gli estremi cambiano, le fasce "tutto" seguono i nuovi
+  // (aggiornamento durante il render: nessun fotogramma con il filtro sbagliato)
+  const [boundsSeen,setBoundsSeen]=React.useState(B);
+  if(!sameBounds(boundsSeen,B)){
+    setBoundsSeen(B);
+    setFilters(f=>rebaseFilters(f,boundsSeen,B));
+  }
   const DATA=React.useMemo(()=>applyFilters(dataset.entries,filters,B,today),[dataset,filters,B,today]);
   const filterCtx=React.useMemo(()=>({data:DATA,filters,setFilters}),[DATA,filters]);
 

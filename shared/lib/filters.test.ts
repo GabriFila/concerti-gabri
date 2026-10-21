@@ -3,12 +3,12 @@
    set che corrispondono, fasce di costo e km che scattano solo se ristrette. */
 
 import { describe, expect, it } from "vitest";
-import { GABRIFILA_INPUT } from "../../src/data.ts";
+import { GABRIFILA_INPUT } from "../seed/gabrifila.ts";
 import { flatConcerts, isFestival, type Entry } from "../model/concert.ts";
 import { buildDataset } from "./dataset.ts";
 import { isPlanned, sortKey, todayKey } from "./dates.ts";
 import {
-  applyFilters, countActive, describeFilters, emptyFilters, isEmptyFilters, mergeToolFilters, type Filters,
+  applyFilters, countActive, describeFilters, emptyFilters, isEmptyFilters, mergeToolFilters, rebaseFilters, sameBounds, type Filters,
 } from "./filters.ts";
 import { distKm, hasCost } from "./predicates.ts";
 
@@ -154,5 +154,27 @@ describe("mergeToolFilters (strumento set_filters dell'Oracolo)", () => {
     expect(mergeToolFilters(cur, { dateFrom: "01/01/2025" }, ds).dateFrom).toBe("2024-01-01");
     expect(mergeToolFilters(cur, { dateFrom: "" }, ds).dateFrom).toBe("");
     expect(mergeToolFilters(cur, { dateTo: "2025-12-31" }, ds).dateTo).toBe("2025-12-31");
+  });
+});
+
+describe("rebaseFilters (dati dal vivo)", () => {
+  const nuovi = { costMin: 0, costMax: 260, kmMin: 0, kmMax: 1200 };
+
+  it("una fascia \"tutto\" segue gli estremi nuovi e resta inattiva", () => {
+    const f = rebaseFilters(F(), B, nuovi);
+    expect(f).toMatchObject({ costMin: 0, costMax: 260, kmMin: 0, kmMax: 1200 });
+    expect(isEmptyFilters(f, nuovi)).toBe(true);
+    // senza rebase il tetto vecchio diventerebbe un filtro attivo
+    expect(isEmptyFilters(F(), nuovi)).toBe(false);
+  });
+
+  it("una fascia ristretta a mano resta com'è, gli altri filtri pure", () => {
+    const f = rebaseFilters(F({ costMin: 20, costMax: 60, cities: ["Genova"] }), B, nuovi);
+    expect(f).toMatchObject({ costMin: 20, costMax: 60, kmMin: 0, kmMax: 1200, cities: ["Genova"] });
+  });
+
+  it("sameBounds confronta i valori, non l'identità", () => {
+    expect(sameBounds(B, { ...B })).toBe(true);
+    expect(sameBounds(B, nuovi)).toBe(false);
   });
 });

@@ -57,7 +57,10 @@ if (!existsSync(WT)) {
   git(["worktree", "add", "--detach", WT, sha]);
 } else {
   const common = realpathSync(resolve(WT, git(["rev-parse", "--git-common-dir"], WT)));
-  if (common !== realpathSync(join(ROOT, ".git"))) {
+  // la git-common-dir di questa repo: in un worktree collegato (corsie, PIANO
+  // §4.3) ROOT/.git è un file, non la cartella condivisa
+  const ours = realpathSync(resolve(ROOT, git(["rev-parse", "--git-common-dir"])));
+  if (common !== ours) {
     log(`${WT} esiste ma non è un worktree di questa repo: lo lascio stare`);
     process.exit(1);
   }

@@ -16,14 +16,14 @@
    ────────────────────────────────────────────────────────────── */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GEMINI, senzaSegreti } from "./child-env.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENTRY = join(ROOT, ".output/server/index.mjs");
-const SOURCES = ["src", "shared", "public", "vite.config.ts", "package.json", "pnpm-lock.yaml", "tsconfig.app.json"];
+const SOURCES = ["src", "shared", "public", "convex/_generated", "vite.config.ts", "package.json", "pnpm-lock.yaml", "tsconfig.app.json"];
 
 function newest(p) {
   if (!existsSync(p)) return 0;
@@ -39,15 +39,22 @@ function newest(p) {
 
 const CLEAN_ENV = senzaSegreti(process.env, GEMINI);
 
+// il deployment Convex è inserito nel codice al build (VITE_CONVEX_URL):
+// una build fatta per un altro deployment va rifatta (il valore non si stampa)
+const STAMP = join(ROOT, ".output/.convex-url");
+const convexUrl = process.env.VITE_CONVEX_URL || "";
+const stampOk = existsSync(STAMP) && readFileSync(STAMP, "utf8") === convexUrl;
+
 const built = existsSync(ENTRY) ? statSync(ENTRY).mtimeMs : 0;
 const sources = Math.max(...SOURCES.map(s => newest(join(ROOT, s))));
-if (built < sources) {
-  console.error(built ? "e2e-server: build più vecchia dei sorgenti, la rifaccio" : "e2e-server: nessuna build, la faccio");
+if (built < sources || !stampOk) {
+  console.error(!built ? "e2e-server: nessuna build, la faccio" : built < sources ? "e2e-server: build più vecchia dei sorgenti, la rifaccio" : "e2e-server: build fatta per un altro deployment Convex, la rifaccio");
   const r = spawnSync("pnpm", ["build:lock"], { cwd: ROOT, env: CLEAN_ENV, stdio: ["ignore", "ignore", "inherit"] });
   if (r.status !== 0) {
     console.error("e2e-server: build fallita");
     process.exit(1);
   }
+  writeFileSync(STAMP, convexUrl);
 }
 
 const child = spawn(process.execPath, [ENTRY], {

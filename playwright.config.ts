@@ -5,7 +5,8 @@
      pnpm e2e                         progetti desktop e mobile, in locale
      pnpm e2e --grep @gemini          solo le spec che spendono una chiamata Gemini
      PREVIEW_URL=<url del branch> pnpm e2e:preview
-                                      progetto preview, niente server locali
+                                      progetto preview (E2E_PREVIEW=1 da
+                                      scripts/e2e.mjs), niente server locali
 
    In locale partono due server (webServer):
    - Start, la build di produzione (.output) con l'orologio congelato
@@ -25,11 +26,19 @@ import { defineConfig, devices } from "@playwright/test";
 import { E2E_NOW } from "./e2e/helpers/now.ts";
 import { MAIN_URL, START_URL } from "./e2e/helpers/urls.ts";
 
-const PREVIEW_URL = (process.env.PREVIEW_URL || "").replace(/\/+$/, "");
+// Run sulla preview SOLO con E2E_PREVIEW=1, che imposta scripts/e2e.mjs per
+// --project=preview: un PREVIEW_URL rimasto nell'ambiente non spegne mai i
+// server locali né il controllo 127.0.0.1 di e2e/global-setup.ts.
+const ANTEPRIMA = process.env.E2E_PREVIEW === "1" && !!process.env.PREVIEW_URL;
+const PREVIEW_URL = ANTEPRIMA ? (process.env.PREVIEW_URL || "").replace(/\/+$/, "") : "";
 const reuse = process.env.E2E_REUSE === "1";
+// in una run sulla preview i progetti locali non girano (niente server locali)
+const soloLocale = (ignora: RegExp[] = []) => (ANTEPRIMA ? [/.*/] : ignora);
 
 export default defineConfig({
   testDir: "e2e",
+  // app e helper sul deployment Convex LOCALE del worktree, mai sul dev condiviso
+  globalSetup: "./e2e/global-setup.ts",
   outputDir: "test-results",
   workers: 1,
   fullyParallel: false,
@@ -55,12 +64,12 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 1000 } } },
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 1000 } }, testIgnore: soloLocale() },
     {
       name: "mobile",
       use: { ...devices["Pixel 7"] },
       // l'HTTP e l'Oracolo non dipendono dal viewport: bastano una volta
-      testIgnore: [/http\.spec\.ts/, /oracolo-sse\.spec\.ts/],
+      testIgnore: soloLocale([/http\.spec\.ts/, /oracolo-sse\.spec\.ts/, /live\.spec\.ts/]),
     },
     {
       // l'URL del branch su Vercel (§8.4): trace e video spenti, bypass solo
@@ -68,10 +77,11 @@ export default defineConfig({
       // gira niente. La parità con main resta locale (serve E2E_NOW).
       name: "preview",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 1000 }, baseURL: PREVIEW_URL || undefined, trace: "off", video: "off" },
-      testIgnore: PREVIEW_URL ? [/parita\.spec\.ts/] : [/.*/],
+      // live.spec scrive con devtools: sulla preview lo fa solo l'orchestratore
+      testIgnore: ANTEPRIMA ? [/parita\.spec\.ts/, /live\.spec\.ts/] : [/.*/],
     },
   ],
-  webServer: PREVIEW_URL
+  webServer: ANTEPRIMA
     ? undefined
     : [
         {

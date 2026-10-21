@@ -1,0 +1,24 @@
+{
+  /* L'ambiente delle funzioni Convex (template della CLI 1.47) più
+     "types": ["node"] per process.env (TS 7: types vale [] di default) e
+     allowImportingTsExtensions per shared/ (import con estensione .ts). */
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": true,
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+
+    "target": "ESNext",
+    "lib": ["ES2023", "dom"],
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["./**/*"],
+  "exclude": ["./_generated", "./**/*.test.ts", "./test.*.ts"]
+}

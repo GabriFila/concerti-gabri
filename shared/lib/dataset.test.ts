@@ -3,7 +3,7 @@
    profilo. Per gabrifila devono dare gli stessi valori di main. */
 
 import { describe, expect, it } from "vitest";
-import { GABRIFILA_INPUT } from "../../src/data.ts";
+import { GABRIFILA_INPUT } from "../seed/gabrifila.ts";
 import { buildDataset } from "./dataset.ts";
 
 const ds = buildDataset(GABRIFILA_INPUT);

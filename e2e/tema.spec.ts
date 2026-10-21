@@ -55,6 +55,16 @@ test.describe("SSR", () => {
   }
 });
 
+/* Il localStorage.theme del vecchio sito, scritto da una pagina della stessa
+   origine SENZA lo Shell (il 404): così la migrazione può girare solo sulla
+   pagina del profilo aperta dopo. Scriverlo su /gabrifila appena caricata
+   era una gara: con i dati di Convex lo Shell si idrata un attimo dopo il
+   root, e la migrazione girava sulla pagina vecchia, prima del reload. */
+async function impostaVecchioTema(page: Page, tema: string) {
+  await page.goto("/nessuno");
+  await page.evaluate(t => localStorage.setItem("theme", t), tema);
+}
+
 test.describe("nel browser", () => {
   test("chi non tocca niente non riceve il cookie", async ({ page, context, baseURL }) => {
     await page.goto(PAGE);
@@ -90,11 +100,10 @@ test.describe("nel browser", () => {
   });
 
   test("migrazione una tantum da localStorage.theme al cookie", async ({ page, context, baseURL }) => {
-    await page.goto(PAGE);
-    await page.evaluate(() => localStorage.setItem("theme", "light"));
+    await impostaVecchioTema(page, "light");
     expect(await temaCookie(context, baseURL!)).toBeUndefined();
 
-    await page.reload({ waitUntil: "networkidle" });
+    await page.goto(PAGE, { waitUntil: "networkidle" });
     await expect.poll(() => temaCookie(context, baseURL!)).toBe("light");
     expect(await legacyTheme(page)).toBeNull();
     await expect.poll(() => htmlTheme(page)).toBe("light");
@@ -107,9 +116,8 @@ test.describe("nel browser", () => {
 
   test("con un cookie già presente la vecchia chiave si toglie e basta", async ({ page, context, baseURL }) => {
     await setTemaCookie(context, baseURL!, "dark");
-    await page.goto(PAGE);
-    await page.evaluate(() => localStorage.setItem("theme", "light"));
-    await page.reload({ waitUntil: "networkidle" });
+    await impostaVecchioTema(page, "light");
+    await page.goto(PAGE, { waitUntil: "networkidle" });
     await expect.poll(() => legacyTheme(page)).toBeNull();
     expect(await temaCookie(context, baseURL!)).toBe("dark");
     expect(await htmlTheme(page)).toBe("dark");

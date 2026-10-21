@@ -4,7 +4,7 @@
    `main` mostra a quell'ora: se cambiano qui, la parità con main è rotta. */
 
 import { describe, expect, it } from "vitest";
-import { GABRIFILA_INPUT } from "../../src/data.ts";
+import { GABRIFILA_INPUT } from "../seed/gabrifila.ts";
 import { counter, multiCounter, rankCutoff, ranked } from "./aggregate.ts";
 import { buildDataset } from "./dataset.ts";
 import { isPlanned, todayKey } from "./dates.ts";

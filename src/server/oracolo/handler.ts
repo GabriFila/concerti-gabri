@@ -7,18 +7,22 @@
    girano nel browser (client tools). query_concerts, report_unsupported_query
    e web_search girano qui.
 
+   I dati arrivano da Convex a ogni richiesta (pagina.ts, PIANO §1.14):
+   vocabolari, strumenti e query_concerts si costruiscono dalla stessa
+   proiezione pubblica che legge la pagina.
+
    Fino al traguardo 6 non c'è storico (niente Redis): nessuna trascrizione
    salvata, nessun controllo della chiave di scrittura, limiti in memoria.
    ────────────────────────────────────────────────────────────── */
 
 import { chat, toServerSentEventsResponse, type AgentLoopStrategy, type ModelMessage } from "@tanstack/ai";
 import { geminiText } from "@tanstack/ai-gemini";
-import { buildDataset, type Dataset } from "../../../shared/lib/dataset.ts";
+import type { Dataset } from "../../../shared/lib/dataset.ts";
 import { todayKey } from "../../../shared/lib/dates.ts";
 import { chatToolDefs, chatToolList } from "../../chat/tools.ts";
-import { GABRIFILA_INPUT } from "../../data.ts";
 import { serverNow } from "../now.ts";
 import { originOk } from "./origins.ts";
+import { datasetDaConvex } from "./pagina.ts";
 import { systemPrompt } from "./prompt.ts";
 import { MemoryRateLimiter, rateLimitMessage, rateLimitsFromEnv } from "./ratelimit.ts";
 import { serverTools } from "./tools.ts";
@@ -49,10 +53,9 @@ export const untilAnswered: AgentLoopStrategy = ({ iterationCount, messages }) =
 
 export const DEFAULT_MODEL = "gemini-3.1-flash-lite";
 
-// per istanza: i limiti in memoria (un dosso, non un muro) e i dati statici
-// di gabrifila, uguali per tutti i visitatori (niente dati per-utente qui)
+// per istanza: solo i limiti in memoria (un dosso, non un muro). I dati no:
+// arrivano da Convex a ogni richiesta, con un client nuovo (PIANO §1.7)
 let limiter: MemoryRateLimiter | null = null;
-let gabrifila: Dataset | null = null;
 
 const json = (status: number, payload: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json", ...headers } });
@@ -76,7 +79,15 @@ export async function handleChat(req: Request, { ip }: { ip: string }): Promise<
   const parsed = validate(await req.text());
   if ("error" in parsed) return json(400, { error: parsed.error });
 
-  const dataset = (gabrifila ??= buildDataset(GABRIFILA_INPUT));
+  let dataset: Dataset | null;
+  try {
+    dataset = await datasetDaConvex();
+  } catch {
+    // niente dettagli dell'errore Convex nei log né in risposta (PIANO §1.25)
+    console.error("chat: lettura della pagina da Convex non riuscita");
+    return json(503, { error: "Dati non disponibili, riprova più tardi." });
+  }
+  if (!dataset) return json(503, { error: "Dati non disponibili, riprova più tardi." });
   const today = todayKey(serverNow(env));
   // geminiText types `model` as a union of known ids; the env override is a plain string
   const model = (env.GEMINI_MODEL || DEFAULT_MODEL) as Parameters<typeof geminiText>[0];

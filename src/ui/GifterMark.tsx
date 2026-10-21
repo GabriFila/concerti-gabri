@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { soloHttps } from "../../shared/lib/url.ts";
 import { useDataset } from "../profile/ProfileContext.tsx";
 
 /* Il logo di chi ha regalato il biglietto — la favicon del suo sito — sta
@@ -18,14 +19,16 @@ export function GifterMark({id,size=15}:{id?:string;size?:number}){
   },[]);
   if(!id) return null;
   const g=gifters[id];
-  if(!g||!g.logo||broken) return null;
-  const img=<img ref={imgRef} className="gifterlogo" src={g.logo} alt={g.label} width={size} height={size} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBroken(true)}/>;
+  // sito e logo solo https (dati degli utenti: mai javascript:, data: o http:)
+  const logo=soloHttps(g?.logo), url=soloHttps(g?.url);
+  if(!g||!logo||broken) return null;
+  const img=<img ref={imgRef} className="gifterlogo" src={logo} alt={g.label} width={size} height={size} loading="lazy" referrerPolicy="no-referrer" onError={()=>setBroken(true)}/>;
   const credit="Con il contributo di "+g.label;
   // il tooltip è CSS (data-tip), non il `title` nativo: compare subito invece che
   // dopo un secondo. Il title="" serve a zittire quello della cella, che altrimenti
   // spunterebbe sopra anche qui dentro.
   const tip={"data-tip":credit,title:"","aria-label":credit} as const;
-  return g.url
-    ? <a className="gifterlink" href={g.url} target="_blank" rel="noreferrer" {...tip}>{img}</a>
+  return url
+    ? <a className="gifterlink" href={url} target="_blank" rel="noreferrer" {...tip}>{img}</a>
     : <span className="gifterlink" {...tip}>{img}</span>;
 }
