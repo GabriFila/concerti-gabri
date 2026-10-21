@@ -4,6 +4,10 @@
     "deny": [
       "Bash(*convex deploy*)",
       "Bash(*convex*--prod*)",
+      "Bash(*convex*--deployment prod*)",
+      "Bash(*convex*--deployment=prod*)",
+      "Bash(*convex*:production*)",
+      "Bash(*convex*--type prod*)",
       "Bash(*brave-chickadee*)",
       "Bash(*fnox*-P prod*)",
       "Bash(*fnox*--profile prod*)",
