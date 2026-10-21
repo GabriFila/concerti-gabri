@@ -38,7 +38,8 @@ mistake this step exists to prevent.
   Step 5).
 - If it's a **festival** (one ticket/trip bundling ≥2 concerts, see `CLAUDE.md`),
   repeat Steps 3–4 per concert (artist, with, voto, vicinanza, canzoni note, and a
-  per-day `date` if multi-day), then once for the shared ticket/trip block. `cost`,
+  per-day `date` if multi-day), then once for the shared ticket/trip block and the
+  comment. `cost`,
   `gift`/`accredito`, `from`/`km`, `venue`, `city`, `date` and `comments` live on the
   festival, not the concert.
 
@@ -68,12 +69,20 @@ Free-text fields with no fixed enum — companion names, the venue when it's kno
 outright, the paid amount, the optional comment — are collected from what the user
 already said, or asked for directly in a normal chat message, not via the tool.
 
+**COMMENTO** — always ask it, never skip it silently. When Step 1 allows the
+experiential fields and he hasn't already given a remark on the evening, ask in a
+plain chat message (alongside or right after the tool questions) whether he wants
+to add a comment on the evening, making clear it's optional and can be left blank.
+Ask once per event: on a festival it's one comment for the whole event, not one
+per concert. Skip the question for a future show (Step 1) — there's no evening to
+comment on yet.
+
 ## Step 4 — Recap before writing
 
 Before touching `src/data.ts`, send a short plain-text recap of the full entry as
 it will be written: artist, date, venue/city, with, voto/vicinanza/canzoniNote (or
 "not asked yet — show hasn't happened" if Step 1 skipped them), ticket, trip
-origin/km, and comment if any. Ask him to confirm or correct anything before you
+origin/km, and the comment (or "nessun commento" if he left it blank). Ask him to confirm or correct anything before you
 write it. Only proceed to Step 5 once he confirms (or edits and then confirms).
 
 ## Step 5 — Write the data
