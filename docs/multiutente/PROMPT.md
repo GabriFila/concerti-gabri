@@ -5,7 +5,8 @@ vincolante è in `docs/multiutente/SPEC.md`: leggila tutta prima di fare qualsia
 cosa, insieme a `CLAUDE.md` e al codice attuale (`src/`, `netlify/functions/`).
 Dove SPEC.md e il codice divergono vince SPEC.md; dove SPEC.md tace, conserva il
 comportamento attuale. Lavori su un clone locale, su un branch dedicato
-(`multiutente`, crealo da `main` se non esiste). L'interfaccia resta in italiano.
+(`multiutente`: se non esiste crealo dal branch corrente, quello che contiene
+`docs/multiutente/`, non da `main`). L'interfaccia resta in italiano.
 
 Il lavoro ha tre fasi, in quest'ordine. Non passare alla fase successiva finché
 quella corrente non è chiusa.
