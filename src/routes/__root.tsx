@@ -50,7 +50,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "icon", type: "image/png", sizes: "32x32", href: "/favicon-32.png" },
       { rel: "icon", type: "image/png", sizes: "192x192", href: "/icon-192.png" },
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
+      // il manifest lo collega ogni profilo, il suo (/<handle>/manifest.webmanifest, traguardo 4)
       // stesso ordine del bundle CSS di main: wishlist.css arrivava prima di styles.css
       { rel: "stylesheet", href: wishlistCss },
       { rel: "stylesheet", href: appCss },

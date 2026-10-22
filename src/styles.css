@@ -38,7 +38,35 @@
     src:url("@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2") format('woff2-variations');
     unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
   }
+  /* I font dei titoli dei temi (shared/theme.ts, --font-titoli): dichiarati
+     qui come Fraunces e Inter, ma il browser li scarica solo se un tema li usa
+     davvero (una @font-face senza testo che la chieda non costa niente). */
+  @font-face{
+    font-family:'Space Grotesk';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2") format('woff2-variations');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'Space Grotesk';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/space-grotesk/files/space-grotesk-latin-ext-wght-normal.woff2") format('woff2-variations');
+    unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+  }
+  @font-face{
+    font-family:'Playfair Display';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/playfair-display/files/playfair-display-latin-wght-normal.woff2") format('woff2-variations');
+    unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+  }
+  @font-face{
+    font-family:'Playfair Display';font-style:normal;font-display:swap;font-weight:100 900;
+    src:url("@fontsource-variable/playfair-display/files/playfair-display-latin-ext-wght-normal.woff2") format('woff2-variations');
+    unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+  }
 
+  /* Token del tema del profilo (shared/theme.ts): --font-titoli, --r-pannello,
+     --r-riquadro, --r-campo, --pad-pannello, --gap-griglia e --lamp* li mette
+     un <style> nell'HTML solo se il profilo li cambia. Le regole qui sotto li
+     usano con i valori di sempre come riserva, quindi il tema "predefinito"
+     resta identico. */
   :root{
     --bg:#0a0a0b;        /* the dark room */
     --bg-2:#0d0d0f;
@@ -704,7 +732,7 @@
   /* "I dati" opens straight onto the KPIs now (no title): lit stage room up top
      so the data clears the fixed switch/toggle */
   .stage--data{padding-top:clamp(72px,11vw,104px)}
-  h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.9rem,11vw,7.5rem);line-height:.96;letter-spacing:-.025em;color:var(--text);font-optical-sizing:auto}
+  h1{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;font-size:clamp(2.9rem,11vw,7.5rem);line-height:.96;letter-spacing:-.025em;color:var(--text);font-optical-sizing:auto}
   h1 .t2{font-style:normal;font-weight:500;color:var(--text)}
   .sub{margin-top:26px;max-width:50ch;color:var(--muted);font-size:clamp(.95rem,2.3vw,1.1rem);line-height:1.65}
   .sub b{color:var(--text);font-weight:500}
@@ -719,7 +747,7 @@
   @media(max-width:620px){ .kpis{grid-template-columns:repeat(2,1fr)} }
   @media(max-width:360px){ .kpis{grid-template-columns:1fr} }
   .kpi{position:relative;padding:clamp(22px,2.8vw,34px) clamp(18px,3vw,30px);
-    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--r-pannello,14px);
     transition:transform .2s ease,border-color .2s ease}
   /* i due pallini "da che tempo viene questo numero": ambra = passato, teal =
      in programma. Stessi colori del resto della pagina, misura di .pnote::before.
@@ -732,7 +760,7 @@
   .kpi .kd-future{background:var(--planned);box-shadow:0 0 8px var(--planned-soft)}
   /* hover lift only on devices with a real hover — on touch the tap would "stick" the style */
   @media(hover:hover){ .kpi:hover{transform:translateY(-2px);border-color:var(--line-2)} }
-  .kpi .num{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.2rem,5.4vw,3.4rem);line-height:1;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
+  .kpi .num{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;font-size:clamp(2.2rem,5.4vw,3.4rem);line-height:1;color:var(--text);font-variant-numeric:lining-nums tabular-nums}
   .kpi .num.acc-amber{color:var(--lamp)}
   .kpi .num.acc-planned{color:var(--planned)}
   .kpi .lbl{font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:14px;font-weight:500;display:flex;align-items:center;gap:4px}
@@ -741,12 +769,12 @@
   .kpi .pnote::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--planned);flex-shrink:0}
 
   /* ============ MAIN / PANELS ============ */
-  main{position:relative;z-index:1;padding:clamp(26px,4vw,52px) clamp(12px,3.4vw,48px) 0;display:grid;gap:clamp(18px,2.6vw,30px)}
+  main{position:relative;z-index:1;padding:clamp(26px,4vw,52px) clamp(12px,3.4vw,48px) 0;display:grid;gap:var(--gap-griglia,clamp(18px,2.6vw,30px))}
 
   /* ── Footer: piccolo ringraziamento in fondo alla pagina, sopra la barra fissa ── */
   .sitefooter{position:relative;z-index:1;text-align:center;padding:clamp(28px,4vw,44px) 20px calc(92px + env(safe-area-inset-bottom,0px))}
   .sitefooter p{margin:0;font-size:.9rem;color:var(--muted);letter-spacing:.01em}
-  .grid2{display:grid;gap:clamp(18px,2.6vw,30px);grid-template-columns:1fr}
+  .grid2{display:grid;gap:var(--gap-griglia,clamp(18px,2.6vw,30px));grid-template-columns:1fr}
   @media(min-width:860px){.grid2{grid-template-columns:1fr 1fr}}
   /* Ogni sezione della dashboard è un blocco a sé: finché è lontana dallo
      schermo il browser può saltarne layout e paint. /dati monta 3300 nodi e 61
@@ -762,13 +790,13 @@
      avrebbe comunque fatto risparmiare niente. */
   .tocsec{min-width:0;scroll-margin-top:24px;content-visibility:auto;contain-intrinsic-size:auto 520px}
   #sec-kpis,#sec-mappa,#sec-trend{content-visibility:visible}
-  .panel{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:clamp(20px,3vw,32px);overflow:hidden}
-  .panel h2{font-family:'Fraunces',Georgia,serif;font-size:clamp(1.4rem,3vw,1.8rem);font-weight:400;letter-spacing:-.015em;color:var(--text);display:flex;align-items:center;gap:11px}
+  .panel{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-pannello,14px);padding:var(--pad-pannello,clamp(20px,3vw,32px));overflow:hidden}
+  .panel h2{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-size:clamp(1.4rem,3vw,1.8rem);font-weight:400;letter-spacing:-.015em;color:var(--text);display:flex;align-items:center;gap:11px}
   .panel h2 .h2ic{color:var(--lamp);flex-shrink:0}
   .panel .desc{font-size:.86rem;color:var(--muted);margin-top:8px;margin-bottom:26px;max-width:60ch;line-height:1.6}
   .full{grid-column:1/-1}
   .vicalert{grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;margin-top:18px;
-    background:var(--planned-faint);border:1px solid var(--planned-soft);border-radius:12px;
+    background:var(--planned-faint);border:1px solid var(--planned-soft);border-radius:var(--r-riquadro,12px);
     padding:13px 16px;font-size:.86rem;line-height:1.55;color:var(--text)}
   .vicalert-ic{color:var(--planned);flex-shrink:0;margin-top:2px}
   .vicalert b{color:var(--planned)}
@@ -959,7 +987,7 @@
 
   /* ============ TABLE ============ */
   .tabletools{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:20px}
-  .search{flex:1 1 240px;display:flex;align-items:center;gap:11px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:10px;padding:12px 15px;transition:border-color .2s}
+  .search{flex:1 1 240px;display:flex;align-items:center;gap:11px;background:var(--bg-2);border:1px solid var(--line-2);border-radius:var(--r-campo,10px);padding:12px 15px;transition:border-color .2s}
   .search:focus-within{border-color:var(--lamp)}
   .search input{border:none;background:none;outline:none;width:100%;font-size:.95rem;color:var(--text);font-family:inherit}
   .search input::placeholder{color:var(--dim)}
@@ -1035,7 +1063,7 @@
   .cnamark{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);opacity:.7}
   /* Eventi sub-table heading inside the Archivio panel */
   .archsub{display:flex;align-items:baseline;gap:10px;margin:34px 0 14px}
-  .archsub h3{font-family:'Fraunces',serif;font-weight:500;font-size:1.15rem;color:var(--text);margin:0}
+  .archsub h3{font-family:var(--font-titoli,'Fraunces',serif);font-weight:500;font-size:1.15rem;color:var(--text);margin:0}
   .archsub .h2ic{color:var(--lamp);align-self:center}
   .archsub-d{font-size:.8rem;color:var(--muted)}
   td.evconc{min-width:180px}
@@ -1095,7 +1123,7 @@
   mark{background:var(--lamp-faint);color:var(--lamp);padding:0 2px}
 
   /* ============ MAP ============ */
-  .mapwrap{position:relative;width:100%;height:clamp(380px,54vh,580px);border:1px solid var(--line-2);border-radius:12px;overflow:hidden}
+  .mapwrap{position:relative;width:100%;height:clamp(380px,54vh,580px);border:1px solid var(--line-2);border-radius:var(--r-riquadro,12px);overflow:hidden}
   .mapwrap .mapboxgl-canvas{outline:none}
   .mapwrap .mapboxgl-ctrl-logo,.mapwrap .mapboxgl-ctrl-attrib{opacity:.35}
   /* overlay dei gesti cooperativi ("usa due dita" / "Ctrl+scroll") */
@@ -1114,7 +1142,7 @@
   .mappop .mapboxgl-popup-tip{border-top-color:var(--line-2)!important;border-bottom-color:var(--line-2)!important}
   .mappop .mapboxgl-popup-close-button{color:var(--muted);font-size:1.2rem;padding:2px 8px}
   .mappop .mapboxgl-popup-close-button:hover{background:none;color:var(--lamp)}
-  .mappop .pv-name{font-family:'Fraunces',serif;font-weight:500;font-size:1.05rem;line-height:1.2;color:var(--text)}
+  .mappop .pv-name{font-family:var(--font-titoli,'Fraunces',serif);font-weight:500;font-size:1.05rem;line-height:1.2;color:var(--text)}
   .mappop .pv-meta{font-size:.78rem;color:var(--muted);margin-top:4px}
   .mappop .pv-list{margin-top:12px;display:flex;flex-direction:column;gap:0;max-height:200px;overflow-y:auto;overscroll-behavior:contain}
   .mappop .pv-item{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:6px 0;border-bottom:1px solid var(--line)}
@@ -1337,6 +1365,15 @@
   }
   .ms-btn.on{color:#171106}
   @media(max-width:560px){ .modeswitch{top:12px} .ms-btn{padding:7px 16px;font-size:.82rem} }
+  /* tre segmenti per il proprietario (Sul palco · I dati · Modifica): stessi
+     bottoni uguali, il cursore copre un terzo esatto del contenuto (100% − i
+     4px di padding per lato); sui telefoni stretti più compatto, così non
+     tocca il pulsante del tema in alto a destra */
+  .modeswitch--tre .modeswitch-slide{right:calc(4px + (100% - 8px)*2/3)}
+  .modeswitch--tre .modeswitch-slide[data-view="dati"]{left:calc(4px + (100% - 8px)/3);right:calc(4px + (100% - 8px)/3)}
+  .modeswitch--tre .modeswitch-slide[data-view="modifica"]{left:calc(4px + (100% - 8px)*2/3);right:4px}
+  @media(max-width:440px){ .modeswitch--tre .ms-btn{padding:7px 11px;font-size:.78rem} }
+  @media(max-width:370px){ .modeswitch--tre .ms-btn{padding:7px 8px;font-size:.74rem} }
 
   /* ============================================================
      RITRATTO — the curated, editorial, scroll-based portrait
@@ -1408,7 +1445,7 @@
      on a landscape phone 9vw is a 78px headline in a 390px-tall window, which
      is what pushed every act far past the screen. */
   .rt-h1{
-    font-family:'Fraunces',Georgia,serif;font-weight:400;line-height:.88;letter-spacing:-.03em;
+    font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;line-height:.88;letter-spacing:-.03em;
     color:var(--text);font-optical-sizing:auto;
     font-size:clamp(2.3rem,9.2vw,10.5rem);
     font-size:clamp(2.3rem,min(9.2vw,13svh),10.5rem);
@@ -1438,7 +1475,7 @@
 
   /* shared act typography */
   .rt-head{width:100%;margin-bottom:clamp(14px,3vw,30px);margin-bottom:clamp(14px,min(3vw,3svh),30px);text-align:center}
-  .rt-h2{font-family:'Fraunces',Georgia,serif;font-weight:400;letter-spacing:-.02em;color:var(--text);line-height:1;
+  .rt-h2{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;letter-spacing:-.02em;color:var(--text);line-height:1;
     font-size:clamp(2.1rem,7vw,4.4rem);font-size:clamp(2.1rem,min(7vw,8.5svh),4.4rem);text-wrap:balance}
   .rt-lead{max-width:46ch;color:var(--muted);font-size:clamp(1rem,2.4vw,1.25rem);line-height:1.6}
   .rt-lead b{color:var(--text);font-weight:600}
@@ -1450,7 +1487,7 @@
     margin-top:clamp(18px,4vw,44px);margin-top:clamp(18px,min(4vw,4svh),44px)}
   @media(min-width:760px){ .rt-grid{grid-template-columns:repeat(4,1fr)} }
   .rt-stat{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;min-width:0}
-  .rt-stat-n{font-family:'Fraunces',Georgia,serif;font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.025em;
+  .rt-stat-n{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;color:var(--lamp);line-height:1;letter-spacing:-.025em;
     font-size:clamp(2.4rem,10vw,5.4rem);font-size:clamp(2.4rem,min(9.6vw,8.4svh),5.4rem);
     font-variant-numeric:lining-nums tabular-nums;max-width:100%}
   .rt-stat-l{font-size:.76rem;letter-spacing:.13em;text-transform:uppercase;color:var(--text);font-weight:600;text-wrap:balance}
@@ -1470,7 +1507,7 @@
   .rt-bestrow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:2px 14px;
     padding:clamp(9px,2.4vw,22px) 0;padding:clamp(9px,min(2.4vw,2.2svh),22px) 0;border-bottom:1px solid var(--line)}
   .rt-bestrow:last-child{border-bottom:none}
-  .rt-best-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
+  .rt-best-art{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
     font-size:clamp(1.3rem,4.6vw,2.5rem);font-size:clamp(1.3rem,min(4.6vw,5.4svh),2.5rem);overflow-wrap:anywhere}
   .rt-best-meta{grid-row:2;color:var(--muted);font-size:.86rem}
   .rt-best-stars{grid-column:2;grid-row:1 / span 2;align-self:center;color:var(--lamp);font-size:clamp(.8rem,2.3vw,1.15rem);letter-spacing:1px;white-space:nowrap}
@@ -1480,8 +1517,8 @@
   .rt-personrow{display:flex;align-items:baseline;gap:clamp(12px,3vw,26px);
     padding:clamp(9px,2.2vw,20px) 0;padding:clamp(9px,min(2.2vw,2svh),20px) 0;border-bottom:1px solid var(--line)}
   .rt-personrow:last-child{border-bottom:none}
-  .rt-person-rank{font-family:'Fraunces',serif;color:var(--lamp);font-size:1.1rem;width:1.4em;flex-shrink:0;font-variant-numeric:tabular-nums}
-  .rt-person-name{flex:1;min-width:0;font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;
+  .rt-person-rank{font-family:var(--font-titoli,'Fraunces',serif);color:var(--lamp);font-size:1.1rem;width:1.4em;flex-shrink:0;font-variant-numeric:tabular-nums}
+  .rt-person-name{flex:1;min-width:0;font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:500;color:var(--text);line-height:1.12;
     font-size:clamp(1.25rem,4vw,2rem);font-size:clamp(1.25rem,min(4vw,5svh),2rem);overflow-wrap:anywhere}
   .rt-person-n{color:var(--muted);font-size:.9rem;white-space:nowrap;font-variant-numeric:tabular-nums}
 
@@ -1490,7 +1527,7 @@
   .rt-nextrow{display:flex;flex-direction:column;gap:3px;
     padding:clamp(9px,2.2vw,20px) 0;padding:clamp(9px,min(2.2vw,2svh),20px) 0;border-bottom:1px solid var(--line)}
   .rt-nextrow:last-child{border-bottom:none}
-  .rt-next-art{font-family:'Fraunces',Georgia,serif;font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
+  .rt-next-art{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:500;color:var(--text);line-height:1.12;letter-spacing:-.01em;
     font-size:clamp(1.3rem,4.6vw,2.4rem);font-size:clamp(1.3rem,min(4.6vw,5.4svh),2.4rem);overflow-wrap:anywhere}
   .rt-next-meta{color:var(--muted);font-size:.9rem}
   .rt-next-date{color:var(--planned);font-weight:500}

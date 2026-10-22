@@ -15,7 +15,9 @@
 import { v } from "convex/values";
 import { SCOPE_AMMESSI } from "../shared/agent/mcp.ts";
 import { concertsOf, type Entry, type FestivalConcert } from "../shared/model/concert.ts";
-import { computeKpis } from "../shared/lib/kpis.ts";
+import { todayKey } from "../shared/lib/dates.ts";
+import { computeKpis, kpiProfilo } from "../shared/lib/kpis.ts";
+import { formaDi } from "../shared/labels.ts";
 import { nessunInput } from "../shared/schema/campi.ts";
 import { consensoInput, creaChiaveInput, revocaChiaveInput, revocaClientInput } from "../shared/schema/agenti.ts";
 import { statisticheInput } from "../shared/schema/entry.ts";
@@ -265,6 +267,7 @@ function versoModello(e: ReturnType<typeof esterno>, y: number): Entry {
     ...(e.accredito ? { accredito: true } : {}),
     ...(e.from ? { from: e.from } : {}),
     ...(e.km !== undefined ? { km: e.km } : {}),
+    ...(e.kmPending ? { kmPending: true } : {}),
   };
   if ("concerts" in e && e.concerts) {
     const concerts = e.concerts.map(c => Object.fromEntries(Object.entries(c).filter(([, x]) => x !== undefined)) as unknown as FestivalConcert);
@@ -285,11 +288,17 @@ export const stats = ownerQuery({
   catalogOp: "get_stats",
   input: statisticheInput,
   handler: async (ctx, owner, { anno }) => {
-    let rows = await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", owner.profile._id)).collect();
-    if (anno !== undefined) rows = rows.filter(e => e.y === anno);
-    const nomi = await nomiPerEsterno(ctx, owner.profile._id, rows);
-    const entries = rows.map(e => versoModello(esterno(e, nomi), e.y));
-    const kpi = computeKpis(entries, Date.now()).map(k => ({
+    const tutte = await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", owner.profile._id)).collect();
+    const rows = anno !== undefined ? tutte.filter(e => e.y === anno) : tutte;
+    const nomi = await nomiPerEsterno(ctx, owner.profile._id, tutte);
+    const modello = (r: typeof tutte) => r.map(e => versoModello(esterno(e, nomi), e.y));
+    const entries = modello(rows);
+    const now = Date.now();
+    // come la dashboard (src/dashboard/KPIs.tsx): l'anno della "media per anno",
+    // la città di riferimento e la forma vengono dal profilo intero, non
+    // dalle righe filtrate per anno (PIANO §1.33)
+    const profilo = kpiProfilo(modello(tutte), todayKey(now), formaDi(owner.profile.forma));
+    const kpi = computeKpis(entries, now, profilo).map(k => ({
       id: k.id,
       etichetta: k.lbl,
       valore: k.star ? `${k.value}★` : k.value,

@@ -8,7 +8,7 @@ import { GABRIFILA_INPUT } from "../seed/gabrifila.ts";
 import { counter, multiCounter, rankCutoff, ranked } from "./aggregate.ts";
 import { buildDataset } from "./dataset.ts";
 import { isPlanned, todayKey } from "./dates.ts";
-import { computeKpis, perYearSince, type Kpi, type KpiId } from "./kpis.ts";
+import { computeKpis, kpiProfilo, perYearSince, type Kpi, type KpiId } from "./kpis.ts";
 import { computePortrait } from "./portrait.ts";
 import { TREND_SPECS, maWindow, movingAverage } from "./trend.ts";
 
@@ -84,9 +84,11 @@ describe("computeKpis: i 12 KPI al 2026-10-21T12:00+02:00", () => {
 
   it("la media per anno è a tempo continuo dal 1° gennaio 2022 (Roma)", () => {
     const attended = ds.flat.filter(c => !isPlanned(c, TODAY));
-    expect(perYearSince(attended, NOW)).toBeCloseTo(15.614, 3);
+    expect(perYearSince(attended, NOW, 2022)).toBeCloseTo(15.614, 3);
     // a inizio 2022 non c'è ancora tempo trascorso: niente divisione per zero
-    expect(perYearSince(attended, Date.parse("2021-12-31T22:00:00Z"))).toBe(0);
+    expect(perYearSince(attended, Date.parse("2021-12-31T22:00:00Z"), 2022)).toBe(0);
+    // senza un anno di partenza (nessun concerto visto) la media è 0
+    expect(perYearSince(attended, NOW, null)).toBe(0);
   });
 
   it("con il giorno successivo all'ultimo concerto in programma cambiano solo i conteggi giusti", () => {
@@ -97,6 +99,17 @@ describe("computeKpis: i 12 KPI al 2026-10-21T12:00+02:00", () => {
     expect(later.concerti.value).toBe(81);
     expect(later.programma.value).toBe(10);
     expect(later.programma.hint).toBe("prossimo 30/11/2026");
+  });
+
+  it("righe filtrate (un anno): con kpiProfilo delle righe intere il punto di partenza resta quello del profilo", () => {
+    const del2025 = ds.entries.filter(e => e.y === 2025);
+    const per = (k: Kpi[]) => Object.fromEntries(k.map(x => [x.id, x])) as Record<KpiId, Kpi>;
+    const conProfilo = per(computeKpis(del2025, NOW, kpiProfilo(ds.entries, TODAY, "f")));
+    expect(conProfilo.media.hint).toBe("dal 2022 a oggi");
+    expect(conProfilo.citta.hint).toMatch(/% a Milano$/);
+    expect(conProfilo.solo.lbl).toBe("Concerti da sola");
+    // senza, le regole girano sulle sole righe passate: chi filtra deve passarlo
+    expect(per(computeKpis(del2025, NOW)).media.hint).toBe("dal 2025 a oggi");
   });
 });
 

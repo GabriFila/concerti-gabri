@@ -89,6 +89,9 @@ try {
 for (const marker of ["convex/server", "STRICT SCOPE — read carefully", "MemoryRateLimiter"]) {
   needles.push([`codice server: ${marker}`, marker]);
 }
+// le origini di sviluppo (src/server/oracolo/origins.ts): il nome del dev box
+// sulla tailnet resta sul server; l'origine canonica arriva al client dal loader di root
+needles.push(["origine di sviluppo: host tailnet", "tail4a8e3b.ts.net"]);
 
 // 4. nomi delle variabili d'ambiente solo-server (mai i VITE_*, pubblici per costruzione)
 const SERVER_ENV_FIXED = [

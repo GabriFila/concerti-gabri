@@ -14,12 +14,15 @@ import { Route as HandleRouteImport } from './routes/$handle'
 import { Route as AccediRouteImport } from './routes/accedi'
 import { Route as AutorizzaRouteImport } from './routes/autorizza'
 import { Route as BenvenutoRouteImport } from './routes/benvenuto'
+import { Route as DatiRouteImport } from './routes/dati'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as HandleIndexRouteImport } from './routes/$handle.index'
 import { Route as HandleDatiRouteImport } from './routes/$handle.dati'
+import { Route as HandleManifestDotwebmanifestRouteImport } from './routes/$handle.manifest[.]webmanifest'
 import { Route as HandleModificaRouteImport } from './routes/$handle.modifica'
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
+import { Route as OgHandleRouteImport } from './routes/og/$handle'
 import { Route as DotwellKnownOauthProtectedResourceIndexRouteImport } from './routes/[.]well-known/oauth-protected-resource/index'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -52,6 +55,11 @@ const BenvenutoRoute = BenvenutoRouteImport.update({
   path: '/benvenuto',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatiRoute = DatiRouteImport.update({
+  id: '/dati',
+  path: '/dati',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
@@ -72,6 +80,12 @@ const HandleDatiRoute = HandleDatiRouteImport.update({
   path: '/dati',
   getParentRoute: () => HandleRoute,
 } as any)
+const HandleManifestDotwebmanifestRoute =
+  HandleManifestDotwebmanifestRouteImport.update({
+    id: '/manifest.webmanifest',
+    path: '/manifest.webmanifest',
+    getParentRoute: () => HandleRoute,
+  } as any)
 const HandleModificaRoute = HandleModificaRouteImport.update({
   id: '/modifica',
   path: '/modifica',
@@ -83,6 +97,11 @@ const DotwellKnownOauthAuthorizationServerRoute =
     path: '/.well-known/oauth-authorization-server',
     getParentRoute: () => rootRouteImport,
   } as any)
+const OgHandleRoute = OgHandleRouteImport.update({
+  id: '/og/$handle',
+  path: '/og/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DotwellKnownOauthProtectedResourceIndexRoute =
   DotwellKnownOauthProtectedResourceIndexRouteImport.update({
     id: '/.well-known/oauth-protected-resource/',
@@ -122,11 +141,14 @@ export interface FileRoutesByFullPath {
   '/accedi': typeof AccediRoute
   '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
+  '/dati': typeof DatiRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
+  '/$handle/manifest.webmanifest': typeof HandleManifestDotwebmanifestRoute
   '/$handle/modifica': typeof HandleModificaRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/og/$handle': typeof OgHandleRoute
   '/$handle/': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -140,11 +162,14 @@ export interface FileRoutesByTo {
   '/accedi': typeof AccediRoute
   '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
+  '/dati': typeof DatiRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
+  '/$handle/manifest.webmanifest': typeof HandleManifestDotwebmanifestRoute
   '/$handle/modifica': typeof HandleModificaRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/og/$handle': typeof OgHandleRoute
   '/$handle': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -160,11 +185,14 @@ export interface FileRoutesById {
   '/accedi': typeof AccediRoute
   '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
+  '/dati': typeof DatiRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
+  '/$handle/manifest.webmanifest': typeof HandleManifestDotwebmanifestRoute
   '/$handle/modifica': typeof HandleModificaRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/og/$handle': typeof OgHandleRoute
   '/$handle/': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -181,11 +209,14 @@ export interface FileRouteTypes {
     | '/accedi'
     | '/autorizza'
     | '/benvenuto'
+    | '/dati'
     | '/mcp'
     | '/privacy'
     | '/$handle/dati'
+    | '/$handle/manifest.webmanifest'
     | '/$handle/modifica'
     | '/.well-known/oauth-authorization-server'
+    | '/og/$handle'
     | '/$handle/'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
@@ -199,11 +230,14 @@ export interface FileRouteTypes {
     | '/accedi'
     | '/autorizza'
     | '/benvenuto'
+    | '/dati'
     | '/mcp'
     | '/privacy'
     | '/$handle/dati'
+    | '/$handle/manifest.webmanifest'
     | '/$handle/modifica'
     | '/.well-known/oauth-authorization-server'
+    | '/og/$handle'
     | '/$handle'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
@@ -218,11 +252,14 @@ export interface FileRouteTypes {
     | '/accedi'
     | '/autorizza'
     | '/benvenuto'
+    | '/dati'
     | '/mcp'
     | '/privacy'
     | '/$handle/dati'
+    | '/$handle/manifest.webmanifest'
     | '/$handle/modifica'
     | '/.well-known/oauth-authorization-server'
+    | '/og/$handle'
     | '/$handle/'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
@@ -238,9 +275,11 @@ export interface RootRouteChildren {
   AccediRoute: typeof AccediRoute
   AutorizzaRoute: typeof AutorizzaRoute
   BenvenutoRoute: typeof BenvenutoRoute
+  DatiRoute: typeof DatiRoute
   McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
+  OgHandleRoute: typeof OgHandleRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatHistoryRoute: typeof ApiChatHistoryRoute
@@ -286,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BenvenutoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dati': {
+      id: '/dati'
+      path: '/dati'
+      fullPath: '/dati'
+      preLoaderRoute: typeof DatiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mcp': {
       id: '/mcp'
       path: '/mcp'
@@ -314,6 +360,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HandleDatiRouteImport
       parentRoute: typeof HandleRoute
     }
+    '/$handle/manifest.webmanifest': {
+      id: '/$handle/manifest.webmanifest'
+      path: '/manifest.webmanifest'
+      fullPath: '/$handle/manifest.webmanifest'
+      preLoaderRoute: typeof HandleManifestDotwebmanifestRouteImport
+      parentRoute: typeof HandleRoute
+    }
     '/$handle/modifica': {
       id: '/$handle/modifica'
       path: '/modifica'
@@ -326,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/.well-known/oauth-authorization-server'
       fullPath: '/.well-known/oauth-authorization-server'
       preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/og/$handle': {
+      id: '/og/$handle'
+      path: '/og/$handle'
+      fullPath: '/og/$handle'
+      preLoaderRoute: typeof OgHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-protected-resource/': {
@@ -375,12 +435,14 @@ declare module '@tanstack/react-router' {
 
 interface HandleRouteChildren {
   HandleDatiRoute: typeof HandleDatiRoute
+  HandleManifestDotwebmanifestRoute: typeof HandleManifestDotwebmanifestRoute
   HandleModificaRoute: typeof HandleModificaRoute
   HandleIndexRoute: typeof HandleIndexRoute
 }
 
 const HandleRouteChildren: HandleRouteChildren = {
   HandleDatiRoute: HandleDatiRoute,
+  HandleManifestDotwebmanifestRoute: HandleManifestDotwebmanifestRoute,
   HandleModificaRoute: HandleModificaRoute,
   HandleIndexRoute: HandleIndexRoute,
 }
@@ -394,10 +456,12 @@ const rootRouteChildren: RootRouteChildren = {
   AccediRoute: AccediRoute,
   AutorizzaRoute: AutorizzaRoute,
   BenvenutoRoute: BenvenutoRoute,
+  DatiRoute: DatiRoute,
   McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
+  OgHandleRoute: OgHandleRoute,
   DotwellKnownOauthProtectedResourceMcpRoute:
     DotwellKnownOauthProtectedResourceMcpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

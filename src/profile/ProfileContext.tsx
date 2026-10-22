@@ -12,10 +12,18 @@
 import React, { useCallback, useContext } from "react";
 import type { Dataset } from "../../shared/lib/dataset.ts";
 import { isPlanned } from "../../shared/lib/dates.ts";
+import { formaDi, type Forma } from "../../shared/labels.ts";
+import type { LayoutSezioni } from "../../shared/sections.ts";
 
 export interface Profile {
   handle: string;
   displayName: string;
+  /** Forma grammaticale delle etichette (traguardo 4); assente = neutra. */
+  forma?: Forma;
+  /** Ordine, visibilità e titoli delle sezioni de "I dati" (traguardo 4). */
+  layout?: LayoutSezioni;
+  /** Contenuti personali facoltativi: credito nel footer, link dei tappi (traguardo 4). */
+  extra?: { creditoFooter?: string; linkTappi?: string };
 }
 
 export interface ProfileCtx {
@@ -40,6 +48,8 @@ export function useProfile(): ProfileCtx {
 }
 
 export const useDataset = (): Dataset => useProfile().dataset;
+/** La forma grammaticale del profilo della pagina. */
+export const useForma = (): Forma => formaDi(useProfile().profile.forma);
 export const useToday = (): number => useProfile().today;
 
 /** `isPlanned` legato al giorno della pagina: `rows.filter(planned)`. */

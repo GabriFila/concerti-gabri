@@ -2,19 +2,25 @@ import { useMemo, useState } from "react";
 import { concertsOf } from "../../shared/model/concert.ts";
 import { sortKey } from "../../shared/lib/dates.ts";
 import { counter, ranked } from "../../shared/lib/aggregate.ts";
+import { anniAsse, primoAnno } from "../../shared/lib/derive.ts";
 import { useData } from "../filters/FilterContext.tsx";
-import { usePlanned } from "../profile/ProfileContext.tsx";
+import { useDataset, usePlanned, useProfile } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 import { useSwipeToggle } from "./useSwipeToggle.ts";
 
 function YearChart(){
   const DATA=useData();
   const isPlanned=usePlanned();
+  const ds=useDataset();
+  const {now}=useProfile();
   // per concerto: un festival contribuisce con un'unità per set visto
   const CONC=DATA.flatMap(concertsOf);
   const att=counter(CONC.filter(c=>!isPlanned(c)),"y");
   const pl=counter(CONC.filter(isPlanned),"y");
-  const yc:Record<number,number>={};const span:number[]=[];const endY=Math.max(2026,...DATA.map(d=>d.y));for(let y=2017;y<=endY;y++){span.push(y);yc[y]=(att[y]||0)+(pl[y]||0);}
+  // dal primo anno del profilo a max(anno corrente, ultimo anno con dati) (PIANO §1.33)
+  const span=anniAsse(primoAnno(ds.entries),DATA.map(d=>d.y),now);
+  const yc:Record<number,number>={};for(const y of span) yc[y]=(att[y]||0)+(pl[y]||0);
   const max=Math.max(...Object.values(yc),1);
   // glow goes on the year with the most PAST events (planned excluded)
   const peak=ranked(att)[0]?.[0];
@@ -68,12 +74,13 @@ export function ChartCard(){
   const isPlanned=usePlanned();
   const [view,setView]=useState("year");
   const swipe=useSwipeToggle(()=>setView("year"),()=>setView("time"));
+  const titolo=useTitoloSezione("Concerti per anno");
   // The heading is the card's name, not the active view's: it stays put while
   // the toggle switches between the year bars and the timeline.
   return (
     <section className="panel full" {...swipe}>
       <div className="paneltop">
-        <div><h2><Icon name="chart" size={22} className="h2ic"/>Concerti per anno</h2></div>
+        <div><h2><Icon name="chart" size={22} className="h2ic"/>{titolo}</h2></div>
         <div className="toggle">
           <button className={"tg"+(view==="year"?" on":"")} onClick={()=>setView("year")}>Per anno</button>
           <button className={"tg"+(view==="time"?" on":"")} onClick={()=>setView("time")}>Timeline</button>

@@ -42,6 +42,7 @@ export interface EventInfo<G extends string = string, D extends string = string>
   accredito?: boolean; // lista ospiti/accredito stampa: ingresso gratuito, non un regalo
   from?: D; // partenza del viaggio (chiave delle partenze)
   km?: number; // km di sola andata, precalcolati fuori dall'app (mai derivati qui)
+  kmPending?: boolean; // partenza senza indirizzo: i km arrivano quando c'è (PIANO §1.37)
   comments?: string; // ricordo libero della serata (di tutto il festival, non di un set)
 }
 

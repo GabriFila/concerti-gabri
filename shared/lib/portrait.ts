@@ -6,6 +6,7 @@ import { flatConcerts, type Entry, type FlatConcert } from "../model/concert.ts"
 import { isPlanned, sortKey, todayKey } from "./dates.ts";
 import { counter, rankCutoff, ranked, sum } from "./aggregate.ts";
 import { distKm, hasVoto } from "./predicates.ts";
+import { serieDa } from "./derive.ts";
 import { perYearSince } from "./kpis.ts";
 
 export interface Portrait {
@@ -42,7 +43,7 @@ export function computePortrait(entries: Entry[], now: number): Portrait {
   return {
     total: attC.length,
     artists: new Set(attC.map(c => c.artist)).size,
-    perYear: perYearSince(attC, now),
+    perYear: perYearSince(attC, now, serieDa(entries, today)),
     km: Math.round(sum(attEv.map(distKm).filter((k): k is number => k !== null)) * 2),
     companions: new Set(attC.flatMap(c => c.with || [])).size,
     solo: attC.filter(c => !(c.with && c.with.length)).length,

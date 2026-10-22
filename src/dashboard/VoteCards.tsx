@@ -5,9 +5,12 @@ import { sortKey } from "../../shared/lib/dates.ts";
 import { rankCutoff, sum } from "../../shared/lib/aggregate.ts";
 import { eur2, voto1 } from "../../shared/lib/format.ts";
 import { hasCN, hasCost, hasVic, hasVoto, type Datum } from "../../shared/lib/predicates.ts";
+import { etichetta } from "../../shared/labels.ts";
 import { useData } from "../filters/FilterContext.tsx";
+import { useForma } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { ENT_CONCERT, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 import { useSwipeToggle } from "./useSwipeToggle.ts";
 
 // ---- Vote analytics ----------------------------------------------------------
@@ -22,9 +25,11 @@ export function VoteDistribution(){
   const max=Math.max(...bins.map(b=>b.n),1);
   const peak=bins.slice().sort((a,b)=>b.n-a.n)[0];
   const avg=voted.length?sum(voted.map(d=>d.voto))/voted.length:0;
+  const titolo=useTitoloSezione("Come li giudico");
+  const forma=useForma();
   return (
     <section className="panel full">
-      <div className="paneltop"><div><h2><Icon name="star" size={22} className="h2ic"/>Come li giudico</h2></div></div>
+      <div className="paneltop"><div><h2><Icon name="star" size={22} className="h2ic"/>{titolo}</h2></div></div>
       {voted.length>0?(<>
         <div className="years votedist" style={{"--nb":5}}>{bins.map(b=>{
           const h=b.n?Math.max(8,Math.round(b.n/max*150)):4;
@@ -38,7 +43,7 @@ export function VoteDistribution(){
           </div>;
         })}</div>
         <div className="starlegend">{([
-          [5,"Epico","se non ci fossi stato mi sarei buttato"],
+          [5,"Epico",etichetta("voto5",forma)],
           [4,"Top","performance oltre le aspettative"],
           [3,"Bello","ha fatto il suo"],
           [2,"Evitabile","non vorrei rivivere l'evento"],
@@ -57,6 +62,7 @@ export function VoteDistribution(){
 export function TopVoted(){
   const DATA=useData();
   const [expanded,setExpanded]=useState(false);
+  const titolo=useTitoloSezione("I migliori");
   // collapsed: best-rated concerts (4★ and up, festival sets included), newest
   // first within the same rating, with rankCutoff keeping whole ranks (a tie is
   // shown in full or held back entirely). Expanded: every rated concert, down to 1★.
@@ -69,7 +75,7 @@ export function TopVoted(){
   const hasMore=allVoted.length>cut.length;
   return (
     <section className="panel">
-      <h2><Icon name="trophy" size={22} className="h2ic"/>I migliori</h2>
+      <h2><Icon name="trophy" size={22} className="h2ic"/>{titolo}</h2>
       {shown.length>0?(<>
         <div className="rank">{shown.map(([d,v])=>(
           <div className="rrow" key={d.date+d.artist}>
@@ -90,6 +96,7 @@ export function VoteScatter(){
   const DIMS=["cost","vic","cn"]; // tab order — swipe steps through it
   const DIM_NAMES:Record<string,string>={cost:"prezzo",vic:"vicinanza",cn:"canzoni note"};
   const [dim,setDim]=useState("cost"); // "cost" | "vic" | "cn"
+  const titolo=useTitoloSezione("Il voto a confronto");
   const swipe=useSwipeToggle(
     ()=>setDim(d=>DIMS[Math.max(0,DIMS.indexOf(d)-1)]),
     ()=>setDim(d=>DIMS[Math.min(DIMS.length-1,DIMS.indexOf(d)+1)])
@@ -139,7 +146,7 @@ export function VoteScatter(){
   return (
     <section className="panel full" {...swipe}>
       <div className="paneltop">
-        <div><h2><Icon name="target" size={22} className="h2ic"/>Il voto a confronto</h2></div>
+        <div><h2><Icon name="target" size={22} className="h2ic"/>{titolo}</h2></div>
         <div className="toggle">
           <button className={"tg"+(dim==="cost"?" on":"")} onClick={()=>setDim("cost")}>Prezzo</button>
           <button className={"tg"+(dim==="vic"?" on":"")} onClick={()=>setDim("vic")}>Vicinanza</button>

@@ -1,9 +1,11 @@
 import React, { useMemo, useRef, useState } from "react";
+import { etichetta } from "../../shared/labels.ts";
 import { voto1 } from "../../shared/lib/format.ts";
 import { labelOf } from "../../shared/lib/predicates.ts";
 import { computePortrait } from "../../shared/lib/portrait.ts";
+import { soloHttps } from "../../shared/lib/url.ts";
 import { MapBoundary, MapCard } from "../dashboard/MapCard.tsx";
-import { useProfile } from "../profile/ProfileContext.tsx";
+import { useForma, useProfile } from "../profile/ProfileContext.tsx";
 import WishlistAct from "./WishlistAct.tsx";
 
 /* ============================================================
@@ -138,14 +140,16 @@ export function Act({className,threshold,cue,children}: any){
   );
 }
 
-// Loop earplugs nudge in "E adesso?" — hearing-protection CTA (Gabri's referral).
-const LOOP_LINK="https://rwrd.io/ref_E19KPYV";
-
 export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExplore:()=>void}){
   // Portrait stats — computed once, unfiltered, straight from the same helpers
   // the KPIs use (shared/lib/portrait.ts), so the two views agree by construction.
-  const {dataset,now}=useProfile();
+  const {dataset,now,profile}=useProfile();
+  const forma=useForma();
   const P=useMemo(()=>computePortrait(dataset.entries,now),[dataset,now]);
+  // contenuti personali del profilo (PIANO §1.34): il link dei tappi Loop in
+  // "E adesso?" e il ringraziamento in fondo; senza, quei pezzi non ci sono
+  const linkTappi=soloHttps(profile.extra?.linkTappi); // dato dell'utente in un href: solo https
+  const credito=profile.extra?.creditoFooter;
   // "Avanti" cue on every act but the last: glide to the next act below (found
   // via the DOM so it stays correct even when some acts are conditionally hidden).
   // Acts snap start-aligned, so an act's own snap position is where this lands.
@@ -199,7 +203,7 @@ export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExp
         <span className="spot"></span>
         <div className="rt-actbody">
           <div className="rt-hero-inner">
-            <h1 className="rt-h1">Gabri<span className="rt-h1-2">ai concerti</span></h1>
+            <h1 className="rt-h1">{profile.displayName}<span className="rt-h1-2">ai concerti</span></h1>
             <p className="rt-lede">Una vita contata in luci, viaggi e concerti sotto un palco.</p>
           </div>
         </div>
@@ -252,7 +256,7 @@ export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExp
       {P.mates.length>0&&(
       <Act className="rt-peopleact" cue={nextCue()}>
         <div className="rt-head"><h2 className="rt-h2">Con chi</h2></div>
-        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada e <b>{P.solo}</b> concerti vissuti da solo.</p>
+        <p className="rt-lead"><b>{P.companions}</b> compagni diversi lungo la strada e <b>{P.solo}</b> {etichetta("ritrattoSolo",forma)}.</p>
         <ol className="rt-peoplelist">
           {P.mates.map(([name,n]: any,i:number)=>(
             <li className="rt-personrow" key={name}>
@@ -278,16 +282,16 @@ export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExp
             </li>
           ))}
         </ol>
-        <div className="rt-earplugs">
+        {linkTappi&&<div className="rt-earplugs">
           <p className="rt-earplugs-note">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 3.5-2 4.5-3.2 5.7C13.6 14.9 13 15.7 13 17a3 3 0 0 1-6 0"/><path d="M9 8a3 3 0 0 1 6 0"/></svg>
             <span>Un consiglio: <b>proteggi l'udito</b>, io porto sempre i tappi con me.</span>
           </p>
-          <a className="rt-earplugs-cta" href={LOOP_LINK} target="_blank" rel="noopener noreferrer">
+          <a className="rt-earplugs-cta" href={linkTappi} target="_blank" rel="noopener noreferrer">
             <span>Compra i tuoi Loop con il 15% di sconto</span>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
           </a>
-        </div>
+        </div>}
       </Act>
       )}
 
@@ -300,7 +304,7 @@ export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExp
       {/* ── Final Act — L'Oracolo ── */}
       <Act className="rt-oracoloact" threshold={0.15}>
         <div className="rt-head"><h2 className="rt-h2">L'Oracolo</h2></div>
-        <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di Gabri e sa cercare sul web tutto il resto:</p>
+        <p className="rt-oracolo-pitch">Un'AI che conosce a memoria ogni concerto di {profile.displayName} e sa cercare sul web tutto il resto:</p>
         <div className="rt-finalctas">
           <button type="button" className="rt-oracolo-cta" onClick={()=>openChat()}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="20" height="20"><path d="M12 3l1.7 4.6L18 9.3l-4.3 1.7L12 15.6l-1.7-4.6L6 9.3l4.3-1.7L12 3Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg>
@@ -308,7 +312,7 @@ export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExp
           </button>
           <button type="button" className="rt-explore" onClick={onExplore}>Vuoi i dati da nerd? Clicca qui</button>
         </div>
-        <p className="rt-endcredits-note">Creato con il fondamentale supporto di Cami</p>
+        {credito&&<p className="rt-endcredits-note">{credito}</p>}
       </Act>
     </div>
   );

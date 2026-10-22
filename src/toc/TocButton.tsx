@@ -1,12 +1,17 @@
 import React, { useRef, useState } from "react";
-import { SECTIONS } from "../../shared/sections.ts";
+import { sezioniDelProfilo } from "../../shared/sections.ts";
+import { useForma, useProfile } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
 
-/* Ids+labels live in shared/sections.ts (shared with the AI chat); only icons are added here. */
+/* Ids+labels live in shared/sections.ts (shared with the AI chat); only icons are added here.
+   The list follows the profile: its forma, and the layout's order, hidden
+   sections and custom titles (PIANO §1.35). */
 const TOC_ICONS:Record<string,string>={"sec-kpis":"star","sec-andamento":"chart","sec-trend":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-commenti":"pen","sec-archivio":"list"};
-const TOC_ITEMS=SECTIONS.map(s=>({id:s.id as string,icon:TOC_ICONS[s.id]||"list",label:s.label as string}));
 
 export function TocButton(){
+  const forma=useForma();
+  const {layout}=useProfile().profile;
+  const TOC_ITEMS=sezioniDelProfilo(forma,layout).map(s=>({id:s.id as string,icon:TOC_ICONS[s.id]||"list",label:s.label}));
   const [open,setOpen]=useState(false);
   // a section can be conditional (the comments card is there only when a comment
   // is written), so the index is resolved against the DOM each time it opens —

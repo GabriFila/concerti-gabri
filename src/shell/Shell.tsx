@@ -3,16 +3,23 @@
    stato condiviso (filtri, tema, chat) e la cornice (pulsante del tema, lo
    switch Sul palco / I dati, le luci ambientali, l'Oracolo, la barra in
    basso); la rotta attiva si disegna in <Outlet/>.
+
+   Lo switch ha tre stati per il proprietario della pagina (Sul palco · I
+   dati · Modifica, SPEC §3) e due per tutti gli altri. Chi è il
+   proprietario lo dice useIsOwner() (solo UX: i controlli veri sono nelle
+   funzioni Convex), già nell'SSR quando la richiesta ha una sessione.
    ────────────────────────────────────────────────────────────── */
 
 import React from "react";
 import { Link, Outlet, getRouteApi, useRouterState } from "@tanstack/react-router";
 import { flatConcerts } from "../../shared/model/concert.ts";
 import { applyFilters, describeFilters, mergeToolFilters, rebaseFilters, sameBounds } from "../../shared/lib/filters.ts";
-import { sectionLabel } from "../../shared/sections.ts";
+import { formaDi } from "../../shared/labels.ts";
+import { bersaglioSezione } from "../../shared/sections.ts";
 import ChatWidget, { type ChatApi, type ChatSiteContext } from "../chat/ChatWidget.tsx";
 import { FilterButton } from "../filters/FilterButton.tsx";
 import { FilterContext } from "../filters/FilterContext.tsx";
+import { useIsOwner } from "../lib/viewer.ts";
 import { useProfile } from "../profile/ProfileContext.tsx";
 import { migrateLegacyTheme, resolveTema, writeTemaCookie, type Tema } from "../theme/tema.ts";
 import { TocButton } from "../toc/TocButton.tsx";
@@ -25,6 +32,8 @@ const rootApi=getRouteApi("__root__");
 
 export function Shell(){
   const {profile,dataset,today}=useProfile();
+  const forma=formaDi(profile.forma);
+  const layout=profile.layout;
   const B=dataset.bounds;
   const [filters,setFilters]=React.useState(dataset.emptyFilters);
   // dati dal vivo: se gli estremi cambiano, le fasce "tutto" seguono i nuovi
@@ -49,7 +58,9 @@ export function Shell(){
   // which route we're on drives the switch
   const pathname=useRouterState({select:s=>s.location.pathname});
   const isDati=/\/dati\/?$/.test(pathname);
-  const view=isDati?"dati":"ritratto";
+  const isModifica=/\/modifica\/?$/.test(pathname);
+  const view=isDati?"dati":isModifica?"modifica":"ritratto";
+  const isOwner=useIsOwner(profile.handle);
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure.
@@ -60,22 +71,25 @@ export function Shell(){
       const next=mergeToolFilters(filtersRef.current,input,dataset);
       setFilters(next);
       // matchCount counts concerts (sets), coherently with the page's stats
-      return {matchCount:flatConcerts(applyFilters(dataset.entries,next,B,today)).length,summary:describeFilters(next,B)};
+      return {matchCount:flatConcerts(applyFilters(dataset.entries,next,B,today)).length,summary:describeFilters(next,B,forma)};
     },
     clearFilters:()=>{
       setFilters(dataset.emptyFilters);
       return {matchCount:dataset.flat.length};
     },
     goToSection:(id)=>{
-      const el=document.getElementById(id);
+      // una sezione nascosta dal layout del profilo non c'è: ok:false, come
+      // i commenti quando nessuna serata ne ha uno (PIANO §1.35)
+      const {visibile,label}=bersaglioSezione(id,forma,layout);
+      const el=visibile?document.getElementById(id):null;
       if(el) el.scrollIntoView({behavior:"smooth",block:"start"});
-      return {ok:!!el,label:sectionLabel(id)??id};
+      return {ok:!!el,label};
     },
     setVisitorTheme:(t)=>{
       changeMode(t);
       return {ok:true,theme:t};
     },
-  }),[dataset,B,today,changeMode]);
+  }),[dataset,B,today,changeMode,forma,layout]);
   React.useEffect(()=>{
     const mq=window.matchMedia("(prefers-color-scheme: dark)");
     const apply=()=>{
@@ -131,14 +145,19 @@ export function Shell(){
           ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
           : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
       </button>
-      <div className="modeswitch" role="tablist" aria-label="Modalità di visualizzazione">
+      <div className={"modeswitch"+(isOwner?" modeswitch--tre":"")} role="tablist" aria-label="Modalità di visualizzazione">
         <span className="modeswitch-slide" data-view={view} aria-hidden="true"></span>
         {/* exact: altrimenti /gabrifila/dati inizia con /gabrifila e anche
             "Sul palco" risulterebbe la pagina corrente (aria-current) */}
-        <Link to="/$handle" params={{handle:profile.handle}} activeOptions={{exact:true}} role="tab" aria-selected={!isDati}
-          className={"ms-btn"+(!isDati?" on":"")}>Sul palco</Link>
+        <Link to="/$handle" params={{handle:profile.handle}} activeOptions={{exact:true}} role="tab" aria-selected={view==="ritratto"}
+          className={"ms-btn"+(view==="ritratto"?" on":"")}>Sul palco</Link>
         <Link to="/$handle/dati" params={{handle:profile.handle}} role="tab" aria-selected={isDati}
           className={"ms-btn"+(isDati?" on":"")}>I dati</Link>
+        {/* un link normale: /modifica (traguardo 3) ha il suo guard sul server */}
+        {isOwner&&(
+          <a href={"/"+profile.handle+"/modifica"} role="tab" aria-selected={isModifica} aria-current={isModifica?"page":undefined}
+            className={"ms-btn"+(isModifica?" on":"")}>Modifica</a>
+        )}
       </div>
       <div className="ambient" aria-hidden="true">
         <span className="abeam a1"></span>

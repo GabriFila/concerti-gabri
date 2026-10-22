@@ -1,8 +1,9 @@
 import React, { useRef, useState } from "react";
+import { etichetta } from "../../shared/labels.ts";
 import { CN_LABELS, VIC_LABELS } from "../../shared/model/scale.ts";
 import { eur0, km0 } from "../../shared/lib/format.ts";
 import { countActive, isDefaultCost, isDefaultKm, isEmptyFilters, type Filters } from "../../shared/lib/filters.ts";
-import { useDataset } from "../profile/ProfileContext.tsx";
+import { useDataset, useForma } from "../profile/ProfileContext.tsx";
 import { useFilters } from "./FilterContext.tsx";
 
 function FilterChip({active,onClick,children}: any){
@@ -94,6 +95,7 @@ function SearchSelect({options,selected,onToggle,onClear,placeholder,leadLabel,l
 export function FilterButton(){
   const {filters,setFilters}=useFilters();
   const ds=useDataset();
+  const forma=useForma();
   const B=ds.bounds;
   const [open,setOpen]=useState(false);
   const popRef=useRef<HTMLDivElement|null>(null);
@@ -179,7 +181,7 @@ export function FilterButton(){
             <FilterSection label="Compagni" wide>
               <SearchSelect options={ds.people} selected={filters.people}
                 onToggle={(p:string)=>toggleIn("people",p)} onClear={()=>clearKey("people")} placeholder="Tutti i compagni"
-                leadLabel="Da solo" leadActive={filters.solo} onLeadToggle={()=>toggleBool("solo")}/>
+                leadLabel={etichetta("filtroSolo",forma)} leadActive={filters.solo} onLeadToggle={()=>toggleBool("solo")}/>
             </FilterSection>
             <FilterSection label="Vicinanza">
               {ds.vic.map(v=>(

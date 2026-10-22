@@ -9,16 +9,20 @@
    Gemini propone solo token (accento e font dei titoli), mai CSS: la UI li
    unisce al tema attuale per l'anteprima e li salva con profiles.setTheme.
 
-   Validazione: shared/theme.ts (corsia 4) in questo traguardo non c'è
-   ancora, quindi qui c'è un validatore minimo: la forma di `tema`
-   (shared/schema/profile.ts: hex a 6 cifre, enum dei font) più il
-   contrasto dell'accento, almeno 3:1, sugli sfondi scuro e chiaro della
-   pagina. All'integrazione `validaTemaGenerato` passa al validatore di
-   shared/theme.ts.
+   Validazione: la forma di `tema` (shared/schema/profile.ts: hex a 6
+   cifre, enum dei font), poi l'accento con `problemaAccento` di
+   shared/theme.ts, lo stesso controllo di profiles.setTheme (contrasto
+   sulle superfici scure, versione scurita in chiaro, distanza dal teal dei
+   concerti in programma): un tema proposto si può sempre salvare. In più,
+   come chiede il prompt, l'accento così com'è regge 3:1 su entrambi gli
+   sfondi, senza contare sulla versione scurita.
    ────────────────────────────────────────────────────────────── */
 
 import { z } from "zod";
 import { FONT_TITOLI, tema } from "../../shared/schema/profile.ts";
+import { contrasto, problemaAccento } from "../../shared/theme.ts";
+
+export { contrasto, luminanza } from "../../shared/theme.ts";
 
 /** I token che il tema da descrizione può proporre. */
 export const tokenGenerati = tema.pick({ accent: true, fontTitoli: true }).required();
@@ -28,28 +32,10 @@ export type TokenGenerati = z.output<typeof tokenGenerati>;
 export const SFONDI = { scuro: "#0a0a0b", chiaro: "#f6f3ee" } as const;
 export const CONTRASTO_MIN = 3;
 
-const lineare = (c: number) => {
-  const s = c / 255;
-  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-};
-
-/** Luminanza relativa WCAG di un colore #rrggbb. */
-export function luminanza(hex: string): number {
-  const n = Number.parseInt(hex.slice(1), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(lineare);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-/** Rapporto di contrasto WCAG tra due colori #rrggbb (da 1 a 21). */
-export function contrasto(a: string, b: string): number {
-  const [chiaro, scuro] = [luminanza(a), luminanza(b)].sort((x, y) => y - x);
-  return (chiaro + 0.05) / (scuro + 0.05);
-}
-
-/** I token generati se sono validi e leggibili in chiaro e in scuro; altrimenti null. */
+/** I token generati se sono validi, salvabili con setTheme e leggibili in chiaro e in scuro; altrimenti null. */
 export function validaTemaGenerato(raw: unknown): TokenGenerati | null {
   const r = tokenGenerati.safeParse(raw);
-  if (!r.success) return null;
+  if (!r.success || problemaAccento(r.data.accent)) return null;
   const leggibile = Object.values(SFONDI).every(bg => contrasto(r.data.accent, bg) >= CONTRASTO_MIN);
   return leggibile ? { accent: r.data.accent.toLowerCase(), fontTitoli: r.data.fontTitoli } : null;
 }
@@ -65,7 +51,7 @@ export const SCHEMA_RISPOSTA = {
   properties: {
     accent: {
       type: "string",
-      description: `Colore d'accento esadecimale #rrggbb, leggibile sia sullo sfondo scuro ${SFONDI.scuro} sia sul chiaro ${SFONDI.chiaro} (contrasto almeno ${CONTRASTO_MIN}:1 con entrambi: un tono medio, né pastello né cupo)`,
+      description: `Colore d'accento esadecimale #rrggbb, leggibile sia sullo sfondo scuro ${SFONDI.scuro} sia sul chiaro ${SFONDI.chiaro} (contrasto almeno ${CONTRASTO_MIN}:1 con entrambi: un tono medio, né pastello né cupo). Niente teal, verde acqua o azzurro (tinta HSL tra 160° e 220°): è il colore dei concerti in programma`,
     },
     fontTitoli: {
       type: "string",

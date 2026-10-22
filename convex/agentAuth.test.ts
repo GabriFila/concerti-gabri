@@ -327,6 +327,9 @@ describe("get_stats", () => {
     const anno = await t.query(api.agents.stats, { agentToken: chiave, input: { anno: 2024 } });
     expect(anno).toMatchObject({ anno: 2024, eventi: 1 });
     expect(anno.kpi.find(k => k.id === "compagni")?.valore).toBe(1);
+    // come la dashboard: l'anno di partenza della media viene dal profilo intero, non dall'anno filtrato
+    const a25 = await t.query(api.agents.stats, { agentToken: chiave, input: { anno: 2025 } });
+    expect(a25.kpi.find(k => k.id === "media")?.nota).toBe("dal 2024 a oggi");
   });
 });
 

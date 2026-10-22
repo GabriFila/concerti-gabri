@@ -73,6 +73,7 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
       accredito: e.accredito,
       from: e.departureId,
       km: e.km,
+      kmPending: e.kmPending || undefined,
       comments: e.comments,
     });
     if (e.kind === "festival") {

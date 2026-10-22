@@ -28,9 +28,11 @@ export const dateTs = (d: { date: string }): number | null => {
 };
 const byTime = (a: TrendPoint, b: TrendPoint) => a.t - b.t;
 
-/* Da dove parte la finestra iniziale del grafico: il 2022 è l'anno in cui i
-   concerti diventano continui, stesso taglio della "media per anno". */
-export const trendFrom = (): number => new Date(2022, 0, 1).getTime();
+/* Da dove parte la finestra iniziale del grafico: l'anno da cui i concerti
+   diventano continui (serieDa, shared/lib/derive.ts), stesso taglio della
+   "media per anno"; senza concerti visti, nessun taglio. */
+export const trendFrom = (since: number | null): number | undefined =>
+  since === null ? undefined : new Date(since, 0, 1).getTime();
 
 // punti per concerto: `pick` dà il valore o null se il concerto non ce l'ha
 export const concertPoints = (data: Entry[], pick: (c: FlatConcert) => number | null, today: number): TrendPoint[] =>

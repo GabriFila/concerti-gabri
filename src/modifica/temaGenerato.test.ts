@@ -19,6 +19,12 @@ describe("tema da descrizione: validazione dei token generati", () => {
     expect(validaTemaGenerato({ accent: "#ffe08a", fontTitoli: "inter" })).toBeNull();
   });
 
+  it("rifiuta quello che profiles.setTheme rifiuterebbe (shared/theme.ts): un teal leggibile ma simile ai concerti in programma", () => {
+    expect(contrasto("#2a8f9e", SFONDI.scuro)).toBeGreaterThanOrEqual(3);
+    expect(contrasto("#2a8f9e", SFONDI.chiaro)).toBeGreaterThanOrEqual(3);
+    expect(validaTemaGenerato({ accent: "#2a8f9e", fontTitoli: "inter" })).toBeNull();
+  });
+
   it("niente CSS libero né font fuori elenco; l'hex si normalizza in minuscolo", () => {
     expect(validaTemaGenerato({ accent: "red;}body{x:y", fontTitoli: "inter" })).toBeNull();
     expect(validaTemaGenerato({ accent: "#b4532a", fontTitoli: "comic-sans" })).toBeNull();
@@ -50,7 +56,7 @@ describe("generaTema: l'ordine dei passi della server function", () => {
     const tutte = {
       token: vi.fn(async () => "jwt" as string | undefined),
       consuma: vi.fn(async () => ({ ok: true })),
-      gemini: vi.fn(async () => JSON.stringify({ accent: "#2a7ab4", fontTitoli: "inter" })),
+      gemini: vi.fn(async () => JSON.stringify({ accent: "#7a5cc9", fontTitoli: "inter" })),
       env: { GEMINI_API_KEY: "chiave-finta" } as Record<string, string | undefined>,
       ...d,
     };
@@ -88,7 +94,7 @@ describe("generaTema: l'ordine dei passi della server function", () => {
 
   it("Gemini: token validi restituiti; illeggibili, rotti o un errore → errore senza la descrizione", async () => {
     const d = dipendenze();
-    expect(await generaTema(DESCRIZIONE, d)).toEqual({ ok: true, tema: { accent: "#2a7ab4", fontTitoli: "inter" } });
+    expect(await generaTema(DESCRIZIONE, d)).toEqual({ ok: true, tema: { accent: "#7a5cc9", fontTitoli: "inter" } });
     expect(d.gemini).toHaveBeenCalledWith(promptTema(DESCRIZIONE));
     const errore = vi.spyOn(console, "error").mockImplementation(() => undefined);
     for (const gemini of [async () => JSON.stringify({ accent: "#ffffff", fontTitoli: "inter" }), async () => "non json", async () => Promise.reject(new Error(DESCRIZIONE))]) {

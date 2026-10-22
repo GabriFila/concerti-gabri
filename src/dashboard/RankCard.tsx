@@ -4,11 +4,13 @@ import { useData } from "../filters/FilterContext.tsx";
 import { usePlanned } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { ENT_ARTIST, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 
 export function RankCard({title,obj,plObj,color,min,icon,field,multi,entity}: any){
   const DATA=useData();
   const isPlanned=usePlanned();
   const [expanded,setExpanded]=useState(false);
+  const titolo=useTitoloSezione(title);
   const m=min||1;
   const f=field||"artist";
   // planned split: callers counting per-concert pass their own plObj; the
@@ -22,7 +24,7 @@ export function RankCard({title,obj,plObj,color,min,icon,field,multi,entity}: an
   const hasMore=all.length>ent.length;
   return (
     <section className="panel">
-      <h2><Icon name={icon||"trophy"} size={22} className="h2ic"/>{title}</h2>
+      <h2><Icon name={icon||"trophy"} size={22} className="h2ic"/>{titolo}</h2>
       {shown.length>0 ? (
         <div className="rank">{shown.map(([name,v])=>{
           const max=shown[0][1];

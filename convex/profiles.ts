@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { nessunInput } from "../shared/schema/campi.ts";
 import type { Doc } from "./_generated/dataModel";
 import { aggiornaProfiloInput, impostaTemaInput } from "../shared/schema/profile.ts";
+import { problemaStile } from "../shared/theme.ts";
 import { logActivity, istantanea } from "./lib/activity.ts";
 import { internalQuery, onboardingMutation, ownerMutation, ownerQuery, publicQuery } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
@@ -75,6 +76,10 @@ export const setTheme = ownerMutation({
   catalogOp: "set_theme",
   input: impostaTemaInput,
   handler: async (ctx, owner, input) => {
+    // T4: oltre alla forma (Zod), preset ed enum noti, contrasto dell'accento
+    // in chiaro e in scuro, id di sezione esistenti (shared/theme.ts)
+    const problema = problemaStile(input);
+    if (problema) throw errore("input_non_valido", problema.messaggio, { campo: problema.campo });
     const p = owner.profile;
     const patch: Partial<Doc<"profiles">> = {};
     if (input.theme) patch.theme = input.theme;

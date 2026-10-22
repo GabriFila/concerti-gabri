@@ -12,13 +12,10 @@
 import { concertsOf, type Entry } from "../model/concert.ts";
 import { isPlanned, romeMidnight, sortKey, todayKey } from "./dates.ts";
 import { counter, ranked, sum } from "./aggregate.ts";
+import { etichetta, type Forma } from "../labels.ts";
+import { cittaPrincipale, serieDa } from "./derive.ts";
 import { eur0, voto1 } from "./format.ts";
-import { distKm, hasCN, hasCost, hasVoto } from "./predicates.ts";
-
-/** Anno da cui si conta la "media per anno": il 2022 è l'anno in cui i concerti diventano continui. */
-export const SINCE_YEAR = 2022;
-/** La città della percentuale nel suggerimento della card "Città". */
-export const HOME_CITY = "Milano";
+import { distKm, hasCN, hasCost, hasFrom, hasVoto } from "./predicates.ts";
 
 const YEAR_MS = 365.25 * 24 * 3600 * 1000;
 
@@ -43,16 +40,40 @@ export interface Kpi {
   src: { date: string }[];
 }
 
-/** Concerti visti all'anno da SINCE_YEAR: tempo continuo, così un anno appena
-    iniziato non pesa come uno intero. Stessa formula del Ritratto. */
-export function perYearSince(attendedConcerts: { y: number }[], now: number, since = SINCE_YEAR): number {
+/** Concerti visti all'anno dal 1° gennaio di `since` (la regola di serieDa,
+    shared/lib/derive.ts): tempo continuo, così un anno appena iniziato non
+    pesa come uno intero. Stessa formula del Ritratto. Senza anno: 0. */
+export function perYearSince(attendedConcerts: { y: number }[], now: number, since: number | null): number {
+  if (since === null) return 0;
   const elapsed = (now - romeMidnight(since, 1, 1)) / YEAR_MS;
   const n = attendedConcerts.filter(c => c.y >= since).length;
   return elapsed > 0 ? n / elapsed : 0;
 }
 
-export function computeKpis(entries: Entry[], now: number): Kpi[] {
+/** Quello che i KPI prendono dal profilo e non dalle righe filtrate. */
+export interface KpiProfilo {
+  /** Anno della "media per anno" (regola: serieDa sulle righe del profilo). Assente = dalle righe passate. */
+  since?: number | null;
+  /** Città del suggerimento della card "Città" (regola: cittaPrincipale). Assente = dalle righe passate. */
+  homeCity?: string | null;
+  /** Forma grammaticale delle etichette (default m, i testi di sempre). */
+  forma?: Forma;
+}
+
+/** Il KpiProfilo di un profilo: `since` e `homeCity` dalle sue righe INTERE.
+    Chi passa a computeKpis righe filtrate (anno, filtri della pagina) passa
+    anche questo: i filtri cambiano i numeri, non il punto di partenza. */
+export const kpiProfilo = (tutte: Entry[], today: number, forma?: Forma): KpiProfilo => ({
+  since: serieDa(tutte, today),
+  homeCity: cittaPrincipale(tutte, today),
+  ...(forma ? { forma } : {}),
+});
+
+export function computeKpis(entries: Entry[], now: number, profilo: KpiProfilo = {}): Kpi[] {
   const today = todayKey(now);
+  const since = profilo.since !== undefined ? profilo.since : serieDa(entries, today);
+  const homeCity = profilo.homeCity !== undefined ? profilo.homeCity : cittaPrincipale(entries, today);
+  const forma = profilo.forma ?? "m";
   const planned = (d: { date: string }) => isPlanned(d, today);
   // eventi (biglietti/viaggi) contro concerti (set visti): ogni KPI sceglie la sua unità
   const ATTENDED = entries.filter(d => !planned(d));
@@ -65,9 +86,9 @@ export function computeKpis(entries: Entry[], now: number): Kpi[] {
   const cities = new Set(ATTENDED.map(d => d.city)).size;
   const companions = new Set(ATT_C.flatMap(c => c.with || [])).size;
   const evTotal = ATTENDED.length;
-  const home = evTotal ? Math.round(ATTENDED.filter(d => d.city === HOME_CITY).length / evTotal * 100) : 0;
-  const dataSince = ATT_C.filter(c => c.y >= SINCE_YEAR);
-  const avgSince = perYearSince(ATT_C, now).toFixed(1);
+  const home = evTotal ? Math.round(ATTENDED.filter(d => d.city === homeCity).length / evTotal * 100) : 0;
+  const dataSince = since === null ? [] : ATT_C.filter(c => c.y >= since);
+  const avgSince = perYearSince(ATT_C, now, since).toFixed(1);
   // compagno più frequente sui concerti visti (per set: chi c'era davvero accanto)
   const topMate = ranked(counter(ATT_C.flatMap(c => c.with || []), x => x))[0] || ["—", 0];
   // artista più visto, per set
@@ -85,6 +106,8 @@ export function computeKpis(entries: Entry[], now: number): Kpi[] {
   // km: andata e ritorno, per evento, solo visti con partenza nota
   const tripRows = ATTENDED.filter(d => distKm(d) !== null);
   const totalKm = sum(tripRows.map(d => distKm(d) as number)) * 2;
+  // viaggi con la partenza ma senza km: aspettano l'indirizzo (PIANO §1.37)
+  const kmPending = ATTENDED.filter(d => hasFrom(d) && d.kmPending && distKm(d) === null).length;
   const nextPlanned = [...PLANNED].sort((a, b) => sortKey(a) - sortKey(b))[0];
   // alla cieca: concerti visti conoscendo nessuna o poche canzoni; la percentuale
   // è sui concerti visti con un valore vero di canzoni note
@@ -94,15 +117,15 @@ export function computeKpis(entries: Entry[], now: number): Kpi[] {
   return [
     { id: "concerti", value: total, lbl: "Concerti", hint: "sino ad oggi", ic: "ticket", accent: "amber", src: ATT_C },
     { id: "programma", value: PL_C.length, lbl: "In programma", ic: "calendar", accent: "planned", hint: nextPlanned ? "prossimo " + nextPlanned.date : undefined, src: PL_C },
-    { id: "media", value: avgSince, lbl: "media per anno", hint: "dal " + SINCE_YEAR + " a oggi", ic: "repeat", src: dataSince },
+    { id: "media", value: avgSince, lbl: "media per anno", hint: since === null ? undefined : "dal " + since + " a oggi", ic: "repeat", src: dataSince },
     { id: "voto", value: voted.length ? voto1(avgVoto) : "—", star: voted.length > 0, lbl: "Voto medio", hint: voted.length + " concerti votati", ic: "star", src: voted },
     { id: "speso", value: eur0(totalSpent), lbl: "Speso in totale", hint: priced.length + " biglietti", ic: "coins", src: priced },
     { id: "spesaMedia", value: eur0(avgSpent), lbl: "Spesa media", hint: priced.length + " biglietti", ic: "wallet", src: priced },
-    { id: "citta", value: cities, lbl: "Città", hint: home + "% a " + HOME_CITY, ic: "pin", src: ATTENDED },
+    { id: "citta", value: cities, lbl: "Città", hint: homeCity === null ? undefined : home + "% a " + homeCity, ic: "pin", src: ATTENDED },
     { id: "artisti", value: artists, lbl: "Artisti diversi", hint: topArtist[1] ? topArtist[0] + " " + topArtist[1] + "x" : undefined, ic: "mic", src: ATT_C },
     { id: "compagni", value: companions, lbl: "Compagni", ic: "users", hint: "#1 " + topMate[0], src: ATT_C },
-    { id: "solo", value: solo, lbl: "Concerti da solo", ic: "user", hint: (total ? Math.round(solo / total * 100) : 0) + "% del totale", src: soloC },
+    { id: "solo", value: solo, lbl: etichetta("kpiSolo", forma), ic: "user", hint: (total ? Math.round(solo / total * 100) : 0) + "% del totale", src: soloC },
     { id: "cieca", value: cieca, lbl: "Alla cieca", ic: "eyeclosed", hint: cnKnown ? Math.round(cieca / cnKnown * 100) + "% dei concerti" : undefined, src: ciecaC },
-    { id: "km", value: Math.round(totalKm).toLocaleString("it-IT"), lbl: "Km di viaggi", hint: "andata e ritorno", ic: "map", src: tripRows },
+    { id: "km", value: Math.round(totalKm).toLocaleString("it-IT"), lbl: "Km di viaggi", hint: "andata e ritorno" + (kmPending ? ` (${kmPending} ${kmPending === 1 ? "viaggio" : "viaggi"} in attesa)` : ""), ic: "map", src: tripRows },
   ];
 }

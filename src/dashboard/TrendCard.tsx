@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { ClientOnly } from "@tanstack/react-router";
 import { sum } from "../../shared/lib/aggregate.ts";
+import { serieDa } from "../../shared/lib/derive.ts";
 import { maWindow, movingAverage, TREND_SPECS, trendFrom } from "../../shared/lib/trend.ts";
 import { useData } from "../filters/FilterContext.tsx";
-import { useToday } from "../profile/ProfileContext.tsx";
+import { useDataset, useToday } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 
 /* ── Andamento di una proprietà nel tempo ────────────────────────────────────
    Una card con un selettore: scegli la proprietà, la vedi punto per punto
@@ -26,10 +28,14 @@ export function TrendCard(){
   const spec=TREND_SPECS.find(s=>s.k===k)||TREND_SPECS[0];
   const points=useMemo(()=>spec.points(DATA,today),[DATA,spec,today]);
   const trend=useMemo(()=>movingAverage(points),[points]);
+  const titolo=useTitoloSezione("Come cambia nel tempo");
+  // la finestra iniziale parte dall'anno della "media per anno" (sulle righe non filtrate)
+  const ds=useDataset();
+  const since=useMemo(()=>serieDa(ds.entries,today),[ds,today]);
   return (
     <section className="panel full">
       <div className="paneltop">
-        <div><h2><Icon name="chart" size={22} className="h2ic"/>Come cambia nel tempo</h2></div>
+        <div><h2><Icon name="chart" size={22} className="h2ic"/>{titolo}</h2></div>
         <div className="toggle wrap">
           {TREND_SPECS.map(s=>(
             <button key={s.k} className={"tg"+(s.k===k?" on":"")} onClick={()=>setK(s.k)}>{s.tab}</button>
@@ -39,7 +45,7 @@ export function TrendCard(){
       {points.length>0?(<>
         <ClientOnly fallback={<TrendLoading/>}>
           <React.Suspense fallback={<TrendLoading/>}>
-            <TrendPlot points={points} trend={trend} from={trendFrom()} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
+            <TrendPlot points={points} trend={trend} from={trendFrom(since)??0} yMin={spec.yMin} yMax={spec.yMax} yInterval={spec.yInterval}
               yFormat={spec.yFormat} label={spec.label}/>
           </React.Suspense>
         </ClientOnly>

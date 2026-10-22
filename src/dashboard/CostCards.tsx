@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { anniAsse, serieDa } from "../../shared/lib/derive.ts";
 import { eur0, eur2 } from "../../shared/lib/format.ts";
 import { hasCost, labelOf, type Datum } from "../../shared/lib/predicates.ts";
 import { useData } from "../filters/FilterContext.tsx";
-import { usePlanned } from "../profile/ProfileContext.tsx";
+import { useDataset, usePlanned, useProfile, useToday } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { ENT_BIGLIETTO, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 
 // ---- Cost analytics ----------------------------------------------------------
 // Every figure here is computed only over concerts with a known `cost` (all-in,
@@ -12,11 +14,15 @@ import { ENT_BIGLIETTO, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
 
 function SpendYearChart({rows}:{rows:Array<Datum&{cost:number}>}){
   const isPlanned=usePlanned();
-  // total spend per year, split past (amber) vs planned/already-paid (teal)
-  const att:Record<number,number>={},pl:Record<number,number>={},cnt:Record<number,number>={},span:number[]=[];
-  const endY=Math.max(2026,...rows.map(d=>d.y));
-  for(let y=2022;y<=endY;y++){att[y]=0;pl[y]=0;cnt[y]=0;span.push(y);}
-  rows.forEach(d=>{ if(d.y<2022) return; (isPlanned(d)?pl:att)[d.y]+=d.cost; cnt[d.y]++; });
+  const ds=useDataset();
+  const today=useToday();
+  const {now}=useProfile();
+  // total spend per year, split past (amber) vs planned/already-paid (teal),
+  // from the year the concerts become continuous (same cut as "media per anno")
+  const span=anniAsse(serieDa(ds.entries,today),rows.map(d=>d.y),now);
+  const att:Record<number,number>={},pl:Record<number,number>={},cnt:Record<number,number>={};
+  for(const y of span){att[y]=0;pl[y]=0;cnt[y]=0;}
+  rows.forEach(d=>{ if(d.y<span[0]) return; (isPlanned(d)?pl:att)[d.y]+=d.cost; cnt[d.y]++; });
   const tot=(y:number)=>att[y]+pl[y];
   const max=Math.max(...span.map(tot),1);
   const peak=span.slice().sort((a,b)=>att[b]-att[a])[0];
@@ -48,11 +54,12 @@ function SpendYearChart({rows}:{rows:Array<Datum&{cost:number}>}){
 
 export function CostCard(){
   const DATA=useData();
+  const titolo=useTitoloSezione("Quanto spendo");
   const known=DATA.filter(hasCost);
   return (
     <section className="panel full">
       <div className="paneltop">
-        <div><h2><Icon name="wallet" size={22} className="h2ic"/>Quanto spendo</h2></div>
+        <div><h2><Icon name="wallet" size={22} className="h2ic"/>{titolo}</h2></div>
       </div>
       <SpendYearChart rows={known}/>
       <div className="ylegend"><span className="lg lg-att">Speso</span><span className="lg lg-pl">In programma</span><span className="lg lg-avg">Media a biglietto</span></div>
@@ -64,13 +71,14 @@ export function TopSpend(){
   const DATA=useData();
   const isPlanned=usePlanned();
   const [expanded,setExpanded]=useState(false);
+  const titolo=useTitoloSezione("Quando ho speso di più");
   const full=DATA.filter(hasCost).sort((a,b)=>b.cost-a.cost);
   const top=expanded?full:full.slice(0,7);
   const hasMore=full.length>7;
   const max=top.length?top[0].cost:1;
   return (
     <section className="panel">
-      <h2><Icon name="euro" size={22} className="h2ic"/>Quando ho speso di più</h2>
+      <h2><Icon name="euro" size={22} className="h2ic"/>{titolo}</h2>
       <div className="rank">{top.map((d,i)=>(
         <div className="rrow" key={i}>
           <div className="rtop"><span className="name">{labelOf(d)} <span style={{color:"var(--muted)",fontWeight:400}}>· {d.city} '{String(d.y).slice(2)}</span></span><span className="val"><span className="vneu">{eur2(d.cost)}</span></span></div>
@@ -85,6 +93,7 @@ export function TopSpend(){
 export function PriceDistribution(){
   const DATA=useData();
   const isPlanned=usePlanned();
+  const titolo=useTitoloSezione("Quanto pago di solito");
   const known=DATA.filter(hasCost);
   // bucket into €15 intervals starting at 0: [0,15), [15,30), …
   const W=15;
@@ -97,7 +106,7 @@ export function PriceDistribution(){
   return (
     <section className="panel full">
       <div className="paneltop">
-        <div><h2><Icon name="coins" size={22} className="h2ic"/>Quanto pago di solito</h2></div>
+        <div><h2><Icon name="coins" size={22} className="h2ic"/>{titolo}</h2></div>
       </div>
       <div className="distscroll"><div className="years" style={{"--nb":nb}}>{bins.map((b,i)=>{
         const h=b.n?Math.max(8,Math.round(b.n/max*150)):4;

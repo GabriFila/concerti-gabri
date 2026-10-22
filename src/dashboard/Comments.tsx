@@ -2,10 +2,12 @@ import React, { useMemo, useState } from "react";
 import { isFestival, type Entry } from "../../shared/model/concert.ts";
 import { sortKey } from "../../shared/lib/dates.ts";
 import { commentOf, eventTitle, hasComment } from "../../shared/lib/predicates.ts";
+import { etichetta } from "../../shared/labels.ts";
 import { useData } from "../filters/FilterContext.tsx";
-import { usePlanned } from "../profile/ProfileContext.tsx";
+import { useForma, usePlanned } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { ENT_COMMENTO, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 
 /* "I miei commenti" — what I wrote about an evening, newest first. Per EVENT,
    like the ticket: a festival comment covers its whole weekend, so it is listed
@@ -17,6 +19,8 @@ export function CommentsCard(){
   const DATA=useData();
   const isPlanned=usePlanned();
   const [limit,setLimit]=useState(COMMENTS_PAGE);
+  const titolo=useTitoloSezione("I miei commenti");
+  const forma=useForma();
   const commented=useMemo(()=>DATA.filter(hasComment).sort((a,b)=>sortKey(b)-sortKey(a)),[DATA]);
   if(!commented.length) return null;
   const shown=commented.slice(0,limit);
@@ -24,8 +28,8 @@ export function CommentsCard(){
   const allShown=rest===0;
   return (
     <section className="panel">
-      <h2><Icon name="pen" size={22} className="h2ic"/>I miei commenti</h2>
-      <p className="desc">Quello che mi sono segnato dopo la serata.</p>
+      <h2><Icon name="pen" size={22} className="h2ic"/>{titolo}</h2>
+      <p className="desc">{etichetta("commentiDesc",forma)}</p>
       <div className="commentlist">{shown.map(ev=>(
         <div className="commentitem" key={ev.date+eventTitle(ev)}>
           <div className="notehead">

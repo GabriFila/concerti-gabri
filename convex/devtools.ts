@@ -169,3 +169,64 @@ export const nominatimProbe = internalAction({
     };
   },
 });
+
+/* Traguardo 4 (e2e/forme.spec.ts, e2e/profilo-vuoto.spec.ts): un profilo di
+   prova `active` con forma, nome, layout, tema ed extra scelti dal test, più
+   le persone e le partenze (senza indirizzo) che i suoi concerti nominano.
+   Se il profilo esiste già (anche creato dal login, corsia 3) lo aggiorna:
+   le persone e le partenze mancanti si aggiungono, quelle presenti restano.
+   Con `concerti` (forma esterna, come addEntry) i concerti del profilo si
+   sostituiscono in blocco: una sola chiamata per profilo, anche sotto carico.
+   `alias` (e2e/redirect.spec.ts): vecchi handle `e2e-*` che portano qui
+   con un 301, come dopo un cambio di handle. */
+export const preparaProfiloDiProva = internalMutation({
+  args: {
+    handle: v.string(),
+    displayName: v.optional(v.string()),
+    forma: v.optional(v.union(v.literal("f"), v.literal("m"), v.literal("n"))),
+    layout: v.optional(v.object({ ordine: v.array(v.string()), nascoste: v.array(v.string()), titoli: v.record(v.string(), v.string()) })),
+    theme: v.optional(v.object({ preset: v.string(), accent: v.optional(v.string()), fontTitoli: v.optional(v.union(v.literal("fraunces"), v.literal("inter"), v.literal("space-grotesk"), v.literal("playfair-display"))), raggi: v.optional(v.string()), densita: v.optional(v.string()) })),
+    extra: v.optional(v.object({ creditoFooter: v.optional(v.string()), linkTappi: v.optional(v.string()) })),
+    persone: v.optional(v.array(v.string())),
+    partenze: v.optional(v.array(v.string())),
+    concerti: v.optional(v.array(v.any())),
+    alias: v.optional(v.array(v.string())),
+  },
+  returns: v.id("profiles"),
+  handler: async (ctx, a) => {
+    guardiaSviluppo();
+    if (![a.handle, ...(a.alias ?? [])].every(h => h.startsWith("e2e-"))) throw new Error("devtools: solo profili di prova e2e-*");
+    const campi = Object.fromEntries(Object.entries({
+      displayName: a.displayName, forma: a.forma, layout: a.layout, theme: a.theme, extra: a.extra,
+    }).filter(([, x]) => x !== undefined));
+    const esiste = await ctx.db.query("profiles").withIndex("by_handle", q => q.eq("handle", a.handle)).first();
+    const profileId = esiste?._id ?? await ctx.db.insert("profiles", {
+      handle: a.handle, authUserId: `e2e:${a.handle}`, displayName: a.handle, forma: "n",
+      status: "active", onboardingStep: "fatto", theme: { preset: "predefinito" },
+      layout: { ordine: [], nascoste: [], titoli: {} }, extra: {}, createdAt: Date.now(),
+    });
+    if (Object.keys(campi).length) await ctx.db.patch(profileId, campi);
+    const persone = new Set((await ctx.db.query("people").withIndex("by_profile_name", q => q.eq("profileId", profileId)).collect()).map(p => p.name));
+    for (const name of a.persone ?? []) if (!persone.has(name)) await ctx.db.insert("people", { profileId, name });
+    const partenze = new Set((await ctx.db.query("departures").withIndex("by_profile", q => q.eq("profileId", profileId)).collect()).map(d => d.name));
+    for (const name of a.partenze ?? []) {
+      if (!partenze.has(name)) await ctx.db.insert("departures", { profileId, name, hasAddress: false, legacy: false, createdAt: Date.now() });
+    }
+    for (const handle of a.alias ?? []) {
+      for (const x of await ctx.db.query("handleAliases").withIndex("by_handle", q => q.eq("handle", handle)).collect()) await ctx.db.delete(x._id);
+      await ctx.db.insert("handleAliases", { handle, profileId, createdAt: Date.now() });
+    }
+    if (a.concerti) {
+      for (const d of await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", profileId)).collect()) await ctx.db.delete(d._id);
+      for (const d of await ctx.db.query("activity").withIndex("by_profile_at", q => q.eq("profileId", profileId)).collect()) await ctx.db.delete(d._id);
+      const refs = await caricaRefs(ctx, profileId);
+      for (const entry of a.concerti) {
+        const campi = await campiDaInput(ctx, refs, parseInput(entryInput, entry));
+        const km = await campiKm(ctx, { profileId, departureId: campi.departureId, venueId: campi.venueId });
+        const doc = Object.fromEntries(Object.entries({ ...campi, ...km, profileId, updatedAt: Date.now() }).filter(([, x]) => x !== undefined));
+        await ctx.db.insert("entries", doc as never);
+      }
+    }
+    return profileId;
+  },
+});

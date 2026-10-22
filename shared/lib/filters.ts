@@ -7,6 +7,7 @@
    giorno di oggi arriva come parametro.
    ────────────────────────────────────────────────────────────── */
 
+import { etichetta, type Forma } from "../labels.ts";
 import { isFestival, type Entry } from "../model/concert.ts";
 import { CN_LABELS, VIC_LABELS } from "../model/scale.ts";
 import { isoKey, isPlanned, sortKey } from "./dates.ts";
@@ -67,8 +68,8 @@ export const countActive = (f: Filters, b: FilterBounds) =>
   (f.status !== "all" ? 1 : 0) + (f.price !== "all" ? 1 : 0) + (f.solo ? 1 : 0) + (isDefaultCost(f, b) ? 0 : 1) + (isDefaultKm(f, b) ? 0 : 1);
 
 /* Recap testuale dei filtri attivi: lo usa l'Oracolo per confermare cosa
-   mostra la pagina. */
-export function describeFilters(f: Filters, b: FilterBounds): string {
+   mostra la pagina. "da solo" segue la forma del profilo (default m). */
+export function describeFilters(f: Filters, b: FilterBounds, forma: Forma = "m"): string {
   const parts: string[] = [];
   if (f.status === "attended") parts.push("solo già visti");
   if (f.status === "planned") parts.push("solo in programma");
@@ -76,7 +77,7 @@ export function describeFilters(f: Filters, b: FilterBounds): string {
   if (f.dateTo) parts.push("fino al " + f.dateTo);
   if (f.cities.length) parts.push("città: " + f.cities.join(", "));
   if (f.people.length) parts.push("con: " + f.people.join(", "));
-  if (f.solo) parts.push("da solo");
+  if (f.solo) parts.push(etichetta("riassuntoSolo", forma));
   if (f.vicinanze.length) parts.push("vicinanza: " + f.vicinanze.map(v => VIC_LABELS[v] || v).join(", "));
   if (f.canzoni.length) parts.push("canzoni note: " + f.canzoni.map(v => CN_LABELS[v] || v).join(", "));
   if (f.price === "paid") parts.push("solo con prezzo");

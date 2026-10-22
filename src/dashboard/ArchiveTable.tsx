@@ -26,6 +26,12 @@ function festMatches(ev:Festival,q:string){
   return ev.concerts.some(c=>c.artist.toLowerCase().includes(n)||(c.with||[]).some(p=>p.toLowerCase().includes(n)));
 }
 
+/* Viaggio senza km: con la partenza ma senza indirizzo i km arrivano dopo
+   (kmPending, PIANO §1.37); altrimenti un semplice "—". */
+const nessunKm=(ev:Entry)=>ev.kmPending
+  ? <span className="kmpending" style={{color:"var(--dim)"}} title="distanza non ancora calcolata">—</span>
+  : <span style={{color:"var(--dim)"}}>—</span>;
+
 export function ArchiveTable(){
   const DATA=useData();
   const {gifters,departures}=useDataset();
@@ -121,7 +127,7 @@ export function ArchiveTable(){
                 <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
-                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {departures[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {departures[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:nessunKm(c.ev)}</td>
                 <td className="vic">{hasVic(c)?<span className="viccell">{VIC_LABELS[c.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="comment"><CommentCell ev={c.ev} onOpen={setCommentEv}/></td>
               </tr>
@@ -152,7 +158,7 @@ export function ArchiveTable(){
                   <td>{hl(ev.venue,q)}</td>
                   <td className="city"><b>{hl(ev.city,q)}</b></td>
                   <td className="cost">{hasCost(ev)?<span className="cval">{eur2(ev.cost)}</span>:isCostNa(ev)?<span className="cnamark" title="Biglietto pagato, prezzo non ricordato">n.d.</span>:isGift(ev)?<span className="cgift" title={giftTitle(ev,gifters)}><Icon name="gift" size={17}/><GifterMark id={ev.giftFrom}/></span>:isAccredito(ev)?<span className="cgift" title="Accredito"><Icon name="handshake" size={17}/></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
-                  <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {departures[ev.from!]}</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
+                  <td className="km">{distKm(ev)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(ev)!)} <span style={{color:"var(--muted)"}}>da {departures[ev.from!]}</span></span>:nessunKm(ev)}</td>
                   <td className="evconc">{ev.concerts.map((c,j)=>(<span className="evconc-line" key={j}>{c.artist}</span>))}</td>
                   <td className="comment"><CommentCell ev={ev} onOpen={setCommentEv}/></td>
                 </tr>

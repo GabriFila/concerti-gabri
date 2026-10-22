@@ -1,9 +1,12 @@
 import React, { useRef, useState } from "react";
 import { concertsOf, type Entry } from "../../shared/model/concert.ts";
+import { etichetta } from "../../shared/labels.ts";
+import { baricentro } from "../../shared/lib/derive.ts";
 import { sortKey } from "../../shared/lib/dates.ts";
 import { useData } from "../filters/FilterContext.tsx";
-import { useDataset, usePlanned } from "../profile/ProfileContext.tsx";
+import { useDataset, useForma, usePlanned } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 
 /* ============================================================
    MAP CONFIG — the Mapbox public token (starts with "pk.") comes from
@@ -23,6 +26,13 @@ function el(tag:string,className:string,text?:string){
 
 // framing used both for the initial map view and for the "Adatta" button
 const MAP_FIT_OPTS={padding:60,maxZoom:11};
+// last-resort view when the profile has no venue at all: northern Italy
+const MAP_CENTER_VUOTA:[number,number]=[9.6,45.0];
+
+/** Il titolo della card ("Dove sono andato", secondo la forma del profilo, o quello scelto nel layout). */
+function useTitoloMappa(){
+  return useTitoloSezione(etichetta("secMappa",useForma()));
+}
 
 export function MapCard(){
   const DATA=useData();
@@ -33,6 +43,7 @@ export function MapCard(){
   const popRef=useRef<any>(null);
   const [mode]=useState("venue"); // venue only
   const hasToken = MAPBOX_TOKEN && MAPBOX_TOKEN.indexOf("pk.")===0;
+  const titolo=useTitoloMappa();
 
   // Build GeoJSON for the current mode
   const buildGeo=React.useCallback((m:string)=>{
@@ -123,13 +134,15 @@ export function MapCard(){
     if(!hasToken || !mapboxReady || !ref.current) return;
     if(!window.mapboxgl){ setLoadError(true); return; }
     mapboxgl.accessToken=MAPBOX_TOKEN;
-    // Open already framed on every venue (same view as "Adatta"); the fixed
-    // center/zoom is only the fallback when nothing has coordinates yet.
+    // Open already framed on every venue (same view as "Adatta"); when the
+    // filters leave nothing to frame, it centres on the profile's venues
+    // (their barycentre, PIANO §1.33), and on northern Italy with none at all.
     const initBounds=dataBounds(mode);
+    const center=baricentro(VENUE_COORDS)??MAP_CENTER_VUOTA;
     const map=new mapboxgl.Map({
       container:ref.current,
       style:"mapbox://styles/mapbox/dark-v11",
-      ...(initBounds?{bounds:initBounds,fitBoundsOptions:MAP_FIT_OPTS}:{center:[9.6,45.0],zoom:5.4}),
+      ...(initBounds?{bounds:initBounds,fitBoundsOptions:MAP_FIT_OPTS}:{center,zoom:5.4}),
       attributionControl:true,
       // Don't hijack page scrolling: zoom needs Ctrl/Cmd+scroll on desktop and
       // two fingers on touch; a plain swipe/scroll over the map scrolls the page.
@@ -339,7 +352,7 @@ export function MapCard(){
     <section className="panel full">
       <div className="paneltop">
         <div>
-          <h2><Icon name="map" size={22} className="h2ic"/>Dove sono andato</h2>
+          <h2><Icon name="map" size={22} className="h2ic"/>{titolo}</h2>
         </div>
       </div>
       <div className="mapwrap">
@@ -388,17 +401,22 @@ export function MapCard(){
   );
 }
 
+function MapError(){
+  const titolo=useTitoloMappa();
+  return (
+    <section className="panel full">
+      <h2><Icon name="map" size={22} className="h2ic"/>{titolo}</h2>
+      <p className="desc" style={{margin:0}}>La mappa non è riuscita a caricarsi. Ricarica la pagina; il resto della dashboard funziona normalmente.</p>
+    </section>
+  );
+}
+
 export class MapBoundary extends React.Component<any,{err:boolean}>{
   constructor(p:any){super(p);this.state={err:false};}
   static getDerivedStateFromError(){return {err:true};}
   componentDidCatch(e:any){console.error("Map error:",e);}
   render(){
-    if(this.state.err) return (
-      <section className="panel full">
-        <h2><Icon name="map" size={22} className="h2ic"/>Dove sono andato</h2>
-        <p className="desc" style={{margin:0}}>La mappa non è riuscita a caricarsi. Ricarica la pagina; il resto della dashboard funziona normalmente.</p>
-      </section>
-    );
+    if(this.state.err) return <MapError/>;
     return this.props.children;
   }
 }

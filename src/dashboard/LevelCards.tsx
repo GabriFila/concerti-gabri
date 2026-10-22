@@ -6,12 +6,14 @@ import { useData } from "../filters/FilterContext.tsx";
 import { usePlanned } from "../profile/ProfileContext.tsx";
 import { Icon } from "../ui/Icon.tsx";
 import { ENT_VENUE, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
+import { useTitoloSezione } from "./sezioni.tsx";
 
 // Dove torno più spesso: per EVENTO (un festival è una visita alla venue)
 export function VenueCard(){
   const DATA=useData();
   const isPlanned=usePlanned();
   const [expanded,setExpanded]=useState(false);
+  const titolo=useTitoloSezione("Dove torno più spesso");
   const MIN_VISITS=3; // keep this a tight, truly-recurring shortlist — 1x/2x venues are noise in a half-width recap
   const full=ranked(counter(DATA,"venue")).filter(([,n])=>n>=MIN_VISITS);
   const vcap=rankCutoff(full);
@@ -19,7 +21,7 @@ export function VenueCard(){
   const hasMore=full.length>vcap.length;
   return (
     <section className="panel">
-      <h2><Icon name="repeat" size={22} className="h2ic"/>Dove torno più spesso</h2>
+      <h2><Icon name="repeat" size={22} className="h2ic"/>{titolo}</h2>
       {vc.length>0 ? (<>
         <div className="rank">{vc.map(([v,n])=>{
           const max=vc[0][1];
@@ -47,6 +49,8 @@ export function VenueCard(){
 export function VicinanzaCard(){
   const DATA=useData();
   const isPlanned=usePlanned();
+  // il titolo di sempre ("Quanto sono vicino") segue la forma del profilo
+  const titolo=useTitoloSezione();
   // per concerto (ogni set di un festival ha la sua vicinanza); solo valori
   // veri (numerici): i non-definiti restano fuori.
   const CONC=DATA.flatMap(concertsOf);
@@ -59,7 +63,7 @@ export function VicinanzaCard(){
   const max=Math.max(1,...rows.map(r=>r.n));
   return (
     <section className="panel">
-      <h2><Icon name="target" size={22} className="h2ic"/>Quanto sono vicino</h2>
+      <h2><Icon name="target" size={22} className="h2ic"/>{titolo}</h2>
       {total>0 ? (<>
         <div className="rank vicrank" style={{"--sn":rows.length}}>{rows.map(({v,n,a,pl},ri)=>(
           <div className="rrow" key={v}>
@@ -80,6 +84,7 @@ export function VicinanzaCard(){
 export function CanzoniNoteCard(){
   const DATA=useData();
   const isPlanned=usePlanned();
+  const titolo=useTitoloSezione("Quante canzoni conosco");
   // breakdown per livello di "Canzoni note" (Tutte in cima), solo valori veri:
   // "na" e non-definiti restano fuori, come in VicinanzaCard.
   const CONC=DATA.flatMap(concertsOf); // per concerto, come vicinanza
@@ -92,7 +97,7 @@ export function CanzoniNoteCard(){
   const max=Math.max(1,...rows.map(r=>r.n));
   return (
     <section className="panel">
-      <h2><Icon name="note" size={22} className="h2ic"/>Quante canzoni conosco</h2>
+      <h2><Icon name="note" size={22} className="h2ic"/>{titolo}</h2>
       {total>0?(<>
         <div className="rank">{rows.map(({v,n,a,pl})=>(
           <div className="rrow" key={v}>
