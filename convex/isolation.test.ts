@@ -65,6 +65,9 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "agents:stats": null,
     "importer:preview": null,
     "importer:apply": null,
+    // T6
+    "chat:myThreads": null,
+    "chat:myThread": { threadId: ids.thread },
   };
 }
 
@@ -101,7 +104,11 @@ describe("isolamento tra profili", () => {
     await nuovoClientOAuth(t, "client-a");
     await nuovoTokenOAuth(t, "u-a", "client-a");
     const consentCode = await nuovaRichiestaConsenso(t, "u-a", "client-a");
-    const ids = { person, person2, departure, gifter, entry, activity, apikey, clientId: "client-a", consentCode };
+    const thread = "privato-di-a";
+    await t.run(async ctx => {
+      await ctx.db.insert("chatThreads", { profileId: a.profileId, threadId: thread, visibility: "proprietario", title: "Chat", messages: [{ role: "user", content: "ciao" }], updatedAt: Date.now(), expiresAt: Date.now() + 86_400_000 });
+    });
+    const ids = { person, person2, departure, gifter, entry, activity, apikey, clientId: "client-a", consentCode, thread };
     const prima = await datiDi(t, a.profileId);
     const authPrima = await authDi(t);
     // B come agente: una sua API key e un suo token OAuth

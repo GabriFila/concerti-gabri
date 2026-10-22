@@ -60,17 +60,17 @@ importers:
         specifier: 11.8.0
         version: 11.8.0(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.7)
       '@tanstack/ai':
-        specifier: ^0.40.0
-        version: 0.40.0(@opentelemetry/api@1.10.0)
+        specifier: 0.71.0
+        version: 0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3)
       '@tanstack/ai-client':
-        specifier: ^0.20.0
-        version: 0.20.0(@opentelemetry/api@1.10.0)
+        specifier: 0.40.1
+        version: 0.40.1(@opentelemetry/api@1.10.0)(zod@4.4.3)
       '@tanstack/ai-gemini':
-        specifier: ^0.19.1
-        version: 0.19.1(@tanstack/ai@0.40.0(@opentelemetry/api@1.10.0))(supports-color@8.1.1)
+        specifier: 0.38.2
+        version: 0.38.2(@tanstack/ai@0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3))(supports-color@8.1.1)
       '@tanstack/ai-react':
-        specifier: ^0.16.4
-        version: 0.16.4(@opentelemetry/api@1.10.0)(@tanstack/ai@0.40.0(@opentelemetry/api@1.10.0))(@types/react@19.2.17)(react@19.2.7)
+        specifier: 0.31.1
+        version: 0.31.1(@opentelemetry/api@1.10.0)(@tanstack/ai@0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3)
       '@tanstack/react-form':
         specifier: 1.33.5
         version: 1.33.5(@tanstack/react-start@1.169.3(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.14)(supports-color@8.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0)))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -86,12 +86,6 @@ importers:
       '@tanstack/react-start':
         specifier: 1.169.3
         version: 1.169.3(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.2.14)(supports-color@8.1.1)(vite@8.1.4(@types/node@26.1.1)(esbuild@0.28.1)(jiti@2.7.0))
-      '@upstash/ratelimit':
-        specifier: ^2.0.8
-        version: 2.0.8(@upstash/redis@1.38.0)
-      '@upstash/redis':
-        specifier: ^1.38.0
-        version: 1.38.0
       '@vercel/og':
         specifier: 1.0.3
         version: 1.0.3(@types/node@26.1.1)
@@ -180,8 +174,13 @@ importers:
 
 packages:
 
-  '@ag-ui/core@0.0.52':
-    resolution: {integrity: sha512-Xo0bUaNV56EqylzcrAuhUkQX7et7+SZIrqZZtEByGwEq/I1EHny6ZMkWHLkKR7UNi0FJZwJyhKYmKJS3B2SEgA==}
+  '@ag-ui/core@1.0.0':
+    resolution: {integrity: sha512-yCRhsQvb4+lmGMrDsi4TOJxqKpm/kb3H64wwL+Z90jNVrkhy17RErfzsNgybfbjNKLM0nenEDYDVJsZHJJSigQ==}
+    peerDependencies:
+      zod: ^3.25.18 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
 
   '@babel/code-frame@7.29.7':
     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
@@ -339,6 +338,9 @@ packages:
 
   '@better-fetch/fetch@1.3.2':
     resolution: {integrity: sha512-Gs7n99b5tqUC6cQAPbV0uED3IraHB6xQbHLQ/C3l7ZFafHScOx9pQ+DYmP5blbLFShVWLqxNUlI9wi4xU/X+ow==}
+
+  '@cfworker/json-schema@4.1.1':
+    resolution: {integrity: sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og==}
 
   '@convex-dev/batch-worker@0.3.5':
     resolution: {integrity: sha512-kTxLGy1TXRN6WLcENcoRWWnvPshv1sIZp2EpPqGqCB4FxDI7m8tEHUr+jCLdhGtSZT1UHkWtb1w8YYuEzTxHWQ==}
@@ -1413,33 +1415,36 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tanstack/ai-client@0.20.0':
-    resolution: {integrity: sha512-pxx940CaZ/eQGYiYpOWvVuQCBLqnJgS/PUn6+vKtyV6W4G8vZ+SqJf3UI/pDyqre7wv048G5cu6/EEj8dBn5JA==}
+  '@tanstack/ai-client@0.40.1':
+    resolution: {integrity: sha512-nXCPiQHii1gZdvhmbfXwqpOtDNaoRYcLAcURfcSoBvH2YN4OT3B0jGU1VC3b9wYHv/bjyGGyRVdihlgKkLbsWw==}
 
-  '@tanstack/ai-event-client@0.6.8':
-    resolution: {integrity: sha512-h7/HLz9u2LF9ba6uKFMnSZkFlkzQONJ5u3Hi+4qGxpsHyvcGRtW6v186jaFLoklndhEwyC49ytkC4eafi7Qq8w==}
+  '@tanstack/ai-event-client@0.13.1':
+    resolution: {integrity: sha512-lCPcshu6Sd4tFNeMSr+HXgdqCGupYU2cpJZVUent4GkFx41dXzrBaKkwOgkji6olDBT99OBagWCce1NZ15XeJA==}
 
-  '@tanstack/ai-gemini@0.19.1':
-    resolution: {integrity: sha512-oGXmHFymfPnx+stic811x7wNi3sFDA5oxuMVsfoQFdX1RDQmFPbwIHlKxz31lKYfSsOhiPu3ujZiIqQ5TXdQtw==}
+  '@tanstack/ai-gemini@0.38.2':
+    resolution: {integrity: sha512-OzSQ/6t8MgemjD9bHiDTS/xjqFom3D1JQXxcCq/1NjWdZcweU3Cjv8WnFOICZOb3vovVju0P1Nij2aodLJMVEg==}
     peerDependencies:
-      '@tanstack/ai': ^0.40.0
+      '@tanstack/ai': ^0.71.0
 
-  '@tanstack/ai-react@0.16.4':
-    resolution: {integrity: sha512-GTVX0Th8oz5VPKymUJei/9V9p3II2lJfE3sVhGHKY+tG4aRFnGsys0dwTCHCjEsSjZWWLtmm/ryrpdaT7P8tcg==}
+  '@tanstack/ai-react@0.31.1':
+    resolution: {integrity: sha512-c/NzzXAbyBrjRntUrrlMa8zKTLgbronXkVi/Prq+XhR+vUh3VgvSQ1I3sQ33uHtBYS7THFUhwri4/muDRHjXhg==}
     peerDependencies:
       '@mcp-ui/client': ^7
-      '@tanstack/ai': ^0.40.0
+      '@tanstack/ai': ^0.71.0
       '@types/react': '>=18.0.0'
       react: '>=18.0.0'
+      react-dom: '>=18.0.0'
     peerDependenciesMeta:
       '@mcp-ui/client':
         optional: true
+      react-dom:
+        optional: true
 
-  '@tanstack/ai-utils@0.3.1':
-    resolution: {integrity: sha512-fgbjd5DohL3k5rTWr/KInauLVYMiHVm0cnmTsNrzL3cr4wWhEld5vmFSrjiwUWACAuONjZa+uBXuS+ZSO8fwDQ==}
+  '@tanstack/ai-utils@0.5.0':
+    resolution: {integrity: sha512-7RQHPWoon+EPDx6RXb1EAuRWPLijewROF8C56yfVANPeIrIeEBeYVdE8c//cMPDNd+3XS1bgehEg754Aw7htjg==}
 
-  '@tanstack/ai@0.40.0':
-    resolution: {integrity: sha512-7942RQkjHccHRL9lTuqAjcgt5z+281HJEvWSSEIX9ZDgntSj5Xt9cOK8SL5tXtGrjj2ZpGnzaFdog5lE4QD07A==}
+  '@tanstack/ai@0.71.0':
+    resolution: {integrity: sha512-YqbrydU7Yn+Z65CYC1eCvDxwoDfSp77t9xi3jm9mpBRTi2KXZuvtba3TrD+DucszuvLpiUeVLl8IEQIgkyn0Gw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': '>=1.9.0'
@@ -1458,6 +1463,17 @@ packages:
   '@tanstack/history@1.162.5':
     resolution: {integrity: sha512-w1+YvwmTkwt5n8yUqEH3IWZ9DsmorCZW/EQ3KYHnqEgIkOZpH54NvW6/Epq3Dzb8H0ifIeYX8PExvrNLIH5FIA==}
     engines: {node: '>=20.19'}
+
+  '@tanstack/markdown@0.0.13':
+    resolution: {integrity: sha512-ZSQP2ulBvlPzdpZeRheBJnaELo7e4ET/D/XrfgweHyqhhLMN5vUJJAUl7ufSRd7GlfO/vwdzjKPh0E0JwqJkDA==}
+    peerDependencies:
+      octane: '>=0.1.12'
+      react: '>=18'
+    peerDependenciesMeta:
+      octane:
+        optional: true
+      react:
+        optional: true
 
   '@tanstack/pacer-lite@0.1.1':
     resolution: {integrity: sha512-y/xtNPNt/YeyoVxE/JCx+T7yjEzpezmbb+toK8DDD1P4m7Kzs5YR956+7OKexG3f8aXgC3rLZl7b1V+yNUSy5w==}
@@ -1784,18 +1800,6 @@ packages:
     engines: {node: '>=16.20.0'}
     cpu: [x64]
     os: [win32]
-
-  '@upstash/core-analytics@0.0.10':
-    resolution: {integrity: sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ==}
-    engines: {node: '>=16.0.0'}
-
-  '@upstash/ratelimit@2.0.8':
-    resolution: {integrity: sha512-YSTMBJ1YIxsoPkUMX/P4DDks/xV5YYCswWMamU8ZIfK9ly6ppjRnVOyBhMDXBmzjODm4UQKcxsJPvaeFAijp5w==}
-    peerDependencies:
-      '@upstash/redis': ^1.34.3
-
-  '@upstash/redis@1.38.0':
-    resolution: {integrity: sha512-wu+dZBptlLy0+MCUEoHmzrY/TnmgDey3+c7EbIGwrLqAvkP8yi5MWZHYGIFtAygmL4Bkz2TdFu+eU0vFPncIcg==}
 
   '@vercel/og@1.0.3':
     resolution: {integrity: sha512-/iYJ34PDu4lty1TXdL86qHEw8viveHTllG1PWLuJX8tSFfqKL7kyVJeUORJmQ250bHB0h+alcalXUlza3c/NSA==}
@@ -2138,6 +2142,9 @@ packages:
 
   extend@3.0.2:
     resolution: {integrity: sha512-fjquC59cD7CyW6urNXK0FBufkZcoiGG80wTuPujX590cB5Ttln20E2UB4S/WARVqhXffZl2LNgS+gQdPIIim/g==}
+
+  fast-json-patch@3.1.1:
+    resolution: {integrity: sha512-vf6IHUX2SBcA+5/+4883dsIjpBTqmfBjmYiWK1savxQmFk4JfBMLa7ynTYOs1Rolp/T1betJxHiGD3g1Mn8lUQ==}
 
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
@@ -2735,9 +2742,6 @@ packages:
   ufo@1.6.4:
     resolution: {integrity: sha512-JFNbkD1Svwe0KvGi8GOeLcP4kAWQ609twvCdcHxq1oSL8svv39ZuSvajcD8B+5D0eL4+s1Is2D/O6KN3qcTeRA==}
 
-  uncrypto@0.1.3:
-    resolution: {integrity: sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==}
-
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
@@ -2929,9 +2933,6 @@ packages:
   yoga-layout@3.2.1:
     resolution: {integrity: sha512-0LPOt3AxKqMdFBZA3HBAt/t/8vIKq7VaQYbuA8WxCgung+p9TVyKRYdpvCb80HcdTN2NkbIKbhNwKUfm3tQywQ==}
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
@@ -2943,9 +2944,9 @@ packages:
 
 snapshots:
 
-  '@ag-ui/core@0.0.52':
-    dependencies:
-      zod: 3.25.76
+  '@ag-ui/core@1.0.0(zod@4.4.3)':
+    optionalDependencies:
+      zod: 4.4.3
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -3113,6 +3114,8 @@ snapshots:
   '@better-fetch/fetch@1.3.1': {}
 
   '@better-fetch/fetch@1.3.2': {}
+
+  '@cfworker/json-schema@4.1.1': {}
 
   '@convex-dev/batch-worker@0.3.5(@standard-schema/spec@1.1.0)(convex@1.47.0(react@19.2.7))(react@19.2.7)(typescript@7.0.2)(zod@4.4.3)':
     dependencies:
@@ -3845,23 +3848,25 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tanstack/ai-client@0.20.0(@opentelemetry/api@1.10.0)':
+  '@tanstack/ai-client@0.40.1(@opentelemetry/api@1.10.0)(zod@4.4.3)':
     dependencies:
-      '@tanstack/ai': 0.40.0(@opentelemetry/api@1.10.0)
-      '@tanstack/ai-event-client': 0.6.8
-      '@tanstack/ai-utils': 0.3.1
+      '@tanstack/ai': 0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3)
+      '@tanstack/ai-event-client': 0.13.1
+      '@tanstack/ai-utils': 0.5.0
+      '@tanstack/store': 0.11.2
     transitivePeerDependencies:
       - '@opentelemetry/api'
+      - zod
 
-  '@tanstack/ai-event-client@0.6.8':
+  '@tanstack/ai-event-client@0.13.1':
     dependencies:
       '@tanstack/devtools-event-client': 0.4.4
 
-  '@tanstack/ai-gemini@0.19.1(@tanstack/ai@0.40.0(@opentelemetry/api@1.10.0))(supports-color@8.1.1)':
+  '@tanstack/ai-gemini@0.38.2(@tanstack/ai@0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3))(supports-color@8.1.1)':
     dependencies:
       '@google/genai': 2.11.0(supports-color@8.1.1)
-      '@tanstack/ai': 0.40.0(@opentelemetry/api@1.10.0)
-      '@tanstack/ai-utils': 0.3.1
+      '@tanstack/ai': 0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3)
+      '@tanstack/ai-utils': 0.5.0
       partial-json: 0.1.7
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
@@ -3869,26 +3874,35 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@tanstack/ai-react@0.16.4(@opentelemetry/api@1.10.0)(@tanstack/ai@0.40.0(@opentelemetry/api@1.10.0))(@types/react@19.2.17)(react@19.2.7)':
+  '@tanstack/ai-react@0.31.1(@opentelemetry/api@1.10.0)(@tanstack/ai@0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(zod@4.4.3)':
     dependencies:
-      '@tanstack/ai': 0.40.0(@opentelemetry/api@1.10.0)
-      '@tanstack/ai-client': 0.20.0(@opentelemetry/api@1.10.0)
+      '@tanstack/ai': 0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3)
+      '@tanstack/ai-client': 0.40.1(@opentelemetry/api@1.10.0)(zod@4.4.3)
+      '@tanstack/markdown': 0.0.13(react@19.2.7)
       '@types/react': 19.2.17
       react: 19.2.7
+    optionalDependencies:
+      react-dom: 19.2.7(react@19.2.7)
     transitivePeerDependencies:
       - '@opentelemetry/api'
+      - octane
+      - zod
 
-  '@tanstack/ai-utils@0.3.1': {}
+  '@tanstack/ai-utils@0.5.0': {}
 
-  '@tanstack/ai@0.40.0(@opentelemetry/api@1.10.0)':
+  '@tanstack/ai@0.71.0(@opentelemetry/api@1.10.0)(zod@4.4.3)':
     dependencies:
-      '@ag-ui/core': 0.0.52
+      '@ag-ui/core': 1.0.0(zod@4.4.3)
+      '@cfworker/json-schema': 4.1.1
       '@standard-schema/spec': 1.1.0
-      '@tanstack/ai-event-client': 0.6.8
-      '@tanstack/ai-utils': 0.3.1
+      '@tanstack/ai-event-client': 0.13.1
+      '@tanstack/ai-utils': 0.5.0
+      fast-json-patch: 3.1.1
       partial-json: 0.1.7
     optionalDependencies:
       '@opentelemetry/api': 1.10.0
+    transitivePeerDependencies:
+      - zod
 
   '@tanstack/devtools-event-client@0.4.4': {}
 
@@ -3899,6 +3913,10 @@ snapshots:
       '@tanstack/store': 0.11.2
 
   '@tanstack/history@1.162.5': {}
+
+  '@tanstack/markdown@0.0.13(react@19.2.7)':
+    optionalDependencies:
+      react: 19.2.7
 
   '@tanstack/pacer-lite@0.1.1': {}
 
@@ -4243,19 +4261,6 @@ snapshots:
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
 
-  '@upstash/core-analytics@0.0.10':
-    dependencies:
-      '@upstash/redis': 1.38.0
-
-  '@upstash/ratelimit@2.0.8(@upstash/redis@1.38.0)':
-    dependencies:
-      '@upstash/core-analytics': 0.0.10
-      '@upstash/redis': 1.38.0
-
-  '@upstash/redis@1.38.0':
-    dependencies:
-      uncrypto: 0.1.3
-
   '@vercel/og@1.0.3(@types/node@26.1.1)':
     dependencies:
       '@resvg/resvg-wasm': 2.4.1
@@ -4540,6 +4545,8 @@ snapshots:
   exsolve@1.1.3: {}
 
   extend@3.0.2: {}
+
+  fast-json-patch@3.1.1: {}
 
   fdir@6.5.0(picomatch@4.0.5):
     optionalDependencies:
@@ -5142,8 +5149,6 @@ snapshots:
 
   ufo@1.6.4: {}
 
-  uncrypto@0.1.3: {}
-
   undici-types@8.3.0: {}
 
   unenv@2.0.0-rc.24:
@@ -5239,8 +5244,6 @@ snapshots:
   yallist@3.1.1: {}
 
   yoga-layout@3.2.1: {}
-
-  zod@3.25.76: {}
 
   zod@4.4.3: {}
 

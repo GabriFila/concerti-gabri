@@ -27,7 +27,7 @@ import { Route as DotwellKnownOauthProtectedResourceIndexRouteImport } from './r
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
-import { Route as ApiChatHistoryRouteImport } from './routes/api/chat/history'
+import { Route as ApiChatScritturaRouteImport } from './routes/api/chat/scrittura'
 import { Route as ApiAuthMcpAuthorizeRouteImport } from './routes/api/auth/mcp/authorize'
 
 const IndexRoute = IndexRouteImport.update({
@@ -124,9 +124,9 @@ const ApiChatIndexRoute = ApiChatIndexRouteImport.update({
   path: '/api/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiChatHistoryRoute = ApiChatHistoryRouteImport.update({
-  id: '/api/chat/history',
-  path: '/api/chat/history',
+const ApiChatScritturaRoute = ApiChatScritturaRouteImport.update({
+  id: '/api/chat/scrittura',
+  path: '/api/chat/scrittura',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthMcpAuthorizeRoute = ApiAuthMcpAuthorizeRouteImport.update({
@@ -152,7 +152,7 @@ export interface FileRoutesByFullPath {
   '/$handle/': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/chat/history': typeof ApiChatHistoryRoute
+  '/api/chat/scrittura': typeof ApiChatScritturaRoute
   '/.well-known/oauth-protected-resource/': typeof DotwellKnownOauthProtectedResourceIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/api/auth/mcp/authorize': typeof ApiAuthMcpAuthorizeRoute
@@ -173,7 +173,7 @@ export interface FileRoutesByTo {
   '/$handle': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/chat/history': typeof ApiChatHistoryRoute
+  '/api/chat/scrittura': typeof ApiChatScritturaRoute
   '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
   '/api/auth/mcp/authorize': typeof ApiAuthMcpAuthorizeRoute
@@ -196,7 +196,7 @@ export interface FileRoutesById {
   '/$handle/': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/api/chat/history': typeof ApiChatHistoryRoute
+  '/api/chat/scrittura': typeof ApiChatScritturaRoute
   '/.well-known/oauth-protected-resource/': typeof DotwellKnownOauthProtectedResourceIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
   '/api/auth/mcp/authorize': typeof ApiAuthMcpAuthorizeRoute
@@ -220,7 +220,7 @@ export interface FileRouteTypes {
     | '/$handle/'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
-    | '/api/chat/history'
+    | '/api/chat/scrittura'
     | '/.well-known/oauth-protected-resource/'
     | '/api/chat/'
     | '/api/auth/mcp/authorize'
@@ -241,7 +241,7 @@ export interface FileRouteTypes {
     | '/$handle'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
-    | '/api/chat/history'
+    | '/api/chat/scrittura'
     | '/.well-known/oauth-protected-resource'
     | '/api/chat'
     | '/api/auth/mcp/authorize'
@@ -263,7 +263,7 @@ export interface FileRouteTypes {
     | '/$handle/'
     | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
-    | '/api/chat/history'
+    | '/api/chat/scrittura'
     | '/.well-known/oauth-protected-resource/'
     | '/api/chat/'
     | '/api/auth/mcp/authorize'
@@ -282,7 +282,7 @@ export interface RootRouteChildren {
   OgHandleRoute: typeof OgHandleRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  ApiChatHistoryRoute: typeof ApiChatHistoryRoute
+  ApiChatScritturaRoute: typeof ApiChatScritturaRoute
   DotwellKnownOauthProtectedResourceIndexRoute: typeof DotwellKnownOauthProtectedResourceIndexRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
   ApiAuthMcpAuthorizeRoute: typeof ApiAuthMcpAuthorizeRoute
@@ -416,11 +416,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/chat/history': {
-      id: '/api/chat/history'
-      path: '/api/chat/history'
-      fullPath: '/api/chat/history'
-      preLoaderRoute: typeof ApiChatHistoryRouteImport
+    '/api/chat/scrittura': {
+      id: '/api/chat/scrittura'
+      path: '/api/chat/scrittura'
+      fullPath: '/api/chat/scrittura'
+      preLoaderRoute: typeof ApiChatScritturaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/mcp/authorize': {
@@ -465,7 +465,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotwellKnownOauthProtectedResourceMcpRoute:
     DotwellKnownOauthProtectedResourceMcpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  ApiChatHistoryRoute: ApiChatHistoryRoute,
+  ApiChatScritturaRoute: ApiChatScritturaRoute,
   DotwellKnownOauthProtectedResourceIndexRoute:
     DotwellKnownOauthProtectedResourceIndexRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,

@@ -25,7 +25,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
-import { GEMINI, senzaSegreti } from "./child-env.mjs";
+import { GEMINI, ORACOLO, senzaSegreti } from "./child-env.mjs";
 import { isLinkedWorktree, worktreeRefusal } from "./worktree-guard.mjs";
 
 const NEED_KB = 3 * 1024 * 1024;
@@ -83,9 +83,10 @@ if (!onPreview && isLinkedWorktree()) {
 }
 const spegni = () => { if (accesoQui) { accesoQui = false; locale("down"); } };
 
-// GEMINI per la spec @gemini; CHAT_SERVER_SECRET no (in T2 non serve al server Start);
-// il bypass di Vercel solo verso la preview
-const env = senzaSegreti(process.env, onPreview ? [...GEMINI, "VERCEL_AUTOMATION_BYPASS_SECRET"] : GEMINI);
+// GEMINI per la spec @gemini; CHAT_SERVER_SECRET (quello del Convex locale, da
+// .env.worktree) per il server Start dell'Oracolo (T6); il bypass di Vercel
+// solo verso la preview
+const env = senzaSegreti(process.env, onPreview ? [...GEMINI, "VERCEL_AUTOMATION_BYPASS_SECRET"] : [...GEMINI, ...ORACOLO]);
 // E2E_PREVIEW lo decide SOLO questo script: è ciò che spegne i server locali e
 // il controllo 127.0.0.1 (playwright.config.ts, e2e/global-setup.ts). Un
 // PREVIEW_URL rimasto nell'ambiente non basta, e nelle run locali sparisce.

@@ -5,7 +5,7 @@
    dello strumento e prompt di sistema. Gira nel progetto `convex`
    (convex-test, edge-runtime) per seminare un backend vero. */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { api, internal } from "../../../convex/_generated/api";
 import { setup } from "../../../convex/test.setup";
@@ -14,7 +14,8 @@ import { todayKey } from "../../../shared/lib/dates.ts";
 import { pageToDataset, type PaginaPubblica } from "../../../shared/lib/pageToDataset.ts";
 import { GABRIFILA_INPUT } from "../../../shared/seed/gabrifila.ts";
 import { chatToolDefs } from "../../chat/tools.ts";
-import { datasetDaConvex } from "./pagina.ts";
+import { CANARINO, formeCanarino } from "../../../e2e/helpers/canarino.ts";
+import { datasetDaConvex, paginaDaConvex } from "./pagina.ts";
 import { systemPrompt } from "./prompt.ts";
 import { queryInputSchema, runConcertQuery, type ConcertQuery } from "./query.ts";
 
@@ -74,7 +75,29 @@ describe("query_concerts su Convex", () => {
     expect(z.toJSONSchema(queryInputSchema(convex.vocab))).toEqual(z.toJSONSchema(queryInputSchema(statico.vocab)));
     const a = chatToolDefs(convex.vocab), b = chatToolDefs(statico.vocab);
     expect(z.toJSONSchema(a.setFiltersDef.inputSchema as z.ZodType)).toEqual(z.toJSONSchema(b.setFiltersDef.inputSchema as z.ZodType));
-    expect(systemPrompt(convex, TODAY)).toBe(systemPrompt(statico, TODAY));
+    const profilo = { handle: "gabrifila", displayName: "Gabri", forma: "m" } as const;
+    expect(systemPrompt(convex, TODAY, profilo)).toBe(systemPrompt(statico, TODAY, profilo));
+  });
+
+  it("nessun indirizzo: con il canarino in una partenza, pagina, prompt e risultati di query_concerts non lo contengono", async () => {
+    vi.stubEnv("CONVEX_CLOUD_URL", "http://127.0.0.1:3210");
+    vi.stubEnv("AUTH_DEV_OTP", "1");
+    try {
+      const t = setup();
+      await t.mutation(internal.seed.ensure, {});
+      await t.mutation(internal.devtools.setDepartureForTest, { handle: "gabrifila", departure: "Genova", address: CANARINO.indirizzo, lng: CANARINO.lng, lat: CANARINO.lat });
+      const pagina = await paginaDaConvex("gabrifila", { query: ((fn: any, args: any) => t.query(fn, args)) as any });
+      if (!pagina) throw new Error("pagina assente");
+      expect(pagina.profilo).toEqual({ handle: "gabrifila", displayName: "Gabri", forma: "m", layout: { ordine: [], nascoste: [], titoli: {} } });
+      const uscite = [
+        JSON.stringify(pagina),
+        systemPrompt(pagina.dataset, TODAY, pagina.profilo),
+        ...QUERIES.map(q => JSON.stringify(runConcertQuery(pagina.dataset, q, TODAY))),
+      ];
+      for (const forma of formeCanarino()) for (const u of uscite) expect(u.includes(forma), forma).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("pagina assente o alias: niente dataset", async () => {

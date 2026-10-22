@@ -17,8 +17,8 @@ export function queryConcertsDef(vocab: ChatVocab) {
   return toolDefinition({
     name: "query_concerts",
     description:
-      "The ONLY source of the concert data. A CONCERT is one act's set; a festival (e.g. MI AMI) is one EVENT/ticket containing several concerts, " +
-      "so counts are per concert while costs are per ticket/event. Returns, for the concerts matching the filters (combined with AND): " +
+      "The ONLY source of the concert data. A CONCERT is one act's set; a festival is one EVENT/ticket containing several concerts, " +
+      "so counts are per concert while costs are per ticket/event. Only this page's data, never addresses. Returns, for the concerts matching the filters (combined with AND): " +
       "exact count, attended/planned split, distinct event/ticket count, total and average ticket cost, average rating, average canzoni note, optional breakdown by " +
       "person/artist/year/city/venue/vicinanza/canzoniNote, and the full matching list in chronological order. " +
       "Call it (possibly more than once) before answering ANY question about the data.",
@@ -29,7 +29,7 @@ export function queryConcertsDef(vocab: ChatVocab) {
       plannedCount: z.number(),
       eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once)" }),
       totalCost: z.number().meta({ description: "Sum of the known ticket costs over the matching events, euros (a festival ticket counts once)" }),
-      costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost (a ticket paid for but whose price Gabri no longer recalls counts as unknown here, and shows as 'prezzo non ricordato' in the list)" }),
+      costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost (a ticket paid for but whose price the page owner no longer recalls counts as unknown here, and shows as 'prezzo non ricordato' in the list)" }),
       avgCost: z.number().nullable().meta({ description: "Average cost per ticket/event, not per concert" }),
       avgVoto: z.number().nullable().meta({ description: "Average rating over the matching concerts that have one" }),
       avgCanzoniNote: z.number().nullable().meta({ description: "Average canzoni-note level (1..5) over the matching concerts that have one" }),
@@ -41,7 +41,7 @@ export function queryConcertsDef(vocab: ChatVocab) {
         avgVoto: z.number().nullable(),
         avgCanzoniNote: z.number().nullable(),
       })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking. count = concerts; costs = distinct tickets in the group" }),
-      concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo[ di CHI]][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is Gabri's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
+      concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo[ di CHI]][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is the page owner's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
       concertsTruncated: z.boolean(),
     }),
   });
@@ -54,7 +54,7 @@ export const reportUnsupportedDef = toolDefinition({
   name: "report_unsupported_query",
   description:
     "Report a data question that query_concerts cannot compute (missing filter, aggregation or capability). " +
-    "Call this INSTEAD of guessing, then tell the user you cannot compute it and that they can ask Gabri to extend the chat.",
+    "Call this INSTEAD of guessing, then tell the user that the chat cannot compute it yet.",
   inputSchema: z.object({
     question: z.string().meta({ description: "The user's question, as asked" }),
     missing: z.string().meta({ description: "Short description of the missing capability, e.g. 'median cost', 'filter by weekday'" }),
@@ -71,7 +71,7 @@ export const webSearchDef = toolDefinition({
   description:
     "Search the web (Google) and get a short, up-to-date answer with sources. " +
     "ONLY for general music and live-music questions (artists, bands, songs, albums, tours, venues, festivals). " +
-    "Never for questions about Gabri's data (use query_concerts) and never for off-topic requests.",
+    "Never for questions about the page owner's data (use query_concerts) and never for off-topic requests.",
   inputSchema: z.object({
     query: z.string().meta({ description: "The web search question, in the user's language, e.g. 'chi fa parte degli Imagine Dragons?'" }),
   }),
@@ -93,10 +93,14 @@ export interface ServerToolsOptions {
   today: number;
   model: string;
   apiKey: string;
+  /** true nell'Oracolo in scrittura (PIANO §1.27): niente web_search (i risultati di Google
+      potrebbero iniettare chiamate di scrittura) e niente testo del proprietario nei log
+      (potrebbe contenere il suo indirizzo). */
+  scrittura?: boolean;
 }
 
 /** Gli strumenti server con la loro esecuzione, legati ai dati della pagina. */
-export function serverTools({ dataset, today, model, apiKey }: ServerToolsOptions) {
+export function serverTools({ dataset, today, model, apiKey, scrittura = false }: ServerToolsOptions) {
   // query_concerts runs here on the server: exact numbers computed by code.
   // The concert data is NOT in the prompt, so this tool is the model's only
   // way to answer data questions.
@@ -108,7 +112,7 @@ export function serverTools({ dataset, today, model, apiKey }: ServerToolsOption
 
   // grep "unsupported_query" in the function logs to see what the chat is missing
   const reportUnsupportedTool = reportUnsupportedDef.server(input => {
-    console.warn("unsupported_query", JSON.stringify(input));
+    console.warn("unsupported_query", JSON.stringify(scrittura ? { missing: input.missing.slice(0, 120) } : input));
     return { ok: true };
   });
 
@@ -151,5 +155,5 @@ export function serverTools({ dataset, today, model, apiKey }: ServerToolsOption
     }
   });
 
-  return [queryConcertsTool, reportUnsupportedTool, webSearchTool];
+  return scrittura ? [queryConcertsTool, reportUnsupportedTool] : [queryConcertsTool, reportUnsupportedTool, webSearchTool];
 }

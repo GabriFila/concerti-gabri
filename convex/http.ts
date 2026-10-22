@@ -4,12 +4,14 @@
    `/oracolo/turno` e `/oracolo/trascrizione` (T6): la route Start manda
    CHAT_SERVER_SECRET come `Authorization: Bearer`, MAI come argomento
    (gli errori di validazione ripetono gli argomenti: PIANO §1.25); qui si
-   confronta a tempo costante. Nel traguardo 2 sono stub: 401 o 501.
+   confronta a tempo costante; il resto (corpo, turno, trascrizione) sta in
+   convex/chat.ts (traguardo 6).
    ────────────────────────────────────────────────────────────── */
 
 import { httpRouter } from "convex/server";
-import { httpAction } from "./_generated/server";
+import { httpAction, type ActionCtx } from "./_generated/server";
 import { authComponent, createAuth } from "./auth.ts";
+import { trascrizioneHttp, turnoHttp } from "./chat.ts";
 
 /** Confronto a tempo costante (lunghezze diverse: falso, senza uscire prima sul contenuto). */
 export function ugualeCostante(a: string, b: string): boolean {
@@ -31,14 +33,13 @@ export function autorizzato(req: Request): boolean {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-const stubOracolo = httpAction(async (_ctx, req) => {
-  if (!autorizzato(req)) return json(401, { code: "unauthorized", messaggio: "non autorizzato" });
-  return json(501, { code: "non_disponibile", messaggio: "arriva con il traguardo 6" });
-});
+/** Solo la route Start col segreto: senza, 401 prima di leggere il corpo (che non si ripete mai). */
+const oracolo = (fn: (ctx: ActionCtx, req: Request) => Promise<Response>) =>
+  httpAction(async (ctx, req) => (autorizzato(req) ? await fn(ctx, req) : json(401, { code: "unauthorized", messaggio: "non autorizzato" })));
 
 const http = httpRouter();
 authComponent.registerRoutes(http, createAuth);
-http.route({ path: "/oracolo/turno", method: "POST", handler: stubOracolo });
-http.route({ path: "/oracolo/trascrizione", method: "POST", handler: stubOracolo });
+http.route({ path: "/oracolo/turno", method: "POST", handler: oracolo(turnoHttp) });
+http.route({ path: "/oracolo/trascrizione", method: "POST", handler: oracolo(trascrizioneHttp) });
 
 export default http;

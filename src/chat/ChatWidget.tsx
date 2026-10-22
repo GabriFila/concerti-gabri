@@ -8,27 +8,43 @@
 
    Each conversation gets its own thread id and a secret write key:
    the id is public, the key stays in this browser's localStorage and
-   is sent with every message. "Nuova chat" rotates both.
+   is sent with every message. "Nuova chat" rotates both. Every page has
+   its own Oracolo and its own history (PIANO traguardo 6): the widget
+   sends the page's `handle`, and each owned thread remembers the page it
+   belongs to (entries saved before multi-user have none: they are
+   gabrifila's).
 
-   The history button shows two tabs backed by /api/chat/history:
-   "Le mie" (threads whose write key this device holds — continuable,
-   resumed by rebuilding the chat client with initialMessages) and
-   "Tutte" (every visitor's chats, public by design — read-only viewer
-   for the ones you don't own). Until the history moves to Convex
-   (traguardo 6) that endpoint answers 503 and the tabs say so.
+   The history button shows two tabs, read from Convex with useQuery
+   (chat.listThreads / chat.getThread: only this page's public threads,
+   never keys or IPs): "Le mie" (this page's threads whose write key this
+   device holds — continuable, resumed by rebuilding the chat client
+   with initialMessages) and "Tutte" (every visitor's chats on this
+   page, public by design — read-only viewer for the ones you don't own,
+   live while you read it). A chat is shared as /<handle>?chat=<id>.
+
+   On /<handle>/modifica the widget steps aside: there the owner's
+   Oracolo is the write-mode one (src/modifica/ChatScrittura.tsx).
 
    SSR: localStorage is read only in effects (the modal is closed on the
    server anyway), and a shared `?chat=<id>` link is read from the
-   router's search, then dropped from the URL with a router navigation.
+   router's search, then dropped from the URL with a router navigation;
+   the thread itself is only ever fetched in the browser.
    ────────────────────────────────────────────────────────────── */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import type { ModelMessage } from "@tanstack/ai";
 import { useChat, fetchServerSentEvents } from "@tanstack/ai-react";
 import { createChatClientOptions } from "@tanstack/ai-client";
+import { api } from "../../convex/_generated/api";
 import { SECTIONS } from "../../shared/sections.ts";
-import { useDataset } from "../profile/ProfileContext.tsx";
+import { isPlanned } from "../../shared/lib/dates.ts";
+import { useProfile } from "../profile/ProfileContext.tsx";
 import type { Tema } from "../theme/tema.ts";
+import { logMessagesToUIMessages } from "./chatlog.ts";
+import { Message, Puntini, copyText, firstUserText, fmtWhen, friendlyError, randomId } from "./parti.tsx";
 import { chatToolDefs, type ChatVocab } from "./tools.ts";
 
 export type ThemeMode = Tema;
@@ -62,29 +78,31 @@ function clientTools(vocab: ChatVocab) {
   ];
 }
 
-const SUGGESTIONS = [
-  "Quanto ha speso Gabri in concerti nel 2025?",
-  "Chi fa parte degli Imagine Dragons?",
-  "Mostra solo i concerti in programma",
-  "Portami alla mappa",
-];
+/* Starter questions, about this page's owner: the spending one asks about
+   the latest year with concerts already seen (none yet: no year). */
+function suggestions(nome: string, anno: number | null): string[] {
+  return [
+    `Quanto ha speso ${nome} in concerti${anno ? ` nel ${anno}` : ""}?`,
+    "Chi fa parte degli Imagine Dragons?",
+    "Mostra solo i concerti in programma",
+    "Portami alla mappa",
+  ];
+}
 
 const SECTION_LABEL: Record<string, string> = Object.fromEntries(SECTIONS.map(s => [s.id, s.label]));
 
-// randomUUID needs a secure context (https/localhost); fall back to the
-// same shape TanStack generates so the server-side key stays valid.
-const randomId = () =>
-  typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `thread-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-/* ── Owned threads: id + secret write key + list metadata ──────
+/* ── Owned threads: id + secret write key + page + list metadata ──
    localStorage is the only place the write keys live; losing it means
-   those chats become read-only (still visible in the "Tutte" tab). */
-interface OwnedThread { id: string; key: string; title: string; updatedAt: number }
+   those chats become read-only (still visible in the "Tutte" tab).
+   `handle` is the page the thread belongs to: entries written before
+   multi-user don't have it and are gabrifila's. */
+interface OwnedThread { id: string; key: string; handle?: string; title: string; updatedAt: number }
 interface PublicThread { id: string; title: string; updatedAt: number; author?: string }
 const LS_THREADS = "concerti-chat-threads";
 const MAX_OWNED = 50;
+const HANDLE_LEGACY = "gabrifila";
+const pageOf = (t: OwnedThread) => t.handle ?? HANDLE_LEGACY;
+const SCADUTA = "Questa chat è scaduta e non è più disponibile.";
 
 /* Optional visitor signature: shown next to their chats in the public
    history. Kept per-device, sent with every message; the server caps it
@@ -108,42 +126,31 @@ function saveOwned(threads: OwnedThread[]) {
   try { localStorage.setItem(LS_THREADS, JSON.stringify(threads.slice(0, MAX_OWNED))); } catch { /* private mode etc. */ }
 }
 
-const fmtWhen = (ts: number) => {
-  const d = new Date(ts);
-  return d.toDateString() === new Date().toDateString()
-    ? d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-};
-
-const firstUserText = (messages: any[]): string => {
-  const m = messages.find((x: any) => x.role === "user");
-  return (m?.parts || [])
-    .filter((p: any) => p.type === "text" && p.content)
-    .map((p: any) => p.content)
-    .join(" ")
-    .trim();
-};
-
-function friendlyError(err: Error | undefined): string | null {
-  if (!err) return null;
-  const m = err.message || "";
-  if (/403|appartiene/.test(m)) return "Questa chat appartiene a un altro visitatore: puoi solo leggerla.";
-  if (/429|Troppi|[Ll]imite/.test(m)) return "Hai raggiunto il limite di messaggi. Riprova più tardi.";
-  if (/troppo lung/i.test(m)) return "Conversazione troppo lunga: apri una nuova chat.";
-  return "Qualcosa è andato storto. Riprova, o apri una nuova chat.";
-}
-
 const THEME_LABEL: Record<string, string> = { dark: "Scuro", light: "Chiaro", system: "Sistema" };
+
+const STRUMENTI_DEL_BROWSER = new Set(["set_filters", "clear_filters", "go_to_section", "set_visitor_theme"]);
 
 function ToolChip({ part }: { part: any }) {
   const done = part.output != null;
   let icon = "✓", text = "", hint = true;
+  // uno strumento del browser non andato (o mai ripreso: il server lo chiude con {ok:false, error})
+  const fallito = done && STRUMENTI_DEL_BROWSER.has(part.name) && (part.output.ok === false || typeof part.output.error === "string");
+  if (fallito) {
+    return (
+      <div className="chat-tool done">
+        <span className="chat-tool-ic" aria-hidden="true">✕</span>
+        <span>Non eseguito</span>
+      </div>
+    );
+  }
   if (part.name === "set_filters") {
-    text = done ? `Filtri applicati: ${part.output.matchCount} concerti` : "Applico i filtri…";
+    const n = Number(part.output?.matchCount);
+    text = done ? (Number.isFinite(n) ? `Filtri applicati: ${n} concerti` : "Filtri applicati") : "Applico i filtri…";
   } else if (part.name === "clear_filters") {
     text = done ? "Filtri azzerati" : "Azzero i filtri…";
   } else if (part.name === "go_to_section") {
-    const label = SECTION_LABEL[part.input?.section] || "sezione";
+    // the Shell answers with the title the profile gives the section (bersaglioSezione)
+    const label = (typeof part.output?.label === "string" && part.output.label) || SECTION_LABEL[part.input?.section] || "sezione";
     text = done ? `Pagina portata su “${label}”` : "Scorro la pagina…";
     icon = "→";
   } else if (part.name === "set_visitor_theme") {
@@ -177,62 +184,6 @@ function ToolChip({ part }: { part: any }) {
   );
 }
 
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // clipboard API needs a secure context; fall back to execCommand
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand("copy"); } finally { ta.remove(); }
-  }
-}
-
-function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-  const copy = async () => {
-    await copyText(text);
-    setCopied(true);
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setCopied(false), 1500);
-  };
-  return (
-    <button type="button" className={"chat-copy" + (copied ? " ok" : "")}
-      onClick={copy} aria-label={copied ? "Copiato" : "Copia messaggio"} title="Copia messaggio">
-      {copied
-        ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-        : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>}
-    </button>
-  );
-}
-
-function Message({ message }: { message: any }) {
-  const isUser = message.role === "user";
-  const parts = (message.parts || []).map((part: any, i: number) => {
-    if (part.type === "text" && part.content) return <p key={i}>{part.content}</p>;
-    if (part.type === "tool-call") return <ToolChip key={i} part={part} />;
-    return null;
-  }).filter(Boolean);
-  if (parts.length === 0) return null;
-  const text = (message.parts || [])
-    .filter((p: any) => p.type === "text" && p.content)
-    .map((p: any) => p.content)
-    .join("\n\n")
-    .trim();
-  return (
-    <div className={"chat-row " + (isUser ? "user" : "ai")}>
-      <div className={"chat-msg " + (isUser ? "user" : "ai")}>{parts}</div>
-      {text && <CopyBtn text={text} />}
-    </div>
-  );
-}
-
 /* Optional imperative handle: lets the page (e.g. the Ritratto's final act)
    open the chat and, optionally, submit a starter question. */
 export interface ChatApi { open(question?: string): void }
@@ -243,9 +194,9 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // id + threadId together: useChat only rebuilds its client when `id`
-  // changes, so rotating both is what actually starts a new thread. (The ids
-  // never reach the HTML: the modal is closed on the server.)
+  // useChat (ai-react 0.31) rebuilds its client when `threadId` changes, so
+  // rotating the id is what actually starts a new thread. (The ids never
+  // reach the HTML: the modal is closed on the server.)
   const [thread, setThread] = useState(() => ({ id: randomId(), key: randomId() }));
   // localStorage is read after mount, never during render (SSR)
   const [name, setName] = useState<string>("");
@@ -254,15 +205,31 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
   const [owned, setOwned] = useState<OwnedThread[]>([]);
   const [stored, setStored] = useState(false); // name + owned threads read from localStorage
   useEffect(() => { setName(loadName()); setOwned(loadOwned()); setStored(true); }, []);
-  const vocab = useDataset().vocab;
-  const tools = useMemo(() => clientTools(vocab), [vocab]);
-  const [publicThreads, setPublicThreads] = useState<PublicThread[] | null>(null); // null = not loaded yet
+  const { profile: { handle, displayName }, dataset, today } = useProfile();
+  const tools = useMemo(() => clientTools(dataset.vocab), [dataset.vocab]);
+  const starters = useMemo(() => {
+    const seen = dataset.flat.filter(c => !isPlanned(c, today)).map(c => c.y);
+    return suggestions(displayName, seen.length ? Math.max(...seen) : null);
+  }, [dataset, today, displayName]);
+  // this page's threads among the ones this device holds a key for
+  const ownedHere = useMemo(() => owned.filter(t => pageOf(t) === handle), [owned, handle]);
   // transcript fetched from the server, applied only while its id is current
   const [resume, setResume] = useState<{ id: string; messages: any[] } | null>(null);
-  // someone else's chat, shown read-only
-  const [viewer, setViewer] = useState<{ id: string; title: string; messages: any[]; author?: string } | null>(null);
+  // someone else's chat, shown read-only (live, from Convex)
+  const [viewerId, setViewerId] = useState<string | null>(null);
   const [histBusy, setHistBusy] = useState<string | null>(null);
   const [histError, setHistError] = useState<string | null>(null);
+
+  // another page (client-side navigation between profiles): a fresh thread,
+  // since a thread belongs to the page it started on
+  const [threadPage, setThreadPage] = useState(handle);
+  if (threadPage !== handle) {
+    setThreadPage(handle);
+    setThread({ id: randomId(), key: randomId() });
+    setResume(null);
+    setViewerId(null);
+    setView("chat");
+  }
 
   // useChat syncs forwardedProps changes onto its client, so an edited
   // name is picked up by the next message without rebuilding the thread.
@@ -271,75 +238,83 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     connection: fetchServerSentEvents("/api/chat"),
     tools,
     context: ctx,
-    id: thread.id,
     threadId: thread.id,
-    forwardedProps: { writeKey: thread.key, ...(author && { author }) },
+    // handle: the page whose data the Oracolo answers about (server side, per page)
+    forwardedProps: { handle, writeKey: thread.key, ...(author && { author }) },
     ...(resume?.id === thread.id && { initialMessages: resume.messages }),
-  }), [ctx, tools, thread, resume, author]);
+  }), [ctx, tools, thread, resume, author, handle]);
   const { messages, sendMessage, isLoading, error, clear } = useChat(chatOptions);
   const uiError = friendlyError(error);
 
-  // remember this thread (and its write key) once it has content
+  // remember this thread (its write key and its page) once it has content
   useEffect(() => {
     if (!messages.length) return;
     const title = firstUserText(messages).slice(0, 80) || "Chat";
     setOwned(prev => {
       const next = [
-        { id: thread.id, key: thread.key, title, updatedAt: Date.now() },
+        { id: thread.id, key: thread.key, handle, title, updatedAt: Date.now() },
         ...prev.filter(t => t.id !== thread.id),
       ].slice(0, MAX_OWNED);
       saveOwned(next);
       return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, thread]);
+
+  /* ── History from Convex: the page's public list and the thread open in
+     the viewer, both live. "skip" (not `enabled: false`) while they're not
+     shown: a disabled query would still subscribe every visitor's browser. ── */
+  const queryClient = useQueryClient();
+  const listShown = open && view === "history" && histTab === "all";
+  const list = useQuery(convexQuery(api.chat.listThreads, listShown ? { handle } : "skip"));
+  // the public builders don't carry return types: the shape of chat.listThreads' `returns`
+  const listed = list.data as { threadId: string; title: string; updatedAt: number; author?: string }[] | undefined;
+  const publicThreads: PublicThread[] | null = listed
+    ? listed.map(c => ({ id: c.threadId, title: c.title, updatedAt: c.updatedAt, author: c.author }))
+    : null; // null = not loaded yet
+  const listError = list.isError ? "Impossibile caricare la cronologia, riprova." : null;
+  const shown = useQuery(convexQuery(api.chat.getThread, viewerId ? { handle, threadId: viewerId } : "skip"));
+  const viewer = useMemo(() => shown.data
+    ? { id: shown.data.threadId, author: shown.data.author, messages: logMessagesToUIMessages(shown.data.messages as ModelMessage[]) }
+    : null, [shown.data]);
 
   const showHistory = (tab: "mine" | "all") => {
     setView("history");
     setHistTab(tab);
     setHistError(null);
-    if (tab === "all") void loadPublicList();
   };
 
-  const loadPublicList = async () => {
-    try {
-      const res = await fetch("/api/chat/history");
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || "Impossibile caricare la cronologia, riprova.");
-      }
-      const data = await res.json();
-      setPublicThreads((data.chats || []).map((c: any) => ({ id: c.threadId, title: c.title, updatedAt: c.updatedAt, author: c.author })));
-    } catch (e: any) {
-      setHistError(e?.message || "Impossibile caricare la cronologia, riprova.");
-    }
-  };
+  const dropOwned = (id: string) => setOwned(prev => {
+    const next = prev.filter(t => t.id !== id);
+    saveOwned(next);
+    return next;
+  });
 
-  const openThread = async (id: string, title: string) => {
-    const own = owned.find(t => t.id === id);
+  const openThread = async (id: string) => {
+    const own = ownedHere.find(t => t.id === id);
     if (id === thread.id && own) { setView("chat"); return; }
     setHistBusy(id);
     setHistError(null);
     try {
-      const res = await fetch(`/api/chat/history?threadId=${encodeURIComponent(id)}`);
-      if (res.status === 404) {
-        // expired on the server: drop it from the lists too
-        setPublicThreads(prev => prev && prev.filter(t => t.id !== id));
-        if (own) setOwned(prev => {
-          const next = prev.filter(t => t.id !== id);
-          saveOwned(next);
-          return next;
-        });
-        throw new Error("Questa chat è scaduta e non è più disponibile.");
+      let data;
+      try {
+        data = await queryClient.fetchQuery(convexQuery(api.chat.getThread, { handle, threadId: id }));
+      } catch {
+        throw new Error("Impossibile caricare la chat, riprova.");
       }
-      if (!res.ok) throw new Error("Impossibile caricare la chat, riprova.");
-      const data = await res.json();
+      if (!data) {
+        // expired on the server (or not this page's): drop it from this device too
+        if (own) dropOwned(id);
+        throw new Error(SCADUTA);
+      }
       if (own) {
         // continue it: rebuild the chat client on this thread with its key
-        setResume({ id, messages: data.messages || [] });
+        setResume({ id, messages: logMessagesToUIMessages(data.messages as ModelMessage[]) });
         setThread({ id, key: own.key || randomId() });
+        setViewerId(null);
         setView("chat");
       } else {
-        setViewer({ id, title, messages: data.messages || [], author: data.author });
+        setViewerId(id);
         setView("viewer");
       }
     } catch (e: any) {
@@ -349,18 +324,18 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     }
   };
 
-  /* ── Share: a chat is shareable via ?chat=<threadId> because reading
-     any thread is already public through /api/chat/history. ── */
-  const shareId = view === "viewer" && viewer ? viewer.id : view === "chat" && messages.length ? thread.id : null;
+  /* ── Share: a chat is shareable via /<handle>?chat=<threadId> because
+     reading any public thread of the page is already public (Convex). ── */
+  const shareId = view === "viewer" && viewerId ? viewerId : view === "chat" && messages.length ? thread.id : null;
   const [shared, setShared] = useState(false);
   const shareTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(shareTimer.current), []);
   const shareChat = async () => {
     if (!shareId) return;
-    const url = `${location.origin}${location.pathname}?chat=${encodeURIComponent(shareId)}`;
+    const url = `${location.origin}/${handle}?chat=${encodeURIComponent(shareId)}`;
     const touch = typeof matchMedia !== "undefined" && matchMedia("(pointer:coarse)").matches;
     if (touch && navigator.share) {
-      try { await navigator.share({ title: "L'Oracolo: concerti di Gabri", url }); } catch { /* user closed the share sheet */ }
+      try { await navigator.share({ title: `L'Oracolo: concerti di ${displayName}`, url }); } catch { /* user closed the share sheet */ }
       return;
     }
     await copyText(url);
@@ -369,13 +344,24 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     shareTimer.current = window.setTimeout(() => setShared(false), 1500);
   };
 
+  // on /<handle>/modifica the owner's Oracolo is the write-mode one
+  const pathname = useRouterState({ select: s => s.location.pathname });
+  const hidden = /\/modifica\/?$/.test(pathname);
+
+  // opening from the button or the page always starts from the chat view
+  const openChat = () => {
+    setView("chat");
+    setHistError(null);
+    setOpen(true);
+  };
+
   // opened via a shared link? load that thread (owned → continue, else viewer),
   // then drop ?chat from the URL through the router (keeping the rest)
   const navigate = useNavigate();
   const sharedChat = useRouterState({ select: s => (s.location.search as Record<string, unknown>).chat });
   useEffect(() => {
     const id = typeof sharedChat === "string" || typeof sharedChat === "number" ? String(sharedChat) : "";
-    if (!id || !stored) return; // wait for the owned threads: an owned link resumes the chat
+    if (!id || !stored || hidden) return; // wait for the owned threads: an owned link resumes the chat
     void navigate({
       to: ".",
       search: (prev: Record<string, unknown>) => { const { chat: _drop, ...rest } = prev; return rest; },
@@ -383,14 +369,14 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
       replace: true,
     } as any);
     setOpen(true);
-    void openThread(id, "Chat");
+    void openThread(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedChat, stored]);
 
   const startNewChat = () => {
     clear();
     setThread({ id: randomId(), key: randomId() });
-    setViewer(null);
+    setViewerId(null);
     setHistError(null);
     setView("chat");
   };
@@ -403,8 +389,6 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
 
   useEffect(() => {
     if (!open) return;
-    setView("chat");
-    setHistError(null);
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -428,10 +412,11 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
   // captured `send`/`sendMessage` closures stay fresh.
   useEffect(() => {
     if (!apiRef) return;
+    if (hidden) { apiRef.current = null; return; }
     apiRef.current = {
       open: (question?: string) => {
-        setOpen(true);
-        if (question && !isLoading) { setView("chat"); sendMessage(question); }
+        openChat();
+        if (question && !isLoading) sendMessage(question);
       },
     };
     return () => { if (apiRef) apiRef.current = null; };
@@ -449,7 +434,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     <button key={t.id} type="button"
       className={"chat-hist-item" + (t.id === thread.id && isOwn ? " cur" : "")}
       disabled={histBusy !== null || isLoading}
-      onClick={() => openThread(t.id, t.title)}>
+      onClick={() => openThread(t.id)}>
       <span className="chat-hist-title">{t.title}</span>
       <span className="chat-hist-meta">
         {histBusy === t.id ? "carico…"
@@ -461,6 +446,8 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
     </button>
   );
 
+  if (hidden) return null;
+  const historyError = histError ?? (histTab === "all" ? listError : null);
   return (
     <div className={"chatdock" + (corner ? " chatdock--corner" : "")}>
       {open && (
@@ -485,7 +472,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
                   </button>
                 )}
                 <button type="button" className={"fp-close" + (view === "history" ? " on" : "")}
-                  onClick={() => { if (view === "history") setView(viewer ? "viewer" : "chat"); else showHistory(histTab); }}
+                  onClick={() => { if (view === "history") setView(viewerId ? "viewer" : "chat"); else showHistory(histTab); }}
                   aria-label="Cronologia chat" aria-pressed={view === "history"} title="Cronologia chat">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
                 </button>
@@ -502,50 +489,48 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
                   <button type="button" className={"fchip" + (histTab === "all" ? " on" : "")}
                     onClick={() => showHistory("all")}>Tutte</button>
                 </div>
-                {histError && <div className="chat-error">{histError}</div>}
+                {historyError && <div className="chat-error">{historyError}</div>}
                 {histTab === "mine" ? (
                   <>
-                    {owned.length === 0 && (
+                    {ownedHere.length === 0 && (
                       <div className="chat-empty"><p>Non hai ancora chat su questo dispositivo.</p></div>
                     )}
-                    {owned.map(t => histItem(t, true))}
+                    {ownedHere.map(t => histItem(t, true))}
                   </>
                 ) : (
                   <>
-                    {publicThreads === null && !histError && (
-                      <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
-                    )}
+                    {publicThreads === null && !historyError && <Puntini />}
                     {publicThreads?.length === 0 && (
                       <div className="chat-empty"><p>Ancora nessuna chat: inizia tu la prima!</p></div>
                     )}
-                    {publicThreads?.map(t => histItem(t, owned.some(o => o.id === t.id)))}
+                    {publicThreads?.map(t => histItem(t, ownedHere.some(o => o.id === t.id)))}
                   </>
                 )}
                 <div className="chat-note">
                   {histTab === "mine"
-                    ? "Le chat che hai iniziato da questo dispositivo: puoi continuarle. Restano per 90 giorni."
-                    : "Cronologia pubblica di tutti i visitatori (90 giorni): puoi leggerle, ma continuare solo le tue."}
+                    ? "Le chat che hai iniziato su questa pagina da questo dispositivo: puoi continuarle. Restano per 90 giorni."
+                    : "Cronologia pubblica di questa pagina, di tutti i visitatori (90 giorni): puoi leggerle, ma continuare solo le tue."}
                 </div>
               </div>
-            ) : view === "viewer" && viewer ? (
+            ) : view === "viewer" && viewerId ? (
               <>
                 <div className="chat-body" ref={bodyRef}>
-                  {viewer.messages.map((m: any) => <Message key={m.id} message={m} />)}
+                  {shown.isPending && <Puntini />}
+                  {shown.data === null && <div className="chat-error">{SCADUTA}</div>}
+                  {viewer?.messages.map((m: any) => <Message key={m.id} message={m} Strumento={ToolChip} />)}
                 </div>
-                <div className="chat-note">Chat di {viewer.author || "un altro visitatore"}, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
+                <div className="chat-note">Chat di {viewer?.author || "un altro visitatore"}, in sola lettura. Vuoi chiedere qualcosa? Apri una nuova chat.</div>
               </>
             ) : (
               <>
                 <div className="chat-body" ref={bodyRef}>
-                  {messages.length === 0 && histBusy && (
-                    <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>
-                  )}
+                  {messages.length === 0 && histBusy && <Puntini />}
                   {messages.length === 0 && histError && <div className="chat-error">{histError}</div>}
                   {messages.length === 0 && !histBusy && (
                     <div className="chat-empty">
-                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di Gabri. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
+                      <p>Sono L'Oracolo: chiedimi qualcosa sui concerti di {displayName}. Posso rispondere sui dati, cercare sul web curiosità musicali (artisti, band, tour), cambiare i filtri della pagina, portarti a una sezione o cambiare il tema.</p>
                       <div className="chat-sugg">
-                        {SUGGESTIONS.map(s => (
+                        {starters.map(s => (
                           <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
                         ))}
                       </div>
@@ -561,8 +546,8 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
                       </label>
                     </div>
                   )}
-                  {messages.map((m: any) => <Message key={m.id} message={m} />)}
-                  {isLoading && <div className="chat-msg ai"><span className="chat-dots"><i/><i/><i/></span></div>}
+                  {messages.map((m: any) => <Message key={m.id} message={m} Strumento={ToolChip} />)}
+                  {isLoading && <Puntini />}
                   {uiError && <div className="chat-error">{uiError}</div>}
                 </div>
                 <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
@@ -588,7 +573,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
       <button
         type="button"
         className={"chatbtn" + (open ? " open" : "")}
-        onClick={() => setOpen(o => !o)}
+        onClick={() => (open ? setOpen(false) : openChat())}
         aria-label="Apri L'Oracolo, la chat AI"
         aria-expanded={open}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>

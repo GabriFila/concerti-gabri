@@ -26,7 +26,7 @@ export function queryInputSchema(vocab: ChatVocab) {
     years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
     gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
     accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
-    canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: `"Canzoni note" — how much of the setlist Gabri already knew: ${canzoniNoteScale()} (OR between them)` }),
+    canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: `"Canzoni note" — how much of the setlist the page owner already knew: ${canzoniNoteScale()} (OR between them)` }),
     groupBy: z.enum(["person", "artist", "year", "city", "venue", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion)" }),
     sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost", "avgCanzoniNote"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
   });

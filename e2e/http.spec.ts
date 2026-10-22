@@ -4,8 +4,9 @@
    - asset statici con hash: cache lunga e immutabile;
    - `/` → 307 verso `/gabrifila`, con la query string;
    - handle o percorsi sconosciuti → 404 in italiano;
-   - `/api/chat/history` → 503 fino al traguardo 6;
-   - `/api/chat` rifiuta un Origin estraneo prima di chiamare Gemini;
+   - `/api/chat/history` non c'è più (traguardo 6: lo storico è in Convex);
+   - `/api/chat` rifiuta un Origin estraneo prima di chiamare Gemini,
+     `/api/chat/scrittura` anche un Origin assente;
    - le API rispondono 405 ai metodi sbagliati (mai la pagina vuota);
    - un POST cross-site a una server function → 403 (CSRF di src/start.ts);
    - nel selettore di modalità una sola pagina è quella corrente;
@@ -117,10 +118,17 @@ test.describe("asset", () => {
 });
 
 test.describe("API dell'Oracolo", () => {
-  test("/api/chat/history: 503 fino al traguardo 6", async ({ baseURL }) => {
+  test("/api/chat/history non c'è più: lo storico si legge da Convex (traguardo 6)", async ({ baseURL }) => {
     const res = await get(baseURL, "/api/chat/history");
-    expect(res.status()).toBe(503);
-    expect(await res.json()).toEqual({ error: "Cronologia non disponibile." });
+    expect(res.status()).toBe(404);
+    expect(res.headers()["cache-control"]).toBe(NO_STORE);
+  });
+
+  test("/api/chat/scrittura senza Origin: 403 (solo il browser del proprietario)", async ({ baseURL }) => {
+    const res = await call(baseURL, "/api/chat/scrittura", {
+      data: { messages: [{ role: "user", content: "ciao" }], forwardedProps: { handle: "gabrifila" } },
+    });
+    expect(res.status()).toBe(403);
     expect(res.headers()["cache-control"]).toBe(NO_STORE);
   });
 
@@ -138,11 +146,11 @@ test.describe("API dell'Oracolo", () => {
     ["GET", "/api/chat", "POST"],
     ["PUT", "/api/chat", "POST"],
     ["HEAD", "/api/chat", "POST"],
-    ["POST", "/api/chat/history", "GET"],
-    ["DELETE", "/api/chat/history", "GET"],
+    ["GET", "/api/chat/scrittura", "POST"],
+    ["DELETE", "/api/chat/scrittura", "POST"],
   ] as const) {
     test(`${method} ${path}: 405, Allow ${allow}`, async ({ baseURL }) => {
-      const res = await call(baseURL, path, { method, ...(method === "POST" ? { data: {} } : {}) });
+      const res = await call(baseURL, path, { method });
       expect(res.status()).toBe(405);
       expect(res.headers()["allow"]).toBe(allow);
       expect(res.headers()["content-type"]).not.toContain("text/html");

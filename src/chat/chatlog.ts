@@ -1,166 +1,21 @@
 /* ──────────────────────────────────────────────────────────────
-   Chat transcript log of the Netlify era (Upstash Redis). Since the
-   move to TanStack Start only the pure helpers are used, by
-   src/server/oracolo/validate.ts (thread id and author checks); the
-   Redis layout below is what scripts/migra-storico-chat.mjs will read
-   (traguardo 9) before history moves to Convex (traguardo 6). The
-   origin allowlist now lives in src/server/oracolo/origins.ts. Nothing
-   here is imported by browser code.
+   Chat transcripts of the Oracolo.
 
-   Redis layout: one JSON blob per conversation under
-   `concerti:chat:log:<threadId>` (TTL-bounded), a sorted-set index
-   of threadIds scored by last-update time, a hash of chat titles
-   (first user message) and a hash of author names (the optional
-   visitor-chosen signature) so the history list can be served
-   without fetching whole transcripts, and a hash of per-thread
-   write keys.
-
-   Deploy isolation: chats from deploy previews / branch deploys /
-   local dev live under a separate `concerti:chat:log:preview:*`
-   namespace (same layout). They're still persisted — useful for
-   debugging a branch later — but production's public history only
-   reads the production namespace, so test chats never show up on
-   the live site. Each non-production deploy's own history endpoint
-   reads the preview namespace instead.
-
-   Ownership: the browser that starts a thread generates a secret
-   write key (kept in its localStorage, sent with every message);
-   chat.mts stores it in the keys hash and refuses to continue a
-   keyed thread without the matching key. Thread ids are public
-   (the history list shows them) — the key is what makes "continue
-   only your own chats" enforceable without accounts. Keys never
-   leave the server via the history endpoint.
+   Since traguardo 6 the history lives in Convex (convex/chat.ts: one
+   `chatThreads` row per conversation, public reads through
+   `chat.listThreads`/`chat.getThread`, write keys stored as SHA-256; the
+   Upstash era and its `preview:` namespace are gone, every Convex
+   deployment is its own database). What stays here is
+   logMessagesToUIMessages(): it turns a stored transcript (TanStack AI
+   ModelMessages) back into UIMessages the widget can show or resume.
+   The thread-id, title and author rules live in shared/chat/ (re-exported
+   here for the widget).
    ────────────────────────────────────────────────────────────── */
 
 import { modelMessagesToUIMessages, type ModelMessage, type UIMessage } from "@tanstack/ai";
 
-const CHAT_LOG_ROOT = "concerti:chat:log";
-
-/** "" = production (keys unchanged from before namespacing, so existing
-    transcripts stay reachable); "preview" = everything else. */
-export type ChatLogNamespace = "" | "preview";
-
-/** Map Netlify's deploy context ("production" | "deploy-preview" |
-    "branch-deploy" | "dev") to a log namespace. Anything that isn't
-    positively production — including an undefined context — goes to the
-    preview namespace: misdetection then hides a chat from the public
-    list (recoverable, it's still stored) instead of publishing a test
-    chat on the live site. */
-export function chatLogNamespace(deployContext: string | undefined): ChatLogNamespace {
-  return deployContext === "production" ? "" : "preview";
-}
-
-export interface ChatLogKeys {
-  index: string;
-  titles: string;
-  keys: string;
-  authors: string;
-  record: (threadId: string) => string;
-}
-
-export function chatLogKeys(ns: ChatLogNamespace): ChatLogKeys {
-  const base = ns ? `${CHAT_LOG_ROOT}:${ns}` : CHAT_LOG_ROOT;
-  return {
-    index: `${base}:index`,
-    titles: `${base}:titles`,
-    keys: `${base}:keys`,
-    authors: `${base}:authors`,
-    record: (threadId: string) => `${base}:${threadId}`,
-  };
-}
-
-// TanStack ids look like "thread-<ts>-<rand>", the widget's are UUIDs;
-// anything else from a hand-rolled client is rejected so a client-chosen
-// value never becomes an arbitrary Redis key. The reserved names are the
-// non-transcript keys sharing the `concerti:chat:log[:preview]:` prefix —
-// as threadIds they would collide with them ("index" and "keys" already
-// can't: too short).
-export const THREAD_ID_RE = /^[A-Za-z0-9_-]{6,64}$/;
-const RESERVED_THREAD_IDS = new Set(["titles", "authors", "preview"]);
-export const isValidThreadId = (id: string) =>
-  THREAD_ID_RE.test(id) && !RESERVED_THREAD_IDS.has(id);
-
-/** What chat.mts stores per conversation. `ip` is for abuse review only
-    and must never be returned to the browser. */
-export interface ChatLogRecord {
-  threadId: string;
-  ip: string;
-  updatedAt: string;
-  messages: ModelMessage[];
-  /** Optional visitor-chosen name, shown next to the chat in the public history. */
-  author?: string;
-  /** Netlify deploy context, recorded only in the preview namespace so a
-      debug transcript says which kind of deploy produced it. */
-  deployContext?: string;
-}
-
-/** The author name is free text from the browser and ends up rendered to every
-    visitor: cap its length and collapse whitespace/control chars server-side,
-    whatever the widget's own maxLength says. */
-export const MAX_AUTHOR_CHARS = 40;
-export function sanitizeAuthor(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  const s = v.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_AUTHOR_CHARS).trim();
-  return s || undefined;
-}
-
-/** History-list title for a conversation: its first user message. */
-export function chatTitle(messages: ModelMessage[]): string {
-  const c = messages.find(m => m.role === "user")?.content;
-  const text = typeof c === "string"
-    ? c
-    : Array.isArray(c) ? c.filter((p: any) => p.type === "text").map((p: any) => p.content).join(" ") : "";
-  return text.trim().slice(0, 80) || "Chat";
-}
-
-/** Drop index entries (and their titles + authors + write keys) older than the
-    transcript TTL, so the listing never outlives the expiring
-    `concerti:chat:log:<id>` blobs. Called from both the write path
-    (chat.mts) and the list path (chat-history.mts); reads-then-removes so
-    the hashes never leak orphan fields. The Redis client is typed loosely
-    to avoid importing @upstash/redis into a src/ module. */
-export async function pruneExpiredChatLog(r: any, k: ChatLogKeys, now: number, ttlSeconds: number): Promise<void> {
-  const expired: string[] = await r.zrange(k.index, 0, now - ttlSeconds * 1000, { byScore: true });
-  if (!expired.length) return;
-  await Promise.all([
-    r.zrem(k.index, ...expired),
-    r.hdel(k.titles, ...expired),
-    r.hdel(k.keys, ...expired),
-    r.hdel(k.authors, ...expired),
-  ]);
-}
-
-/** Ownership gate for continuing a thread: a thread claimed with a write key
-    can only get new messages from the client holding that key. Unclaimed
-    threads (fresh ids, or legacy ones logged before keys existed) are open —
-    they get claimed by the next persisted request that carries a key. */
-export async function isThreadWritable(r: any, k: ChatLogKeys, threadId: string, writeKey: string | undefined): Promise<boolean> {
-  const existing: string | null = await r.hget(k.keys, threadId);
-  return !existing || existing === writeKey;
-}
-
-/** The public history list, newest first: prunes expired entries, then reads
-    ids+scores from the index and titles/authors from the hashes — whole
-    transcripts are never fetched for listing. */
-export async function listChatLog(r: any, k: ChatLogKeys, now: number, ttlSeconds: number, limit: number): Promise<Array<{ threadId: string; title: string; updatedAt: number; author?: string }>> {
-  await pruneExpiredChatLog(r, k, now, ttlSeconds);
-  const flat: Array<string | number> = await r.zrange(k.index, 0, limit - 1, { rev: true, withScores: true });
-  const ids: string[] = [];
-  const scores: number[] = [];
-  for (let i = 0; i < flat.length; i += 2) {
-    ids.push(String(flat[i]));
-    scores.push(Number(flat[i + 1]));
-  }
-  const [titles, authors]: Array<Record<string, string> | null> = ids.length
-    ? await Promise.all([r.hmget(k.titles, ...ids), r.hmget(k.authors, ...ids)])
-    : [null, null];
-  return ids.map((id, i) => ({
-    threadId: id,
-    title: titles?.[id] || "Chat",
-    updatedAt: scores[i],
-    ...(authors?.[id] && { author: authors[id] }),
-  }));
-}
+export { THREAD_ID_RE, isValidThreadId } from "../../shared/chat/ids.ts";
+export { MAX_AUTHOR_CHARS, chatTitle, sanitizeAuthor } from "../../shared/chat/thread.ts";
 
 const parseMaybeJson = (v: unknown): unknown => {
   if (typeof v !== "string") return v;

@@ -10,6 +10,10 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - convex-test@0.0.63
+  - '@tanstack/ai-client@0.40.1'
+  - '@tanstack/ai-gemini@0.38.2'
+  - '@tanstack/ai-react@0.31.1'
+  - '@tanstack/ai@0.71.0'
 
 # @convex-dev/better-auth 0.12.5 vuole better-auth >=1.6.11 <1.7 (PIANO §1.1):
 # nessuna dipendenza deve tirare dentro la 1.7.

@@ -22,6 +22,9 @@ const SEGRETI = [/SECRET/i, /TOKEN/i, /_KEY$/i, /_KEY_/i, /^KEY$/i, /PASSWORD/i,
 /** Segreti usati dai test locali: la chiave di Gemini (spec @gemini, server Start). */
 export const GEMINI = ["GEMINI_API_KEY", "GOOGLE_API_KEY"];
 
+/** Il segreto tra la route Start dell'Oracolo e le httpAction /oracolo/* del Convex LOCALE (T6). */
+export const ORACOLO = ["CHAT_SERVER_SECRET"];
+
 /** L'ambiente senza segreti, salvo i nomi in `tieni` (mai quelli di produzione). */
 export function senzaSegreti(env = process.env, tieni = []) {
   const keep = new Set(tieni);

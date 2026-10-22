@@ -86,7 +86,8 @@ try {
 }
 
 // 3. codice che vive solo sul server
-for (const marker of ["convex/server", "STRICT SCOPE — read carefully", "MemoryRateLimiter"]) {
+// (T6: il prompt dell'Oracolo in scrittura e l'Oracolo finto dei test)
+for (const marker of ["convex/server", "STRICT SCOPE — read carefully", "MemoryRateLimiter", "You are the editing assistant of", "Risposta finta dell'Oracolo"]) {
   needles.push([`codice server: ${marker}`, marker]);
 }
 // le origini di sviluppo (src/server/oracolo/origins.ts): il nome del dev box

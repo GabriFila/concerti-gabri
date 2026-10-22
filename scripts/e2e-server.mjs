@@ -11,7 +11,8 @@
    - E2E=1 ed E2E_NOW li passa playwright.config.ts: valgono solo fuori da
      Vercel (src/server/now.ts) e non finiscono mai nel bundle client.
    - Build e server ricevono l'ambiente senza segreti (scripts/child-env.mjs),
-     salvo la chiave di Gemini per la spec @gemini: mai chiavi di produzione.
+     salvo la chiave di Gemini per la spec @gemini e CHAT_SERVER_SECRET del
+     Convex locale per l'Oracolo: mai chiavi di produzione.
    - Il server parte con scripts/e2e-ingest.mjs precaricato (traguardo 8):
      il proxy /ingest finisce nello stand-in locale, mai nel PostHog vero.
    - Resta in primo piano finché Playwright non lo ferma; inoltra i segnali.
@@ -21,7 +22,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { GEMINI, senzaSegreti } from "./child-env.mjs";
+import { GEMINI, ORACOLO, senzaSegreti } from "./child-env.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENTRY = join(ROOT, ".output/server/index.mjs");
@@ -39,7 +40,7 @@ function newest(p) {
   return max;
 }
 
-const CLEAN_ENV = senzaSegreti(process.env, GEMINI);
+const CLEAN_ENV = senzaSegreti(process.env, [...GEMINI, ...ORACOLO]);
 
 // il deployment Convex è inserito nel codice al build (VITE_CONVEX_URL):
 // una build fatta per un altro deployment va rifatta (il valore non si stampa).

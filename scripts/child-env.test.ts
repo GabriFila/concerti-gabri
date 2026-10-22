@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GEMINI, senzaSegreti } from "./child-env.mjs";
+import { GEMINI, ORACOLO, senzaSegreti } from "./child-env.mjs";
 
 // valori finti: contano solo i nomi
 const ENV = {
@@ -43,6 +43,14 @@ describe("senzaSegreti", () => {
     expect(env.VERCEL_AUTOMATION_BYPASS_SECRET).toBe("b");
     expect(env.GOOGLE_CLIENT_SECRET).toBeUndefined();
     expect(env.GH_TOKEN).toBeUndefined();
+  });
+
+  it("CHAT_SERVER_SECRET passa solo se chiesto (il server Start dell'Oracolo verso il Convex locale)", () => {
+    const conSegreto = { ...ENV, CHAT_SERVER_SECRET: "c", CHAT_SERVER_SECRET_PREVIEW: "cp" };
+    expect(senzaSegreti(conSegreto).CHAT_SERVER_SECRET).toBeUndefined();
+    const env = senzaSegreti(conSegreto, [...GEMINI, ...ORACOLO]);
+    expect(env.CHAT_SERVER_SECRET).toBe("c");
+    expect(env.CHAT_SERVER_SECRET_PREVIEW).toBeUndefined();
   });
 
   it("le chiavi di produzione e di deploy non passano mai, nemmeno se chieste", () => {
