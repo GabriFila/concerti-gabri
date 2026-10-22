@@ -111,11 +111,20 @@ for (const name of serverEnv) {
   needles.push([`nome di variabile server: ${name}`, name]);
 }
 
+// Better Auth (@better-auth/core/env) porta nel client un getter isomorfo per
+// ogni variabile che conosce, `get BETTER_AUTH_SECRET(){return y(`BETTER_AUTH_SECRET`)}`,
+// che nel browser legge un oggetto vuoto: c'è il nome, mai il valore. Solo per
+// i controlli sui NOMI si toglie quella forma esatta; i valori si cercano
+// sempre nel testo intero.
+const GETTER_ENV_LIBRERIA = /get ([A-Z][A-Z0-9_]+)\(\)\{return [\w$]+\(`\1`\)\}/g;
+const NOME = "nome di variabile server: ";
+
 const hits = new Map(); // etichetta → file
 for (const f of files) {
   const text = readFileSync(f, "utf8");
+  const testoNomi = text.replace(GETTER_ENV_LIBRERIA, "");
   for (const [label, value] of needles) {
-    if (text.includes(value)) {
+    if ((label.startsWith(NOME) ? testoNomi : text).includes(value)) {
       const where = hits.get(label) || new Set();
       where.add(relative(ROOT, f));
       hits.set(label, where);
