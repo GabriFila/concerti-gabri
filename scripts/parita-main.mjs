@@ -49,11 +49,13 @@ function run(cmd, args, opts = {}) {
   }
 }
 
-const sha = git(["rev-parse", "main"]);
+// il sito di prima: main all'ultimo commit prima dello switch (dopo, main è il
+// sito nuovo e il confronto non avrebbe senso)
+const sha = git(["rev-parse", "296205df25058e389389cf176adb3aa08f3c9e42"]);
 
 // 1. worktree
 if (!existsSync(WT)) {
-  log(`creo il worktree ${WT} su main (${sha.slice(0, 7)})`);
+  log(`creo il worktree ${WT} su main prima dello switch (${sha.slice(0, 7)})`);
   git(["worktree", "add", "--detach", WT, sha]);
 } else {
   const common = realpathSync(resolve(WT, git(["rev-parse", "--git-common-dir"], WT)));
@@ -69,7 +71,7 @@ if (!existsSync(WT)) {
       log(`${WT} ha modifiche locali: non lo sposto su main`);
       process.exit(1);
     }
-    log(`sposto ${WT} su main (${sha.slice(0, 7)})`);
+    log(`sposto ${WT} su main prima dello switch (${sha.slice(0, 7)})`);
     git(["checkout", "--detach", "--quiet", sha], WT);
   }
 }

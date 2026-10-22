@@ -4,7 +4,7 @@
    - Aghi: le forme del canarino (helpers/canarino.ts: testo scritto,
      `display_name` dello stub, coordinate a 4, 5 e 7 decimali, anche
      URL-encoded e JSON-escaped) e le coordinate di casa di Gabri, lette al
-     momento da `git show main:CLAUDE.md` e mai riscritte (se mancano, il
+     momento da `git show <main prima dello switch>:CLAUDE.md` e mai riscritte (se mancano, il
      modulo lancia). Nei messaggi d'errore esce solo l'ETICHETTA dell'ago,
      mai il valore.
    - I `convex logs` del deployment locale, raccolti per tutta la finestra
@@ -25,22 +25,25 @@ const ROOT = join(import.meta.dirname, "..", "..");
 const CASE_ATTESE = 2;
 
 /**
- * Le coordinate di casa da main:CLAUDE.md, a 4, 5 e tutti i decimali, con
- * punto e con virgola. Lancia (senza stampare valori) se `main` non c'è o
+ * Le coordinate di casa dal CLAUDE.md di main PRIMA dello switch (MAIN_PRIMA:
+ * quello nuovo non le ha più), a 4, 5 e tutti i decimali, con punto e con
+ * virgola. Lancia (senza stampare valori) se il commit non c'è o
  * se la riga non dà entrambe le case: senza questi aghi ogni "niente
  * coordinate di casa" passerebbe senza controllare niente.
  */
+const MAIN_PRIMA = "296205df25058e389389cf176adb3aa08f3c9e42";
+
 function coordinateDiCasa(): string[] {
   let md: string;
   try {
-    md = execFileSync("git", ["show", "main:CLAUDE.md"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    md = execFileSync("git", ["show", `${MAIN_PRIMA}:CLAUDE.md`], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   } catch {
-    throw new Error("controllo fughe: `git show main:CLAUDE.md` non riesce (manca il branch main?): servono le coordinate di casa come aghi");
+    throw new Error("controllo fughe: `git show <main prima dello switch>:CLAUDE.md` non riesce (manca il commit?): servono le coordinate di casa come aghi");
   }
   const riga = md.split("\n").find(l => /home `\[lng,lat\]`/.test(l)) ?? "";
   const punti = [...riga.matchAll(/`\[(-?\d+\.\d+),\s*(-?\d+\.\d+)\]`/g)];
   if (punti.length < CASE_ATTESE) {
-    throw new Error(`controllo fughe: in main:CLAUDE.md trovo ${punti.length} coordinate di casa su ${CASE_ATTESE} (la riga "home [lng,lat]" è cambiata?)`);
+    throw new Error(`controllo fughe: nel CLAUDE.md di main prima dello switch trovo ${punti.length} coordinate di casa su ${CASE_ATTESE} (la riga "home [lng,lat]" è cambiata?)`);
   }
   const out = new Set<string>();
   for (const m of punti) {

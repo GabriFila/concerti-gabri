@@ -12,7 +12,7 @@
    - i valori dei segreti presenti nell'ambiente o in .env.local (nomi con
      SECRET/TOKEN/KEY/PASSWORD, tranne i VITE_*, che sono pubblici per
      costruzione), compreso VERCEL_AUTOMATION_BYPASS_SECRET;
-   - le coordinate di casa, lette al momento da `git show main:CLAUDE.md`
+   - le coordinate di casa, lette al momento da `git show <MAIN_PRIMA>:CLAUDE.md`
      (mai riscritte da nessuna parte);
    - codice solo-server: `convex/server`, il prompt di sistema
      dell'Oracolo, i limiti d'uso;
@@ -63,9 +63,11 @@ for (const [name, value] of Object.entries(process.env)) {
   needles.push([`segreto ${name}`, value]);
 }
 
-// 2. coordinate di casa da main:CLAUDE.md, in più formati
+// 2. coordinate di casa dal CLAUDE.md di main PRIMA dello switch (quello nuovo non le
+// ha più: con `main` dopo lo switch il controllo salterebbe), in più formati
+const MAIN_PRIMA = "296205df25058e389389cf176adb3aa08f3c9e42";
 try {
-  const md = execFileSync("git", ["show", "main:CLAUDE.md"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  const md = execFileSync("git", ["show", `${MAIN_PRIMA}:CLAUDE.md`], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   const line = md.split("\n").find(l => /home `\[lng,lat\]`/.test(l)) || "";
   // solo le coppie tra backtick (`[lng, lat]`): sulla stessa riga c'è anche il range del jitter
   const pairs = [...line.matchAll(/`\[(-?\d+\.\d+),\s*(-?\d+\.\d+)\]`/g)];
@@ -80,9 +82,9 @@ try {
       }
     }
   });
-  if (!pairs.length) console.warn("bundle-guard: coordinate di casa non trovate in main:CLAUDE.md (controllo saltato)");
+  if (!pairs.length) console.warn("bundle-guard: coordinate di casa non trovate nel CLAUDE.md di main prima dello switch (controllo saltato)");
 } catch {
-  console.warn("bundle-guard: `git show main:CLAUDE.md` non riuscito (controllo delle coordinate saltato)");
+  console.warn("bundle-guard: `git show <main prima dello switch>:CLAUDE.md` non riuscito (controllo delle coordinate saltato)");
 }
 
 // 3. codice che vive solo sul server

@@ -84,8 +84,13 @@ test.describe("redirect", () => {
   });
 
   test("nel browser il frammento #sec-… resta", async ({ page }) => {
-    await page.goto("/?chat=abc123#sec-mappa");
-    await expect(page).toHaveURL(/\/gabrifila\?chat=abc123#sec-mappa$/);
+    // il redirect porta la query; poi il widget dell'Oracolo apre la
+    // conversazione e toglie ?chat dall'indirizzo (come su main), quindi la
+    // query si guarda sulla risposta e il frammento sull'indirizzo finale
+    const res = await page.goto("/?chat=abc123#sec-mappa");
+    const arrivo = new URL(res!.url());
+    expect(arrivo.pathname + arrivo.search).toBe("/gabrifila?chat=abc123");
+    await expect(page).toHaveURL(/\/gabrifila(\?chat=abc123)?#sec-mappa$/);
   });
 });
 

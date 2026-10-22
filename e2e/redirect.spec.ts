@@ -36,8 +36,10 @@ test.describe("/dati del sito di prima", () => {
 
 test.describe("/?chat= del sito di prima", () => {
   test("nel browser /?chat=x arriva a /gabrifila?chat=x", async ({ page }) => {
-    await page.goto("/?chat=x");
-    await expect(page).toHaveURL(/\/gabrifila\?chat=x$/);
+    // il widget dell'Oracolo poi toglie ?chat dall'indirizzo: conta la risposta
+    const res = await page.goto("/?chat=x");
+    const arrivo = new URL(res!.url());
+    expect(arrivo.pathname + arrivo.search).toBe("/gabrifila?chat=x");
   });
 
   test("/?chat=x → 308 /gabrifila?chat=x, con il resto della query string", async ({ baseURL }) => {

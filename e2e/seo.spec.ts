@@ -132,9 +132,16 @@ test.describe("immagine OG", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/png");
     const cache = res.headers.get("cache-control") ?? "";
-    expect(cache).toContain("s-maxage=600");
-    expect(cache).toContain("stale-while-revalidate");
     expect(cache).not.toContain("private");
+    if (testInfo.project.name === "preview") {
+      // il CDN di Vercel consuma s-maxage e al browser manda max-age=0:
+      // conta che la seconda richiesta arrivi dalla sua cache
+      const diNuovo = await bytes(new URL("/og/gabrifila", baseURL).href);
+      expect(["HIT", "STALE"]).toContain(diNuovo.headers.get("x-vercel-cache"));
+    } else {
+      expect(cache).toContain("s-maxage=600");
+      expect(cache).toContain("stale-while-revalidate");
+    }
     expect(res.body.subarray(0, 8).equals(PNG_MAGIC)).toBe(true);
     expect(pngSize(res.body)).toEqual({ width: 1200, height: 630 });
     mkdirSync(SHOTS, { recursive: true });

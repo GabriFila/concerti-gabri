@@ -82,6 +82,9 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 1000 }, baseURL: PREVIEW_URL || undefined, trace: "off", video: "off" },
       // live.spec scrive con devtools: sulla preview lo fa solo l'orchestratore
       testIgnore: ANTEPRIMA ? [/parita\.spec\.ts/, /live\.spec\.ts/] : [/.*/],
+      // il login degli e2e legge l'OTP di sviluppo dal Convex del worktree:
+      // sulla preview il giro con la sessione lo fanno a mano Gabri o l'orchestratore
+      grepInvert: /@sessione/,
     },
   ],
   webServer: ANTEPRIMA
