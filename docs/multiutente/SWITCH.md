@@ -47,6 +47,8 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
   produzione lo verifica il passo B7.
 
 ### A3. Aghi del controllo fughe e build di parità fuori da `main`
+- **Fatto il 2026-10-22** (`f3827ad`): i tre script leggono il commit fisso
+  `296205d`. Resta solo la verifica qui sotto, dopo il merge.
 - **Chi:** agente.
 - **Come:** `scripts/bundle-guard.mjs` ed `e2e/helpers/fughe.ts` leggono le
   coordinate di casa da `git show main:CLAUDE.md`. Il nuovo `CLAUDE.md` non le
