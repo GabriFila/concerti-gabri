@@ -15,7 +15,11 @@
    - SIGNUP_ALLOWLIST (email separate da virgola): se c'è, solo quelle
      email creano un account. Assente = registrazione aperta. Il rifiuto
      è il codice NON_INVITATO (shared/accesso.ts), lo stesso per OTP e
-     Google.
+     Google. A un'email fuori elenco e senza account non parte nemmeno il
+     codice (invioOtpDaSaltare): risposta identica a un invio vero, niente
+     enumerazione, nessun limite consumato. Altrimenti chiunque farebbe
+     spedire codici a indirizzi qualsiasi col mittente di concerti.gabrifila.me
+     ed esaurirebbe otpSendGlobal agli invitati.
    - Il primo login crea l'utente e, nella stessa transazione (trigger),
      il profilo in `onboarding` (convex/profiles.ts lo completa).
    - MCP: `mcp({ ...opzioniMcp })` seguito da `irrobustimentoMcp(ctx)`,
@@ -155,6 +159,18 @@ export async function limitaInvioOtp(ctx: GenericCtx<DataModel>, email: unknown)
   if (!globale.ok) throw new APIError("TOO_MANY_REQUESTS", { message: MESSAGGIO_TROPPI_CODICI });
 }
 
+/**
+ * true se un codice per `email` non va né generato né inviato: c'è
+ * SIGNUP_ALLOWLIST, l'email non è nell'elenco e non ha già un account (chi
+ * l'ha, magari da prima dell'elenco, entra come sempre). Un'email malformata
+ * la rifiuta Better Auth subito dopo.
+ */
+export async function invioOtpDaSaltare(email: unknown, trovaUtente: (email: string) => Promise<unknown>, env: Env = process.env): Promise<boolean> {
+  const e = typeof email === "string" ? email.trim().toLowerCase() : "";
+  if (!e || emailAmmessa(e, env)) return false;
+  return !(await trovaUtente(e));
+}
+
 /* ── opzioni ───────────────────────────────────────────────────── */
 
 const origini = (s: string | undefined) => (s ?? "").split(",").map(x => x.trim()).filter(Boolean);
@@ -187,7 +203,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     },
     hooks: {
       before: createAuthMiddleware(async c => {
-        if (c.path === "/email-otp/send-verification-otp") await limitaInvioOtp(ctx, (c.body as { email?: unknown } | undefined)?.email);
+        if (c.path !== "/email-otp/send-verification-otp") return;
+        const email = (c.body as { email?: unknown } | undefined)?.email;
+        // fuori elenco e senza account: la stessa risposta di un invio vero, ma nessun codice
+        if (await invioOtpDaSaltare(email, e => c.context.internalAdapter.findUserByEmail(e))) return c.json({ success: true });
+        await limitaInvioOtp(ctx, email);
       }),
     },
     plugins: [

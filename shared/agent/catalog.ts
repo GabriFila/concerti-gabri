@@ -100,7 +100,7 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
   op({ name: "delete_departure", tipo: "scrittura", traguardo: 2, funzione: "departures:remove", input: cancellaPartenzaInput, output: ok, confirm: true,
     descrizione: "Cancella una partenza non usata. Chiedi conferma." }),
   op({ name: "add_venue", tipo: "scrittura", traguardo: 2, funzione: "venues:createFromCandidate", input: aggiungiVenueInput, output: conId,
-    descrizione: "Aggiunge al catalogo condiviso una venue scelta tra i candidati di search_venue: passa il suo ref (coordinate, città e id OSM li prende il server da OpenStreetMap). Le coordinate non si modificano mai." }),
+    descrizione: "Aggiunge al catalogo condiviso una venue scelta tra i candidati di search_venue: passa il suo ref (coordinate, città e id OSM li prende il server da OpenStreetMap). Un luogo di OpenStreetMap tiene il suo nome; nei concerti usa poi il nome e la città con cui compare nel catalogo. Le coordinate non si modificano mai." }),
   op({ name: "add_gifter", tipo: "scrittura", traguardo: 2, funzione: "gifters:add", input: aggiungiRegaloInput, output: conId,
     descrizione: `Aggiunge un "regalato da". ${REGOLA_SOPRANNOMI}` }),
   op({ name: "update_gifter", tipo: "scrittura", traguardo: 2, funzione: "gifters:update", input: modificaRegaloInput, output: ok,

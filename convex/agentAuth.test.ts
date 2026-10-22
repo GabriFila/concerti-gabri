@@ -7,6 +7,7 @@ import { defaultKeyHasher } from "@better-auth/api-key";
 import { makeFunctionReference } from "convex/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "./_generated/api";
+import { PAGINA_DCR } from "./agents.ts";
 import { codiceDi } from "./lib/errors.ts";
 import { CHIAVE_RE, adapterAuth, hashChiave, trovaTutti } from "./lib/agentToken.ts";
 import { rateLimiter } from "./rateLimits.ts";
@@ -360,5 +361,26 @@ describe("cron di pulizia", () => {
     expect(token).toContain(rinnovabile);
     expect(await t.query(api.agents.introspect, { agentToken: chiave })).toBeNull();
     expect(await t.run(ctx => trovaTutti(ctx, "apikey", []))).toEqual([]);
+  });
+
+  it("client DCR: una pagina per esecuzione, poi si rischedula col cursore (mai tutta la tabella in una mutation)", async () => {
+    const { t } = await ambiente();
+    vi.useFakeTimers();
+    const ora = Date.now();
+    vi.setSystemTime(ora - 2 * 24 * 3600_000);
+    const vecchi = 2 * PAGINA_DCR + 5;
+    for (let i = 0; i < vecchi; i++) await nuovoClientOAuth(t, `vecchio-${i}`);
+    await nuovoClientOAuth(t, "vecchio-con-token");
+    vi.setSystemTime(ora);
+    await nuovoClientOAuth(t, "nuovo-senza-token");
+    await nuovoTokenOAuth(t, "u-a", "vecchio-con-token");
+    const clienti = async () => (await t.run(ctx => trovaTutti(ctx, "oauthApplication", []))).map(x => String(x.clientId));
+
+    // la prima esecuzione legge una sola pagina (i più vecchi) e lascia il resto alla successiva
+    await t.mutation(internal.agents.cleanupDcrClients, {});
+    expect(await clienti()).toHaveLength(vecchi + 2 - PAGINA_DCR);
+    // le esecuzioni rischedulate finiscono il lavoro e si fermano al primo client giovane
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect((await clienti()).sort()).toEqual(["nuovo-senza-token", "vecchio-con-token"]);
   });
 });

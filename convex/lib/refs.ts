@@ -82,7 +82,7 @@ export function regaloDa(refs: Refs, label: string): Id<"gifters"> {
 
 export async function venueDa(ctx: Ctx, name: string, city: string): Promise<Id<"venues">> {
   const v = await venuePerNome(ctx, name, city);
-  if (!v) throw errore("nome_sconosciuto", "venue: non è nel catalogo; cercala con search_venue e aggiungila con add_venue (stesso nome e città)", { campo: "venue" });
+  if (!v) throw errore("nome_sconosciuto", "venue: non è nel catalogo; cercala con search_venue e aggiungila con add_venue, poi usa il nome e la città con cui compare nel catalogo", { campo: "venue" });
   return v._id;
 }
 

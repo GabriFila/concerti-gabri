@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
 import { USER_AGENT } from "./geo.ts";
 import { codiceDi } from "./lib/errors.ts";
-import { conProfilo, setup } from "./test.setup";
+import { conProfilo, setup, venue } from "./test.setup";
 
 const POI = { lat: "45.4014", lon: "9.1422", display_name: "Unipol Forum, Via G. di Vittorio, Assago, Lombardia, Italia", name: "Unipol Forum", osm_type: "way", osm_id: 26626007, category: "leisure", type: "sports_centre", addresstype: "leisure", address: { town: "Assago" } };
 const CASA = { lat: "45.40", lon: "9.14", display_name: "Via Roma 1, Assago", name: "", osm_type: "node", osm_id: 1, category: "building", type: "house", addresstype: "house", address: { town: "Assago" } };
@@ -160,6 +160,56 @@ describe("venues.createFromCandidate: solo candidati emessi dal server", () => {
     const tutte = JSON.stringify(await t.run(async ctx => await ctx.db.query("venues").collect()));
     expect(tutte).not.toContain("8.9345");
     expect(tutte).not.toContain("44.4123");
+  });
+
+  it("nome+città occupato da un altro punto: chi aggiunge la venue vera non riceve mai quella dell'altro", async () => {
+    // B prova a chiamare "Arena del Mare" un bar a 120 m dal canarino (la casa di A)
+    const BAR = { ...POI, lat: "44.4133", lon: "8.9351", display_name: "Bar Vicino, Genova", name: "Bar Vicino", osm_id: 111, address: { city: "Genova" } };
+    const ARENA = { ...POI, lat: "44.4089", lon: "8.9263", display_name: "Arena del Mare, Porto Antico, Genova", name: "Arena del Mare", osm_id: 222, address: { city: "Genova" } };
+    const GENOVA = { ...CITTA, lat: "44.4073", lon: "8.9339", display_name: "Genova, Liguria, Italia", name: "Genova", osm_id: 44, addresstype: "city", address: { city: "Genova" } };
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const b = await conProfilo(t, "u-b", "utente-b");
+    const venues = () => t.run(async ctx => await ctx.db.query("venues").collect());
+
+    // 1. un POI tiene il suo nome: niente "Arena del Mare" sulle coordinate del bar
+    finto([[BAR]]);
+    const bar = (await b.as.action(api.geo.searchVenue, { input: { query: "bar vicino genova" } })).candidati[0];
+    expect(await codice(b.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Arena del Mare" } }))).toBe("input_non_valido");
+    // nemmeno travestito da dettaglio, se non c'è un'omonima da distinguere
+    expect(await codice(b.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Bar Vicino (Arena del Mare)" } }))).toBe("input_non_valido");
+    expect(await venues()).toEqual([]);
+
+    // 2. il ripiego sulla città si può chiamare come si vuole, ma sta sul centro abitato
+    finto([[], [GENOVA]]);
+    const citta = (await b.as.action(api.geo.searchVenue, { input: { query: "genova" } })).candidati[0];
+    expect(citta.featureType).toBe("city");
+    const squat = await b.as.mutation(api.venues.createFromCandidate, { input: { ref: citta.ref, name: "Arena del Mare" } });
+    expect(squat.esistente).toBe(false);
+
+    // 3. A aggiunge l'Arena vera: conflitto, mai l'id di B
+    finto([[ARENA]]);
+    const vera = (await a.as.action(api.geo.searchVenue, { input: { query: "arena del mare genova" } })).candidati[0];
+    expect(await codice(a.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref } }))).toBe("conflitto");
+    // col dettaglio tra parentesi (ammesso perché l'omonima c'è davvero) A ha la sua venue, sul punto giusto
+    const propria = await a.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref, name: "Arena del Mare (Porto Antico)" } });
+    expect(propria).toMatchObject({ esistente: false });
+    expect(propria.id).not.toBe(squat.id);
+    const v = (await venues()).find(x => x._id === propria.id);
+    expect(v).toMatchObject({ name: "Arena del Mare (Porto Antico)", city: "Genova", osm: "W222", lat: 44.4089, lng: 8.9263, source: "osm" });
+    // chi sceglie di nuovo lo stesso POI ritrova la venue di A (per id OSM)
+    expect(await b.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref } })).toEqual({ id: propria.id, esistente: true });
+  });
+
+  it("un'omonima nello stesso punto (entro 300 m) è la stessa venue; un nome che differisce solo per maiuscole e accenti è ammesso", async () => {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    // la venue del seed, ~100 m dal POI di OpenStreetMap
+    const seed = await venue(t, "Unipol Forum", "Assago", 9.1431, 45.4011);
+    finto([[POI]]);
+    const c = (await a.as.action(api.geo.searchVenue, { input: { query: "Forum di Assago" } })).candidati[0];
+    expect(await a.as.mutation(api.venues.createFromCandidate, { input: { ref: c.ref, name: "UNIPOL forum" } })).toEqual({ id: seed, esistente: true });
+    expect(await t.run(async ctx => (await ctx.db.query("venues").collect()).length)).toBe(1);
   });
 
   it("indice fuori dai risultati → not_found", async () => {

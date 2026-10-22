@@ -9,9 +9,13 @@
      mai il valore.
    - I `convex logs` del deployment locale, raccolti per tutta la finestra
      del test (`logsConvex()`), sempre attraverso scripts/wt.mjs.
+   - Il log del server Start degli e2e (`logServerStart()`): quello che le
+     route server (Oracolo, MCP) scrivono con console.*, cioè i log delle
+     funzioni Vercel in produzione.
    ────────────────────────────────────────────────────────────── */
 
 import { execFileSync, spawn } from "node:child_process";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { formeCanarino } from "./canarino.ts";
 
@@ -80,6 +84,26 @@ export function logsConvex(): { ferma: () => Promise<string> } {
         figlio.kill("SIGTERM");
       }
       return testo;
+    },
+  };
+}
+
+/** Il log del server Start degli e2e: lo scrive scripts/e2e-server.mjs. */
+export const LOG_START = join(ROOT, ".output/e2e-start.log");
+
+/**
+ * Le righe che il server Start scrive da adesso a `ferma()`. Lancia se il
+ * log non c'è (server riusato con E2E_REUSE=1, o non lanciato da
+ * scripts/e2e-server.mjs): un controllo su un log vuoto passerebbe sempre.
+ */
+export function logServerStart(): { ferma: () => Promise<string> } {
+  if (!existsSync(LOG_START)) throw new Error("controllo fughe: manca il log del server Start (.output/e2e-start.log): il server non è quello di scripts/e2e-server.mjs");
+  const da = statSync(LOG_START).size;
+  return {
+    ferma: async () => {
+      // le ultime righe (scritte dopo la risposta) hanno un attimo per arrivare
+      await new Promise(r => setTimeout(r, 1000));
+      return readFileSync(LOG_START).subarray(da).toString("utf8");
     },
   };
 }

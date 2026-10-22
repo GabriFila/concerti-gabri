@@ -15,11 +15,14 @@
      Convex locale per l'Oracolo: mai chiavi di produzione.
    - Il server parte con scripts/e2e-ingest.mjs precaricato (traguardo 8):
      il proxy /ingest finisce nello stand-in locale, mai nel PostHog vero.
+   - stdout e stderr del server vanno anche in .output/e2e-start.log
+     (LOG_START): il controllo fughe dell'Oracolo (e2e/helpers/fughe.ts,
+     logServerStart) ci cerca il canarino, come in `convex logs`.
    - Resta in primo piano finché Playwright non lo ferma; inoltra i segnali.
    ────────────────────────────────────────────────────────────── */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createWriteStream, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { GEMINI, ORACOLO, senzaSegreti } from "./child-env.mjs";
@@ -64,10 +67,20 @@ if (built < sources || !stampOk) {
 
 // PostHog finto dalla prima richiesta (scripts/e2e-ingest.mjs)
 const INGEST = pathToFileURL(join(ROOT, "scripts/e2e-ingest.mjs")).href;
+// lo stesso percorso di LOG_START in e2e/helpers/fughe.ts
+const LOG = createWriteStream(join(ROOT, ".output/e2e-start.log"), { flags: "w", mode: 0o600 });
 const child = spawn(process.execPath, ["--import", INGEST, ENTRY], {
   cwd: ROOT,
-  stdio: "inherit",
+  stdio: ["ignore", "pipe", "pipe"],
   env: { ...CLEAN_ENV, PORT: process.env.PORT || "3100", NODE_ENV: "production" },
+});
+child.stdout.on("data", b => {
+  process.stdout.write(b);
+  LOG.write(b);
+});
+child.stderr.on("data", b => {
+  process.stderr.write(b);
+  LOG.write(b);
 });
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));
 child.on("exit", code => process.exit(code ?? 0));

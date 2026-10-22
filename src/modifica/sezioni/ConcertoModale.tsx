@@ -288,12 +288,19 @@ function VenueScelta({ venue, city, onScegli, errore }: {
                 </ul>
               )}
               {scelto && (
-                <div className="mod-riga">
-                  <input aria-label="Nome della venue" value={scelto.nome} maxLength={120} onChange={e => setScelto({ ...scelto, nome: e.target.value })} />
-                  <button type="button" className="mod-btn mod-primario" disabled={crea.inCorso || !!attesa} onClick={() => void aggiungi()}>
-                    {attesa ? "Aggiungo…" : "Aggiungi al catalogo"}
-                  </button>
-                </div>
+                <>
+                  <div className="mod-riga">
+                    <input aria-label="Nome della venue" value={scelto.nome} maxLength={120} onChange={e => setScelto({ ...scelto, nome: e.target.value })} />
+                    <button type="button" className="mod-btn mod-primario" disabled={crea.inCorso || !!attesa} onClick={() => void aggiungi()}>
+                      {attesa ? "Aggiungo…" : "Aggiungi al catalogo"}
+                    </button>
+                  </div>
+                  <span className="mod-hint">
+                    {scelto.c.featureType === "city"
+                      ? "Solo la città: scrivi il nome del locale."
+                      : "Il nome resta quello di OpenStreetMap; un dettaglio tra parentesi solo se in questa città c'è già un'altra venue con lo stesso nome."}
+                  </span>
+                </>
               )}
               <Errore errore={crea.errore} />
               <p className="mod-attribuzione">{osm.attribuzione}</p>

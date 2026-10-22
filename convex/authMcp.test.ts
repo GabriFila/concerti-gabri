@@ -10,7 +10,9 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { mcp } from "better-auth/plugins";
 import { HOUR } from "@convex-dev/rate-limiter";
 import { describe, expect, it } from "vitest";
-import { DURATA_ACCESS_S, DURATA_REFRESH_S, PERCORSI_MCP_DISATTIVATI, irrobustimentoMcp, opzioniMcp, scopeConcesso } from "./authMcp.ts";
+import {
+  DCR_MAX_CORPO, DURATA_ACCESS_S, DURATA_REFRESH_S, PERCORSI_MCP_DISATTIVATI, irrobustimentoMcp, limiteRegistrazione, opzioniMcp, scopeConcesso,
+} from "./authMcp.ts";
 
 const BASE = "http://localhost:3000";
 const REDIRECT = "http://localhost:9/callback";
@@ -50,6 +52,13 @@ async function registra(auth: ReturnType<typeof creaAuth>["auth"]) {
     }),
   );
   return { status: r.status, body: (await r.json()) as { client_id: string } };
+}
+
+async function registraCorpo(auth: ReturnType<typeof creaAuth>["auth"], corpo: unknown) {
+  const r = await auth.handler(
+    new Request(`${BASE}/api/auth/mcp/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(corpo) }),
+  );
+  return { status: r.status, body: (await r.json()) as Record<string, unknown> };
 }
 
 async function sha256(s: string) {
@@ -166,5 +175,39 @@ describe("mcp() irrobustito", () => {
     const r = await registra(pieno.auth);
     expect(r.status).toBe(429);
     expect(pieno.db.oauthApplication).toEqual([]);
+  });
+
+  it("una registrazione fuori misura si rifiuta prima di salvarla e non consuma dcrGlobal", async () => {
+    const { auth, db, chiamateLimite } = creaAuth(true);
+    const base = { redirect_uris: [REDIRECT], token_endpoint_auth_method: "none", client_name: "Client di prova", grant_types: ["authorization_code", "refresh_token"] };
+    const fuori = [
+      // ~1 MB di metadata (la prova del revisore: 201 e un documento da 950 KB)
+      { ...base, metadata: { x: "m".repeat(950_000) } },
+      { ...base, client_name: "n".repeat(201) },
+      { ...base, redirect_uris: Array.from({ length: 11 }, (_, i) => `http://localhost:${9000 + i}/callback`) },
+      { ...base, redirect_uris: [`http://localhost:9/${"p".repeat(1100)}`] },
+      { ...base, logo_uri: `https://example.com/${"l".repeat(1100)}` },
+      { ...base, contacts: Array.from({ length: 600 }, (_, i) => `c${i}@example.com`) },
+    ];
+    for (const corpo of fuori) {
+      const r = await registraCorpo(auth, corpo);
+      expect(r.status, JSON.stringify(corpo).slice(0, 60)).toBe(400);
+      expect(r.body).toMatchObject({ error: "invalid_client_metadata" });
+      // l'errore dice il tetto, mai il valore ricevuto
+      expect(JSON.stringify(r.body)).not.toMatch(/mmmm|nnnn|pppp|llll/);
+    }
+    expect(db.oauthApplication).toEqual([]);
+    expect(chiamateLimite).toEqual([]);
+    // un client normale (anche con logo e URI del sito) passa
+    expect((await registraCorpo(auth, { ...base, logo_uri: "https://example.com/logo.png", client_uri: "https://example.com" })).status).toBe(201);
+    expect(db.oauthApplication).toHaveLength(1);
+  });
+
+  it("limiteRegistrazione: i tetti", () => {
+    expect(limiteRegistrazione({ redirect_uris: [REDIRECT], client_name: "Claude" })).toBeNull();
+    expect(limiteRegistrazione({ client_name: "x".repeat(DCR_MAX_CORPO) })).toMatch(/troppo grande/);
+    expect(limiteRegistrazione("stringa")).toBe("corpo non valido");
+    expect(limiteRegistrazione([1, 2])).toBe("corpo non valido");
+    expect(limiteRegistrazione({ redirect_uris: [42] })).toMatch(/redirect_uri/);
   });
 });

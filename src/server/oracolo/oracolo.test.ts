@@ -502,10 +502,29 @@ describe("Oracolo in scrittura", () => {
 
   it("in scrittura il testo del proprietario non finisce nei log (potrebbe contenere il suo indirizzo)", async () => {
     const avvisi = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const report = serverTools({ dataset: PAGINE.lu.dataset, today: TODAY, model: "m", apiKey: "", scrittura: true }).find(t => t.name === "report_unsupported_query")!;
-    await (report as unknown as { execute: (i: unknown) => Promise<unknown> }).execute({ question: "parto da Via dei Canarini 7", missing: "distanza a piedi" });
-    expect(JSON.stringify(avvisi.mock.calls)).not.toContain("Canarini");
-    expect(JSON.stringify(avvisi.mock.calls)).toContain("distanza a piedi");
+    const righe = vi.spyOn(console, "log").mockImplementation(() => {});
+    const strumenti = serverTools({ dataset: PAGINE.lu.dataset, today: TODAY, model: "m", apiKey: "", scrittura: true });
+    const esegui = (nome: string, input: unknown) =>
+      (strumenti.find(t => t.name === nome) as unknown as { execute: (i: unknown) => Promise<unknown> }).execute(input);
+    // il modello parafrasa la richiesta del proprietario in `missing` e nei filtri di testo libero
+    await esegui("report_unsupported_query", { question: "parto da Via dei Canarini 7", missing: "distanza da Via dei Canarini 7 al Forum" });
+    await esegui("query_concerts", { artist: "Via dei Canarini 7", cities: ["Via dei Canarini"], people: ["Canarini"], years: [2025] });
+    const log = JSON.stringify([...avvisi.mock.calls, ...righe.mock.calls]);
+    expect(log).not.toContain("Canarini");
+    // restano i metadati: lo strumento, i nomi dei filtri usati, la lunghezza della richiesta
+    expect(log).toContain("unsupported_query");
+    expect(log).toContain("missingChars");
+    expect(log).toContain("query_concerts");
+    expect(log).toContain("artist");
+    expect(log).toContain("years");
+    vi.restoreAllMocks();
+  });
+
+  it("nell'Oracolo pubblico l'input di query_concerts resta nei log (le domande dei visitatori sono già pubbliche)", async () => {
+    const righe = vi.spyOn(console, "log").mockImplementation(() => {});
+    const q = serverTools({ dataset: PAGINE.lu.dataset, today: TODAY, model: "m", apiKey: "" }).find(t => t.name === "query_concerts")!;
+    await (q as unknown as { execute: (i: unknown) => Promise<unknown> }).execute({ artist: "Gabbiani", years: [2025] });
+    expect(JSON.stringify(righe.mock.calls)).toContain("Gabbiani");
     vi.restoreAllMocks();
   });
 

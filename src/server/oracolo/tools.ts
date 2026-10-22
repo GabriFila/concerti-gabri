@@ -99,6 +99,19 @@ export interface ServerToolsOptions {
   scrittura?: boolean;
 }
 
+/**
+ * L'input di query_concerts per i log. In scrittura solo i NOMI dei filtri
+ * usati, mai i valori: artista, città e persone sono testo libero del
+ * modello, che può ripetere quello che il proprietario ha scritto (anche un
+ * indirizzo). Nell'Oracolo pubblico resta l'input intero, utile per capire
+ * le domande dei visitatori (le conversazioni pubbliche sono già pubbliche).
+ */
+export function inputPerLog(input: Record<string, unknown>, scrittura: boolean): string {
+  if (!scrittura) return JSON.stringify(input);
+  const usati = Object.keys(input).filter(k => input[k] !== undefined && input[k] !== null).sort();
+  return JSON.stringify({ campi: usati });
+}
+
 /** Gli strumenti server con la loro esecuzione, legati ai dati della pagina. */
 export function serverTools({ dataset, today, model, apiKey, scrittura = false }: ServerToolsOptions) {
   // query_concerts runs here on the server: exact numbers computed by code.
@@ -106,13 +119,14 @@ export function serverTools({ dataset, today, model, apiKey, scrittura = false }
   // way to answer data questions.
   const queryConcertsTool = queryConcertsDef(dataset.vocab).server(input => {
     const result = runConcertQuery(dataset, input, today);
-    console.log("query_concerts", JSON.stringify(input), "->", `count=${result.count} attended=${result.attendedCount} planned=${result.plannedCount}`);
+    console.log("query_concerts", inputPerLog(input, scrittura), "->", `count=${result.count} attended=${result.attendedCount} planned=${result.plannedCount}`);
     return result;
   });
 
   // grep "unsupported_query" in the function logs to see what the chat is missing
   const reportUnsupportedTool = reportUnsupportedDef.server(input => {
-    console.warn("unsupported_query", JSON.stringify(scrittura ? { missing: input.missing.slice(0, 120) } : input));
+    // in scrittura solo metadati fissi: la richiesta del proprietario, anche parafrasata, non va nei log
+    console.warn("unsupported_query", JSON.stringify(scrittura ? { missingChars: String(input.missing ?? "").length } : input));
     return { ok: true };
   });
 

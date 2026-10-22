@@ -10,7 +10,8 @@
    2. (@sessione) La proprietaria SCRIVE il canarino nella chat
       dell'Oracolo in scrittura, in /<handle>/modifica: il thread esiste
       ed è privato, quindi il canarino non compare in chat:listThreads,
-      chat:getThread né nell'SSR pubblico di /<handle>?chat=<id>.
+      chat:getThread né nell'SSR pubblico di /<handle>?chat=<id>; e
+      nemmeno nel log del server Start (i log delle funzioni Vercel).
 
    Serve un modello: Gemini (GEMINI_API_KEY, una chiamata per test) oppure
    l'Oracolo finto (ORACOLO_FAKE=1, solo in locale con E2E=1). Senza nessuno
@@ -23,7 +24,7 @@ import { randomUUID } from "node:crypto";
 import { esci, nuovoProprietario } from "../helpers/auth.ts";
 import { CANARINO } from "../helpers/canarino.ts";
 import { convexRun } from "../helpers/convex.ts";
-import { fughe, logsConvex } from "../helpers/fughe.ts";
+import { fughe, logServerStart, logsConvex } from "../helpers/fughe.ts";
 import { http } from "../helpers/http.ts";
 import { expect, test } from "../helpers/test.ts";
 
@@ -52,6 +53,7 @@ test("alla domanda sull'indirizzo, SSE, trascrizione e log di Convex non conteng
     entry: { kind: "concert", date: "2025-06-01", artist: "Canarino all'Oracolo", venue: "Fabrique", city: "Milano", with: [], from: PARTENZA },
   });
   const logs = logsConvex();
+  const server = logServerStart();
   const threadId = randomUUID();
   try {
     const res = await http(new URL("/api/chat", baseURL).href, {
@@ -72,6 +74,7 @@ test("alla domanda sull'indirizzo, SSE, trascrizione e log di Convex non conteng
     expect(salvato, "la trascrizione è salvata ed è pubblica").not.toBeNull();
     expect(fughe(JSON.stringify(salvato))).toEqual([]);
     expect(fughe(await logs.ferma()), "convex logs").toEqual([]);
+    expect(fughe(await server.ferma()), "log del server Start").toEqual([]);
   } finally {
     convexRun("devtools:removeEntry", { handle: PROVA, entryId });
   }
@@ -86,6 +89,7 @@ test("@sessione il canarino scritto in modalità scrittura resta privato", async
   });
   // la proprietaria lo scrive nella chat in scrittura di /modifica (sessione e Origin della pagina)
   await page.goto(`/${handle}/modifica`);
+  const server = logServerStart();
   await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
   const chat = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
   await chat.getByRole("textbox", { name: "Messaggio per l'Oracolo" }).fill(`Ricordati che parto sempre da ${CANARINO.indirizzo} (${CANARINO.lat}, ${CANARINO.lng}).`);
@@ -96,6 +100,8 @@ test("@sessione il canarino scritto in modalità scrittura resta privato", async
   await expect(chat.locator(".chat-error")).toHaveCount(0);
   const threadId = richieste[0]?.threadId;
   expect(threadId, "la chat è partita").toBeTruthy();
+  // né la richiesta né le chiamate agli strumenti lasciano il canarino nei log del server
+  expect(fughe(await server.ferma()), "log del server Start").toEqual([]);
   await expect.poll(() => oNull("chat:visibilitaPerTest", { threadId: threadId! }), { timeout: 30_000 }).toBe("proprietario");
   await esci(page);
 

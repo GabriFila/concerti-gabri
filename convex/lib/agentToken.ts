@@ -47,7 +47,12 @@ type Where = { field: string; operator?: "lt" | "lte" | "gt" | "gte" | "eq" | "i
 type Pagina = { page: Record<string, unknown>[]; isDone: boolean; continueCursor: string };
 export interface AdapterAuth {
   findOne: FunctionReference<"query", "internal", { model: string; where?: Where[] }, Record<string, unknown> | null>;
-  findMany: FunctionReference<"query", "internal", { model: string; where?: Where[]; paginationOpts: { numItems: number; cursor: string | null } }, Pagina>;
+  findMany: FunctionReference<
+    "query",
+    "internal",
+    { model: string; where?: Where[]; sortBy?: { field: string; direction: "asc" | "desc" }; paginationOpts: { numItems: number; cursor: string | null } },
+    Pagina
+  >;
   create: FunctionReference<"mutation", "internal", { input: { model: string; data: Record<string, unknown> } }, Record<string, unknown>>;
   deleteOne: FunctionReference<"mutation", "internal", { input: { model: string; where?: Where[] } }, unknown>;
 }

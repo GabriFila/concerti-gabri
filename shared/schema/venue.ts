@@ -5,8 +5,14 @@
    chiamante dà un `ref` opaco per ciascuno. add_venue accetta SOLO quel
    `ref` (più un nome facoltativo): coordinate, id OSM, città e tipo li
    rilegge il server dalla cache. Nessun chiamante può quindi mettere nel
-   catalogo coordinate scelte da lui (una via, un indirizzo) né occupare un
-   id OSM o un nome+città con coordinate false. */
+   catalogo coordinate scelte da lui (una via, un indirizzo).
+
+   Il nome non può travestire un luogo da un altro: un POI di OpenStreetMap
+   tiene il SUO nome (nomeVenueAmmesso), e una venue già nel catalogo con lo
+   stesso nome+città si riusa solo se sta nello stesso punto del candidato
+   (convex/venues.ts). Altrimenti chi aggiungesse più tardi la venue vera
+   finirebbe sul punto scelto da un altro, e il km pubblico del suo concerto
+   direbbe quanto dista casa sua da quel punto. */
 
 import { z } from "zod";
 import { nomeCitta, nomeVenue } from "./campi.ts";
@@ -42,8 +48,41 @@ export type CandidatoProposto = z.infer<typeof candidatoProposto>;
 export const aggiungiVenueInput = z
   .object({
     ref: z.string().regex(RIF_CANDIDATO_RE).describe("Il ref di uno dei candidati restituiti da search_venue: coordinate, città e id OSM li prende il server"),
-    name: nomeVenue.optional().describe("Nome da usare se diverso da quello del candidato (la città e il luogo restano quelli del candidato)"),
+    name: nomeVenue
+      .optional()
+      .describe(
+        "Solo se serve, il nome da mostrare: per un luogo di OpenStreetMap (featureType poi) resta il suo nome, al più con un dettaglio tra parentesi " +
+          "quando nella stessa città c'è già un'altra venue con quel nome, es. «Teatro Verdi (Sestri)»; per il ripiego sulla città (featureType city) è il nome del locale",
+      ),
   })
   // un candidato intero (coordinate comprese) al posto del ref è un errore, non un campo ignorato
   .strict()
   .describe("Aggiunge al catalogo la venue scelta tra i candidati di search_venue");
+
+/** Confronto dei nomi a meno di maiuscole, accenti, punteggiatura e spazi. */
+const formaBase = (s: string): string =>
+  s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** `Nome (dettaglio)` → `{ base: "Nome", dettaglio: "dettaglio" }`; altrimenti null. */
+export function nomeConDettaglio(nome: string): { base: string; dettaglio: string } | null {
+  const m = /^(.*\S)\s*\(([^()]*)\)$/.exec(nome.trim());
+  return m && formaBase(m[2]) ? { base: m[1], dettaglio: m[2].trim() } : null;
+}
+
+/**
+ * Il nome che add_venue accetta per un candidato.
+ * - Ripiego sulla città: qualunque nome (le coordinate sono quelle del centro abitato).
+ * - POI di OpenStreetMap: il suo nome, a meno di maiuscole, accenti e
+ *   punteggiatura; `conDettaglio` ammette anche `<nome del POI> (dettaglio)`,
+ *   che il server concede solo per distinguerlo da un'omonima nella stessa città.
+ */
+export function nomeVenueAmmesso(
+  candidato: Pick<CandidatoVenue, "name" | "featureType">,
+  nome: string,
+  { conDettaglio = false }: { conDettaglio?: boolean } = {},
+): boolean {
+  if (candidato.featureType === "city") return true;
+  if (formaBase(nome) === formaBase(candidato.name)) return true;
+  const d = conDettaglio ? nomeConDettaglio(nome) : null;
+  return !!d && formaBase(d.base) === formaBase(candidato.name);
+}

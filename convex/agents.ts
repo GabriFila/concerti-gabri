@@ -21,6 +21,7 @@ import { formaDi } from "../shared/labels.ts";
 import { nessunInput } from "../shared/schema/campi.ts";
 import { consensoInput, creaChiaveInput, revocaChiaveInput, revocaClientInput } from "../shared/schema/agenti.ts";
 import { statisticheInput } from "../shared/schema/entry.ts";
+import { internal } from "./_generated/api";
 import type { MutationCtx } from "./_generated/server";
 import { guardiaSviluppo } from "./devtools.ts";
 import { internalMutation, ownerMutation, ownerQuery, publicQuery } from "./lib/builders.ts";
@@ -35,6 +36,13 @@ const GIORNO_MS = 24 * 3600_000;
 export const DCR_SENZA_TOKEN_MS = GIORNO_MS;
 /** Quante righe al massimo pulisce un giro di cron (il successivo continua). */
 const PULIZIA_MAX = 500;
+/**
+ * Client DCR letti per esecuzione. Un documento di oauthApplication può
+ * pesare fino a ~1 MB (quelli registrati prima dei tetti di
+ * limiteRegistrazione): 10 per pagina restano sotto i 16 MiB letti per
+ * funzione, e la pulizia prosegue rischedulandosi col cursore.
+ */
+export const PAGINA_DCR = 10;
 
 const ms = (x: unknown): number | undefined => (typeof x === "number" ? x : undefined);
 const testo = (x: unknown): string | undefined => (typeof x === "string" && x ? x : undefined);
@@ -316,18 +324,32 @@ export const stats = ownerQuery({
 
 /* ── cron ────────────────────────────────────────────────────── */
 
-/** Cron: i client della registrazione dinamica che in 24 ore non hanno ottenuto token. */
+/**
+ * Cron: i client della registrazione dinamica che in 24 ore non hanno
+ * ottenuto token. Una pagina per esecuzione, dal più vecchio (indice di
+ * creazione), senza filtri: un `where` su createdAt non ha indice in
+ * oauthApplication e leggerebbe l'intera tabella in una sola mutation. Ci si
+ * ferma al primo client più giovane di 24 ore; altrimenti la pagina dopo la
+ * fa un'esecuzione nuova (scheduler, solo il cursore).
+ */
 export const cleanupDcrClients = internalMutation({
-  args: {},
+  args: { cursor: v.optional(v.string()) },
   returns: v.null(),
-  handler: async ctx => {
+  handler: async (ctx, { cursor }): Promise<null> => {
     const limite = Date.now() - DCR_SENZA_TOKEN_MS;
-    const vecchi = await trovaTutti(ctx, "oauthApplication", [{ field: "createdAt", operator: "lt", value: limite }], PULIZIA_MAX);
-    for (const app of vecchi) {
+    const pagina = await ctx.runQuery(adapterAuth().findMany, {
+      model: "oauthApplication",
+      sortBy: { field: "createdAt", direction: "asc" },
+      paginationOpts: { numItems: PAGINA_DCR, cursor: cursor ?? null },
+    });
+    for (const app of pagina.page) {
+      const nato = ms(app.createdAt) ?? ms(app._creationTime) ?? 0;
+      if (nato >= limite) return null;
       const clientId = testo(app.clientId);
       if (clientId && (await trovaUno(ctx, "oauthAccessToken", [{ field: "clientId", value: clientId }]))) continue;
       await ctx.runMutation(adapterAuth().deleteOne, { input: { model: "oauthApplication", where: [{ field: "_id", value: String(app._id) }] } });
     }
+    if (!pagina.isDone) await ctx.scheduler.runAfter(0, internal.agents.cleanupDcrClients, { cursor: pagina.continueCursor });
     return null;
   },
 });
