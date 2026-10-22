@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as account from "../account.js";
 import type * as activity from "../activity.js";
 import type * as admin from "../admin.js";
 import type * as agents from "../agents.js";
@@ -39,6 +40,7 @@ import type * as people from "../people.js";
 import type * as profiles from "../profiles.js";
 import type * as rateLimits from "../rateLimits.js";
 import type * as seed from "../seed.js";
+import type * as style from "../style.js";
 import type * as venues from "../venues.js";
 import type * as wishlist from "../wishlist.js";
 
@@ -49,6 +51,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  account: typeof account;
   activity: typeof activity;
   admin: typeof admin;
   agents: typeof agents;
@@ -80,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   profiles: typeof profiles;
   rateLimits: typeof rateLimits;
   seed: typeof seed;
+  style: typeof style;
   venues: typeof venues;
   wishlist: typeof wishlist;
 }>;

@@ -80,9 +80,9 @@ describe("registro delle funzioni", () => {
     }
   });
 
-  it("ogni operazione del catalogo (fino al traguardo 3) ha la sua funzione", () => {
+  it("ogni operazione del catalogo (fino al traguardo 5) ha la sua funzione", () => {
     const perOp = new Map(tutte.filter(f => f.meta?.catalogOp).map(f => [f.meta!.catalogOp!, f.path]));
-    const mancanti = CATALOGO.filter(o => o.traguardo <= 3 && perOp.get(o.name) !== o.funzione).map(o => o.name);
+    const mancanti = CATALOGO.filter(o => o.traguardo <= 5 && perOp.get(o.name) !== o.funzione).map(o => o.name);
     expect(mancanti).toEqual([]);
     // un'operazione non ha due funzioni
     const ops = tutte.filter(f => f.meta?.catalogOp).map(f => f.meta!.catalogOp!);

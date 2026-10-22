@@ -24,7 +24,8 @@ import type { Actor, Owner } from "./owner.ts";
 import { chiave, departuresOf, giftersOf, peopleOf } from "./refs.ts";
 
 export type TabellaRegistro = "entries" | "people" | "gifters" | "departures" | "profiles" | "wishlist" | "venues";
-export type Op = "create" | "update" | "delete" | "replace";
+/** "logo": cambio di logo di un "regalato da", registrato ma non annullabile (convex/activity.ts). */
+export type Op = "create" | "update" | "delete" | "replace" | "logo";
 
 export interface Voce {
   op: Op;

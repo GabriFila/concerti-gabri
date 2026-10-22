@@ -28,9 +28,11 @@ export type T = ReturnType<typeof setup>;
  */
 export async function sessione(t: T, user: string, { scadeTra = 7 * 86_400_000 }: { scadeTra?: number } = {}) {
   const now = Date.now();
+  // senza punti, come i token veri: il plugin bearer prende "x.y" per un token firmato
+  const token = `tok-${user}-${now}-${Math.random().toString(36).slice(2)}`;
   const s = (await t.run(ctx =>
     ctx.runMutation(components.betterAuth.adapter.create, {
-      input: { model: "session", data: { userId: user, token: `tok-${user}-${now}-${Math.random()}`, expiresAt: now + scadeTra, createdAt: now, updatedAt: now } },
+      input: { model: "session", data: { userId: user, token, expiresAt: now + scadeTra, createdAt: now, updatedAt: now } },
     }),
   )) as { _id: string };
   return { sessionId: s._id, as: t.withIdentity({ subject: user, sessionId: s._id }) };

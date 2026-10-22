@@ -8,6 +8,7 @@
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isPlanned, todayKey } from "../shared/lib/dates.ts";
+import { nessunInput } from "../shared/schema/campi.ts";
 import {
   cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertoInput,
 } from "../shared/schema/entry.ts";
@@ -157,4 +158,20 @@ export const remove = ownerMutation({
     await logActivity(ctx, owner, { op: "delete", table: "entries", docId: e._id, summary: `cancellato: ${etichetta(e)}`, before: istantanea(e) });
     return { ok: true as const };
   },
+});
+
+/**
+ * #concerti: le venue del catalogo condiviso, per scegliere quella del
+ * concerto nel modale (nome e città; le coordinate restano alla mappa
+ * pubblica). Una venue nuova si aggiunge con geo.searchVenue →
+ * venues.createFromCandidate.
+ */
+export const venueCatalogo = ownerQuery({
+  dashboardOnly: "modale dei concerti: elenco del catalogo venue (gli agenti usano search_venue)",
+  input: nessunInput,
+  handler: async ctx => ({
+    venues: (await ctx.db.query("venues").take(5000))
+      .map(v => ({ id: v._id as string, name: v.name, city: v.city }))
+      .sort((a, b) => a.name.localeCompare(b.name, "it") || a.city.localeCompare(b.city, "it")),
+  }),
 });

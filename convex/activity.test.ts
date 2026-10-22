@@ -221,3 +221,53 @@ describe("Annulla rispetta le regole delle funzioni", () => {
     expect((await elenco())[0].kmPending).toBeUndefined();
   });
 });
+
+describe("Annulla e ricalcoli di sistema (T5)", () => {
+  it("un ricalcolo dei km dopo una modifica non crea conflitto: Annulla riporta i campi e tiene il km nuovo della coppia", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = setup();
+      const { a, ultima, elenco, undo } = await base(t);
+      const { id: casa } = await a.as.mutation(api.departures.add, { input: { name: "Casa" } });
+      const conferma = async (lng: number, lat: number) => {
+        await t.mutation(internal.departures.saveDraft, { profileId: a.profileId, departureId: casa as Id<"departures">, candidates: [{ label: "x", lng, lat }] });
+        await a.as.mutation(api.departures.confirmAddress, { input: { departureId: casa, indice: 0 } });
+        await t.finishAllScheduledFunctions(vi.runAllTimers);
+      };
+      await conferma(9.19, 45.46);
+      const { id } = await a.as.mutation(api.entries.add, { input: { kind: "concert", date: "01/01/2026", artist: "A", venue: "Fabrique", city: "Milano", from: "Casa" } });
+      await a.as.mutation(api.entries.update, { input: { id, patch: { artist: "B", voto: 5 } } });
+      const modifica = (await ultima()).id;
+      // correzione dell'indirizzo: nuova estrazione e riscrittura dei km (attività di sistema, nello stesso lotto)
+      await conferma(8.95, 44.41);
+      const kmNuovo = (await elenco())[0].km;
+      const voci = (await a.as.query(api.activity.list, {})).voci;
+      expect(voci.find(v => v.riassunto.startsWith("km ricalcolati"))).toMatchObject({ via: "sistema", annullabile: false });
+      expect(await undo(modifica)).toMatchObject({ ok: true });
+      expect((await elenco())[0]).toMatchObject({ artist: "A", km: kmNuovo });
+      expect((await elenco())[0].voto).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("anche un concerto aggiunto in attesa e poi calcolato si annulla senza conflitto", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = setup();
+      const { a, elenco, undo } = await base(t);
+      const { id: casa } = await a.as.mutation(api.departures.add, { input: { name: "Casa" } });
+      await a.as.mutation(api.entries.add, { input: { kind: "concert", date: "01/01/2026", artist: "A", venue: "Fabrique", city: "Milano", from: "Casa" } });
+      const aggiunta = (await a.as.query(api.activity.list, {})).voci[0].id;
+      expect((await elenco())[0].kmPending).toBe(true);
+      await t.mutation(internal.departures.saveDraft, { profileId: a.profileId, departureId: casa as Id<"departures">, candidates: [{ label: "x", lng: 9.19, lat: 45.46 }] });
+      await a.as.mutation(api.departures.confirmAddress, { input: { departureId: casa, indice: 0 } });
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+      expect((await elenco())[0].km).toBeGreaterThan(0);
+      expect(await undo(aggiunta)).toMatchObject({ ok: true });
+      expect(await elenco()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

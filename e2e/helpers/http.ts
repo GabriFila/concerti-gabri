@@ -39,13 +39,21 @@ export async function http(url: string, opts: HttpOptions = {}): Promise<HttpRes
     if (!Object.keys(headers).some(h => h.toLowerCase() === "content-type")) headers["content-type"] = "application/json";
   }
   const method = opts.method ?? (body === undefined ? "GET" : "POST");
-  let res: Response;
-  let text: string;
-  try {
-    res = await fetch(url, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(opts.timeout ?? 30_000) });
-    text = await res.text();
-  } catch (err) {
-    throw new Error(`${method} ${url}: ${describeError(err)}`);
+  let res!: Response;
+  let text!: string;
+  for (let tentativo = 1; ; tentativo++) {
+    try {
+      res = await fetch(url, { method, headers, body, redirect: "manual", signal: AbortSignal.timeout(opts.timeout ?? 30_000) });
+      text = await res.text();
+      break;
+    } catch (err) {
+      // una connessione keep-alive che il server ha chiuso mentre il test era
+      // fermo in un execFileSync (convexRun): un GET si ripete una volta
+      const codice = (err as { cause?: { code?: string } }).cause?.code;
+      const socketChiuso = codice === "UND_ERR_SOCKET" || codice === "ECONNRESET";
+      if (tentativo === 1 && socketChiuso && (method === "GET" || method === "HEAD")) continue;
+      throw new Error(`${method} ${url}: ${describeError(err)}`);
+    }
   }
   const hdrs = Object.fromEntries(res.headers);
   return {

@@ -58,6 +58,14 @@ describe("geo.searchVenue (Nominatim simulato)", () => {
     expect(r.candidati).toEqual([expect.objectContaining({ name: "Assago", featureType: "city" })]);
   });
 
+  it("anche nel ripiego sulla città case e vie si scartano (mai le loro coordinate)", async () => {
+    finto([[CASA], [CASA, STRADA, CITTA]]);
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const r = await a.as.action(api.geo.searchVenue, { input: { query: "Via Roma 1 Assago" } });
+    expect(r.candidati).toEqual([expect.objectContaining({ name: "Assago", featureType: "city", lat: 45.405, lng: 9.131 })]);
+  });
+
   it("cache con chiave hashata, usata alla seconda ricerca identica", async () => {
     const chiamate = finto([[POI]]);
     const t = setup();

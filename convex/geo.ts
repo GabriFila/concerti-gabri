@@ -90,7 +90,12 @@ export function candidatoPoi(r: RisultatoNominatim): CandidatoVenue | null {
   return { osm: osmId(r), name: (r.name || r.display_name.split(",")[0]).slice(0, 120), city: city.slice(0, 80), lng, lat, featureType: "poi", label: r.display_name.slice(0, 300) };
 }
 
+/** I tipi di luogo che il ripiego `featureType=city` accetta: centri abitati, mai una via o una casa. */
+export const CITTA = new Set(["city", "town", "village", "municipality", "hamlet"]);
+
 export function candidatoCitta(r: RisultatoNominatim): CandidatoVenue | null {
+  // anche se Nominatim rispondesse con una casa o una via, non diventa una venue
+  if (!isPoi(r) || (r.addresstype !== undefined && !CITTA.has(r.addresstype))) return null;
   const lng = Number(r.lon);
   const lat = Number(r.lat);
   const city = (r.name || cittaDi(r)).slice(0, 80);

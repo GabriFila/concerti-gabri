@@ -42,6 +42,18 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "entries:remove": { id: ids.entry, confirm: true },
     "activity:list": null,
     "activity:undo": { activityId: ids.activity },
+    // traguardo 5
+    "departures:addresses": null,
+    "gifters:dettagli": null,
+    "gifters:generateLogoUploadUrl": { id: ids.gifter },
+    "gifters:setLogo": { id: ids.gifter, storageId: null },
+    "gifters:setLogoFromUrl": { id: ids.gifter, url: null },
+    "entries:venueCatalogo": null,
+    "style:consumeThemeGeneration": null,
+    "style:setExtra": null,
+    "account:esporta": null,
+    "account:elimina": null,
+    "account:dettagli": null,
   };
 }
 

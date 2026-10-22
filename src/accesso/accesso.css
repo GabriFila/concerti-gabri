@@ -109,7 +109,6 @@ main.modifica{display:block;max-width:980px;margin:0 auto;padding:clamp(84px,12v
 .modifica-sezione{margin-top:26px;padding:clamp(20px,3vw,30px);background:var(--panel);border:1px solid var(--line);border-radius:14px;scroll-margin-top:24px}
 .modifica-sezione > h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(1.4rem,3vw,1.8rem);color:var(--text);margin-bottom:10px}
 .modifica-segnaposto{color:var(--dim);font-size:.9rem}
-.modifica-esci{margin-top:18px}
 
 /* ── modelli dell'import (ModelliImport) ─────────────────────── */
 .acc-colonne{font-size:.88rem;color:var(--muted);margin:4px 0 16px}

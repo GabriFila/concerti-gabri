@@ -4,14 +4,18 @@
    agenti, né nei log, né negli argomenti dello scheduler (solo id).
    `departureSecrets`, `geocodeDrafts` e `kmPairs` compaiono solo qui e in
    convex/lib/km.ts (convex/privacy.test.ts). T5 completa i flussi di
-   conferma e correzione nella dashboard.
+   conferma e correzione nella dashboard: `addresses` (me.departureAddresses
+   del piano) dà al solo proprietario, solo dalla dashboard, il TESTO degli
+   indirizzi; la correzione è al massimo una al giorno per partenza
+   (`lastCorrectionAt` più il limite `addressCorrection`); l'eliminazione
+   dell'account (convex/account.ts) passa dagli helper in fondo.
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
 import { nessunInput } from "../shared/schema/campi.ts";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { aggiungiPartenzaInput, cancellaPartenzaInput, confermaIndirizzoInput, rinominaPartenzaInput } from "../shared/schema/departure.ts";
 import { istantanea, logActivity, nuovoBatch } from "./lib/activity.ts";
 import { internalMutation, internalQuery, ownerMutation, ownerQuery } from "./lib/builders.ts";
@@ -23,6 +27,8 @@ import { rateLimiter } from "./rateLimits.ts";
 
 const DRAFT_TTL = 30 * 60_000;
 const LOTTO = 100;
+/** Tra due correzioni dell'indirizzo di una partenza passa almeno un giorno. */
+export const CORREZIONE_OGNI_MS = 24 * 3600_000;
 /** Due punti a meno di 50 m sono lo stesso indirizzo (conferma ripetuta, non una correzione). */
 export const STESSO_PUNTO_KM = 0.05;
 
@@ -72,11 +78,15 @@ export const remove = ownerMutation({
   input: cancellaPartenzaInput,
   handler: async (ctx, owner, { id }) => {
     const d = await getOwned(ctx, owner, "departures", id);
-    const usata = await ctx.db
+    const usati = await ctx.db
       .query("entries")
       .withIndex("by_profile_departure", q => q.eq("profileId", owner.profile._id).eq("departureId", d._id))
-      .first();
-    if (usata) throw errore("in_uso", "la partenza è usata da almeno un concerto: cambiala lì prima di cancellarla");
+      .collect();
+    if (usati.length) {
+      throw errore("in_uso", `la partenza è usata da ${usati.length} concerti: cambiala lì prima di cancellarla`, {
+        concerti: usati.slice(0, 20).map(e => `${e.date} · ${e.artist ?? e.name ?? ""}`),
+      });
+    }
     await cancellaSegreti(ctx, d._id);
     await ctx.db.delete(d._id);
     await logActivity(ctx, owner, { op: "delete", table: "departures", docId: d._id, summary: `partenza cancellata: ${d.name}`, before: istantanea(d) });
@@ -138,6 +148,12 @@ export const confirmAddress = ownerMutation({
     }
     const correzione = d.hasAddress;
     if (correzione) {
+      if (d.lastCorrectionAt !== undefined && Date.now() - d.lastCorrectionAt < CORREZIONE_OGNI_MS) {
+        throw errore("limite_superato", "puoi correggere l'indirizzo di una partenza una volta al giorno", {
+          fix: `/${owner.profile.handle}/modifica#partenze`,
+          retryAfter: Math.ceil((d.lastCorrectionAt + CORREZIONE_OGNI_MS - Date.now()) / 1000),
+        });
+      }
       const r = await rateLimiter.limit(ctx, "addressCorrection", { key: d._id });
       if (!r.ok) throw errore("limite_superato", "puoi correggere l'indirizzo di una partenza una volta al giorno", { fix: `/${owner.profile.handle}/modifica#partenze` });
     }
@@ -206,6 +222,67 @@ export const cleanupDrafts = internalMutation({
     return null;
   },
 });
+
+/**
+ * #partenze (me.departureAddresses del piano): per ogni partenza il TESTO
+ * dell'indirizzo, quanti concerti la usano e da quando si può correggere.
+ * Solo dashboard e solo nel browser (la sezione la carica dopo
+ * l'idratazione, fuori dall'SSR). Mai coordinate.
+ */
+export const addresses = ownerQuery({
+  dashboardOnly: "indirizzi (SPEC)",
+  input: nessunInput,
+  handler: async (ctx, owner) => {
+    const entries = await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", owner.profile._id)).collect();
+    const indirizzi = await indirizziDelProfilo(ctx, owner.profile._id);
+    return {
+      partenze: (await departuresOf(ctx, owner.profile._id)).map(d => ({
+        id: d._id as string,
+        name: d.name,
+        stato: d.hasAddress ? ("impostato" as const) : ("mancante" as const),
+        indirizzo: indirizzi.get(d._id) ?? null,
+        legacy: d.legacy,
+        concerti: entries.filter(e => e.departureId === d._id).length,
+        /** Da quando (ms) si può correggere di nuovo l'indirizzo (il browser lo confronta con l'ora); null = mai corretto. */
+        correzioneDa: d.lastCorrectionAt !== undefined ? d.lastCorrectionAt + CORREZIONE_OGNI_MS : null,
+      })),
+    };
+  },
+});
+
+/* ── per l'eliminazione e l'export dell'account (convex/account.ts) ── */
+
+/** Il testo degli indirizzi delle partenze di un profilo, per id (mai coordinate). */
+export async function indirizziDelProfilo(ctx: QueryCtx, profileId: Id<"profiles">): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  for (const d of await departuresOf(ctx, profileId)) {
+    if (!d.hasAddress) continue;
+    const s = await ctx.db.query("departureSecrets").withIndex("by_departure", q => q.eq("departureId", d._id)).unique();
+    if (s) out.set(d._id, s.address);
+  }
+  return out;
+}
+
+/** Cancella fino a `max` partenze del profilo con indirizzo e candidati; restituisce quante. */
+export async function cancellaPartenzeDelProfilo(ctx: MutationCtx, profileId: Id<"profiles">, max: number): Promise<number> {
+  const deps = await ctx.db.query("departures").withIndex("by_profile", q => q.eq("profileId", profileId)).take(max);
+  for (const d of deps) {
+    await cancellaSegreti(ctx, d._id);
+    await ctx.db.delete(d._id);
+  }
+  return deps.length;
+}
+
+/**
+ * Una pagina delle coppie km, cancellando quelle del profilo: anche le
+ * coppie di partenze già cancellate, che restano per sempre (§1.22) e non
+ * hanno un indice per profilo.
+ */
+export async function cancellaCoppieDelProfiloPagina(ctx: MutationCtx, profileId: Id<"profiles">, cursor: string | null) {
+  const page = await ctx.db.query("kmPairs").paginate({ cursor, numItems: 500 });
+  for (const c of page.page) if (c.profileId === profileId) await ctx.db.delete(c._id);
+  return { finito: page.isDone, cursor: page.continueCursor };
+}
 
 /** Per i test e devtools: le partenze con stato, mai l'indirizzo. */
 export type PartenzaStato = Pick<Doc<"departures">, "_id" | "name" | "hasAddress">;

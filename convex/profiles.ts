@@ -13,6 +13,7 @@ import { errore } from "./lib/errors.ts";
 import { cambiaHandle, motivoHandle } from "./lib/handles.ts";
 import { profileOfUser, utenteDellaSessione } from "./lib/owner.ts";
 import { completaOnboardingInput, passoOnboardingInput } from "../shared/schema/onboarding.ts";
+import { normalizzaLayout } from "./style.ts";
 
 /* Handle riservati e disponibilità: convex/lib/handles.ts (una sola strada
    per cambiare handle, usata anche da Annulla). Riesportati qui per chi li
@@ -77,7 +78,8 @@ export const setTheme = ownerMutation({
     const p = owner.profile;
     const patch: Partial<Doc<"profiles">> = {};
     if (input.theme) patch.theme = input.theme;
-    if (input.layout) patch.layout = input.layout;
+    // §1.35: solo le sezioni de "I dati", senza doppioni (convex/style.ts)
+    if (input.layout) patch.layout = normalizzaLayout(input.layout);
     if (!Object.keys(patch).length) return { ok: true as const };
     await ctx.db.patch(p._id, patch);
     await logActivity(ctx, owner, {

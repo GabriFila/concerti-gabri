@@ -7,12 +7,14 @@
    Il deployment Convex locale ha NOMINATIM_URL=http://127.0.0.1:<porta>
    (scripts/convex-locale.mjs, porta in NOMINATIM_STUB_PORT di
    .env.worktree). Risponde a GET /search come Nominatim (jsonv2):
-   - una ricerca che contiene "Canarini" → il canarino: `display_name`
-     fisso e DIVERSO dal testo scritto, coordinate fisse;
-   - `featureType=city` → la città della ricerca (ultima parola);
+   - `featureType=city` → la città della ricerca (ultima parola), anche
+     per il canarino (cercato come venue, finisce sulla città);
+   - una ricerca che contiene "Canarini" → il canarino, una casa:
+     `display_name` fisso e DIVERSO dal testo scritto, coordinate fisse;
    - `layer=poi` → un POI deterministico col nome cercato, più una casa e
      una strada che il server deve scartare;
-   - altro (partenze) → due indirizzi deterministici.
+   - altro (partenze) → due indirizzi deterministici;
+   - una ricerca che contiene "malformato" → un payload con i tipi sbagliati.
    Non registra MAI le ricerche (sono indirizzi). GET /status → "ok".
    ────────────────────────────────────────────────────────────── */
 
@@ -26,21 +28,26 @@ const PORT = Number(argPort !== -1 ? process.argv[argPort + 1] : process.env.NOM
 const hash = s => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 const coord = (s, base, span) => (base + ((hash(s) % 10_000) / 10_000) * span).toFixed(7);
 
+/** La città come la dà `featureType=city`: coordinate del centro abitato, mai di una via. */
+const cittaDi = citta => ({
+  place_id: 2, osm_type: "relation", osm_id: 1000 + (hash(citta) % 1000), lat: coord(citta, 44, 2), lon: coord(citta + "x", 8, 3),
+  category: "boundary", type: "administrative", addresstype: "city", name: citta, display_name: `${citta}, Italia`, address: { city: citta },
+});
+
 function cerca(params) {
   const q = (params.get("q") || "").trim();
+  // payload malformato (e2e/fughe/pagine.spec.ts): tipi sbagliati che ripetono
+  // la ricerca, per vedere che non finisca né nei log né nell'errore
+  if (/malformat/i.test(q)) return [{ lat: q, lon: null, display_name: { testo: q }, address: q }, q];
+  const parole = q.split(/[\s,]+/).filter(Boolean);
+  const citta = parole.length ? parole[parole.length - 1] : "Milano";
+  if (params.get("featureType") === "city") return [cittaDi(citta)];
   if (/canarin/i.test(q)) {
+    // anche con `layer=poi` la casa: il server la deve scartare (non è un POI)
     return [{
       place_id: 1, osm_type: "node", osm_id: 7, lat: String(CANARINO.lat), lon: String(CANARINO.lng),
       category: "place", type: "house", addresstype: "house", name: "", display_name: CANARINO.displayName,
       address: { city: "Genova", country: "Italia" },
-    }];
-  }
-  const parole = q.split(/[\s,]+/).filter(Boolean);
-  const citta = parole.length ? parole[parole.length - 1] : "Milano";
-  if (params.get("featureType") === "city") {
-    return [{
-      place_id: 2, osm_type: "relation", osm_id: 1000 + (hash(citta) % 1000), lat: coord(citta, 44, 2), lon: coord(citta + "x", 8, 3),
-      category: "boundary", type: "administrative", addresstype: "city", name: citta, display_name: `${citta}, Italia`, address: { city: citta },
     }];
   }
   if (params.get("layer") === "poi") {

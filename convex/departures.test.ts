@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { haversineKm, J_MAX, J_MIN } from "./lib/km.ts";
+import { CANARINO } from "../e2e/helpers/canarino.ts";
 import { codiceDi } from "./lib/errors.ts";
-import { sessione, setup, type T } from "./test.setup";
+import { conProfilo, sessione, setup, type T } from "./test.setup";
 
 /* Punti pubblici qualunque, MAI le coordinate di casa di nessuno: piazza del
    Duomo a Milano e, per le uscite, il canarino di e2e/helpers/canarino.ts. */
@@ -114,5 +115,92 @@ describe("partenze e km", () => {
     ]);
     for (const s of ["8.9345", "44.4123", "Canarini"]) expect(uscite).not.toContain(s);
     expect(JSON.stringify(await as.query(api.departures.list, {}))).toContain("impostato");
+  });
+});
+
+/* ── T5: i flussi della dashboard (#partenze) ─────────────────── */
+
+const errDi = async (p: Promise<unknown>) => {
+  try {
+    await p;
+    return null;
+  } catch (e) {
+    return (e as { data: Record<string, unknown> }).data;
+  }
+};
+
+describe("#partenze (dashboard)", () => {
+  it("flusso dei candidati: al browser solo indice ed etichetta, si sceglie per indice, poi l'indirizzo è testo", async () => {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const { id } = await a.as.mutation(api.departures.add, { input: { name: "Casa Genova" } });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([
+      { lat: String(CANARINO.lat), lon: String(CANARINO.lng), display_name: CANARINO.displayName },
+      { lat: "44.40", lon: "8.94", display_name: "Genova, Liguria, Italia" },
+    ]), { status: 200 })));
+    try {
+      const r = await a.as.action(api.geo.geocodeDeparture, { input: { departureId: id, address: CANARINO.indirizzo } });
+      expect(r.candidati).toEqual([{ indice: 0, etichetta: CANARINO.displayName }, { indice: 1, etichetta: "Genova, Liguria, Italia" }]);
+      expect(JSON.stringify(r)).not.toMatch(/44\.41|8\.93|lng|lat"/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(await codice(a.as.mutation(api.departures.confirmAddress, { input: { departureId: id, indice: 5 } }))).toBe("input_non_valido");
+    expect(await a.as.mutation(api.departures.confirmAddress, { input: { departureId: id, indice: 0 } })).toMatchObject({ ok: true, correzione: false });
+    const [p] = (await a.as.query(api.departures.addresses, {})).partenze;
+    expect(p).toMatchObject({ id, name: "Casa Genova", stato: "impostato", indirizzo: CANARINO.displayName, concerti: 0, correzioneDa: null });
+    expect(JSON.stringify(p)).not.toMatch(/44\.41|8\.93/);
+    // i candidati si usano una volta sola
+    expect(await codice(a.as.mutation(api.departures.confirmAddress, { input: { departureId: id, indice: 0 } }))).toBe("not_found");
+  });
+
+  it("candidati scaduti (30 minuti): bisogna cercare di nuovo", async () => {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const { id } = await a.as.mutation(api.departures.add, { input: { name: "Casa" } });
+    await t.mutation(internal.departures.saveDraft, { profileId: a.profileId, departureId: id as Id<"departures">, candidates: [{ label: "x", lng: 9, lat: 45 }] });
+    vi.advanceTimersByTime(31 * 60_000);
+    expect(await codice(a.as.mutation(api.departures.confirmAddress, { input: { departureId: id, indice: 0 } }))).toBe("not_found");
+  });
+
+  it("correzione: al massimo una al giorno per partenza, anche a cavallo della finestra del limite", async () => {
+    const t = setup();
+    const { as, pid, milano } = await gabri(t);
+    await confermaCandidato(t, as, pid, milano, ...PUNTO_MILANO);
+    expect(await confermaCandidato(t, as, pid, milano, 9.2, 45.48)).toMatchObject({ correzione: true });
+    const daQuando = (await as.query(api.departures.addresses, {})).partenze.find(p => p.name === "Milano")!.correzioneDa;
+    expect(daQuando! - Date.now()).toBeGreaterThan(23.9 * 3600_000);
+    expect(daQuando! - Date.now()).toBeLessThanOrEqual(24 * 3600_000);
+    vi.advanceTimersByTime(23 * 3600_000);
+    await t.mutation(internal.departures.saveDraft, { profileId: pid, departureId: milano, candidates: [{ label: "x", lng: 9.1, lat: 45.3 }] });
+    const err = await errDi(as.mutation(api.departures.confirmAddress, { input: { departureId: milano, indice: 0 } }));
+    expect(err).toMatchObject({ code: "limite_superato", fix: "/gabrifila/modifica#partenze" });
+    vi.advanceTimersByTime(2 * 3600_000);
+    expect(await confermaCandidato(t, as, pid, milano, 9.1, 45.3)).toMatchObject({ correzione: true });
+  });
+
+  it("cancellare una partenza usata è bloccato, con l'elenco dei concerti", async () => {
+    const t = setup();
+    const { as } = await gabri(t);
+    const milano = (await as.query(api.departures.list, {})).departures.find(d => d.name === "Milano")!;
+    const err = await errDi(as.mutation(api.departures.remove, { input: { id: milano.id, confirm: true } }));
+    expect(err?.code).toBe("in_uso");
+    expect((err?.concerti as string[]).length).toBeGreaterThan(5);
+    expect((err?.concerti as string[])[0]).toMatch(/^\d{2}\/\d{2}\/\d{4} · /);
+    // una partenza nuova e non usata si cancella
+    const { id } = await as.mutation(api.departures.add, { input: { name: "Casa al mare" } });
+    expect(await codice(as.mutation(api.departures.remove, { input: { id, confirm: true } }))).toBe("ok");
+  });
+
+  it("addresses è solo per la dashboard e non dà mai coordinate", async () => {
+    const t = setup();
+    const { as, pid, milano } = await gabri(t);
+    await confermaCandidato(t, as, pid, milano, CANARINO.lng, CANARINO.lat, CANARINO.displayName);
+    expect(await codice(as.query(api.departures.addresses, { as: "oracolo" }))).toBe("solo_dashboard");
+    const r = await as.query(api.departures.addresses, {});
+    expect(r.partenze.map(p => p.name).sort()).toEqual(["Genova", "Milano"]);
+    expect(r.partenze.find(p => p.name === "Milano")).toMatchObject({ stato: "impostato", indirizzo: CANARINO.displayName, legacy: true });
+    expect(r.partenze.find(p => p.name === "Genova")).toMatchObject({ stato: "mancante", indirizzo: null });
+    expect(JSON.stringify(r)).not.toMatch(/44\.41|8\.93/);
   });
 });
