@@ -319,6 +319,9 @@ describe("cascata: la parte di Better Auth (§5.9)", () => {
     await sessione(t, a.userId); // una seconda sessione aperta (un altro dispositivo)
     await riempiAuth(t, a.userId, EMAIL);
     await riempiAuth(t, b.userId, "b@example.com");
+    // una API key vera (corsia 7): prima autorizza, dopo l'eliminazione no
+    const { chiave } = await a.as.mutation(api.agents.createApiKey, { input: { nome: "Script" } });
+    expect(await codice(t.query(api.people.list, { agentToken: chiave, input: {} }))).toBe("ok");
     for (const [tab, n] of Object.entries(await righeAuth(t, a.userId, EMAIL))) expect(n, `prima: ${tab}`).toBeGreaterThan(0);
     const primaB = await righeAuth(t, b.userId, "b@example.com");
 
@@ -329,6 +332,7 @@ describe("cascata: la parte di Better Auth (§5.9)", () => {
     // la vecchia sessione non vale più: niente profilo, niente scritture
     expect(await a.as.query(api.me.profile, {})).toBeNull();
     expect(await codice(a.as.mutation(api.people.add, { input: { name: "Lu" } }))).toBe("unauthorized");
+    expect(await codice(t.query(api.people.list, { agentToken: chiave, input: {} }))).toBe("unauthorized");
     expect(await b.as.query(api.me.profile, {})).toMatchObject({ handle: "utente-b" });
   });
 

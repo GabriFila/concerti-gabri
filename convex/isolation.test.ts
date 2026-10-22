@@ -5,7 +5,9 @@
 
 import { describe, expect, it } from "vitest";
 import { codiceDi } from "./lib/errors.ts";
+import { trovaTutti } from "./lib/agentToken.ts";
 import { registro } from "./test.registry.ts";
+import { nuovaRichiestaConsenso, nuovoClientOAuth, nuovoTokenOAuth } from "./test.authFinto.ts";
 import { conProfilo, setup, venue, type T } from "./test.setup";
 import { api } from "./_generated/api";
 
@@ -54,6 +56,15 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "account:esporta": null,
     "account:elimina": null,
     "account:dettagli": null,
+    // T7
+    "agents:list": null,
+    "agents:createApiKey": null,
+    "agents:revokeApiKey": { id: ids.apikey },
+    "agents:revokeOAuthClient": { clientId: ids.clientId },
+    "agents:consenso": { consentCode: ids.consentCode },
+    "agents:stats": null,
+    "importer:preview": null,
+    "importer:apply": null,
   };
 }
 
@@ -68,10 +79,16 @@ async function datiDi(t: T, profileId: string) {
   });
 }
 
+/** Le chiavi e i token di A nel componente Better Auth (non devono cambiare). */
+const authDi = (t: T) => t.run(async ctx => [
+  ...(await trovaTutti(ctx, "apikey", [{ field: "referenceId", value: "u-a" }])),
+  ...(await trovaTutti(ctx, "oauthAccessToken", [{ field: "userId", value: "u-a" }])),
+]);
+
 describe("isolamento tra profili", () => {
-  it("B con gli id di A ottiene solo not_found/unauthorized e A resta invariata", async () => {
+  it("B (sessione, API key o token OAuth) con gli id di A ottiene solo not_found/unauthorized (solo_dashboard per un agente) e A resta invariata", async () => {
     const t = setup();
-    const a = await conProfilo(t, "u-a", "utente-a");
+      const a = await conProfilo(t, "u-a", "utente-a");
     const b = await conProfilo(t, "u-b", "utente-b");
     await venue(t, "Fabrique", "Milano", 9.25, 45.45);
     const person = (await a.as.mutation(api.people.add, { input: { name: "Marco R." } })).id;
@@ -80,28 +97,45 @@ describe("isolamento tra profili", () => {
     const gifter = (await a.as.mutation(api.gifters.add, { input: { label: "Amici" } })).id;
     const entry = (await a.as.mutation(api.entries.add, { input: { kind: "concert", date: "01/01/2026", artist: "X", venue: "Fabrique", city: "Milano", with: ["Lu"], from: "Casa" } })).id;
     const activity = (await a.as.query(api.activity.list, {})).voci[0].id;
-    const ids = { person, person2, departure, gifter, entry, activity };
+    const apikey = (await a.as.mutation(api.agents.createApiKey, { input: { nome: "A" } })).id;
+    await nuovoClientOAuth(t, "client-a");
+    await nuovoTokenOAuth(t, "u-a", "client-a");
+    const consentCode = await nuovaRichiestaConsenso(t, "u-a", "client-a");
+    const ids = { person, person2, departure, gifter, entry, activity, apikey, clientId: "client-a", consentCode };
     const prima = await datiDi(t, a.profileId);
+    const authPrima = await authDi(t);
+    // B come agente: una sua API key e un suo token OAuth
+    const chiaveB = (await b.as.mutation(api.agents.createApiKey, { input: { nome: "B" } })).chiave;
+    await nuovoClientOAuth(t, "client-b");
+    const tokenB = await nuovoTokenOAuth(t, "u-b", "client-b");
 
     const tabella = inputCon(ids);
     const owner = registro().filter(f => f.meta?.kind === "owner");
     // ogni funzione del proprietario è classificata qui (una nuova va aggiunta)
     expect(owner.map(f => f.path).filter(p => !(p in tabella))).toEqual([]);
 
-    for (const f of owner) {
-      const input = tabella[f.path];
-      if (input === null) continue;
-      const fn = f.fn as never;
-      let codice = "ok";
-      try {
-        if (f.fn.isQuery) await b.as.query(fn, { input });
-        else if (f.fn.isMutation) await b.as.mutation(fn, { input });
-        else await b.as.action(fn, { input });
-      } catch (e) {
-        codice = codiceDi(e) ?? "altro";
+    const attori = [
+      { nome: "sessione", chi: b.as, extra: {}, ammessi: ["not_found", "unauthorized"] },
+      { nome: "API key", chi: t, extra: { agentToken: chiaveB }, ammessi: ["not_found", "unauthorized", "solo_dashboard"] },
+      { nome: "OAuth", chi: t, extra: { agentToken: tokenB }, ammessi: ["not_found", "unauthorized", "solo_dashboard"] },
+    ];
+    for (const { nome, chi, extra, ammessi } of attori) {
+      for (const f of owner) {
+        const input = tabella[f.path];
+        if (input === null) continue;
+        const fn = f.fn as never;
+        let codice = "ok";
+        try {
+          if (f.fn.isQuery) await chi.query(fn, { ...extra, input });
+          else if (f.fn.isMutation) await chi.mutation(fn, { ...extra, input });
+          else await chi.action(fn, { ...extra, input });
+        } catch (e) {
+          codice = codiceDi(e) ?? "altro";
+        }
+        expect(ammessi, `${nome}: ${f.path} → ${codice}`).toContain(codice);
       }
-      expect(["not_found", "unauthorized"], `${f.path} → ${codice}`).toContain(codice);
     }
     expect(await datiDi(t, a.profileId)).toEqual(prima);
+    expect(await authDi(t)).toEqual(authPrima);
   });
 });

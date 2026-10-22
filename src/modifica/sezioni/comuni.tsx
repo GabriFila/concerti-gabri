@@ -14,8 +14,11 @@
      ripetono mai i valori, PIANO §5.3).
    - Modali con la cornice di CommentModal; ogni cancellazione passa da
      `Conferma`.
-   - Il foglio di stile della pagina (modifica.css) entra con il <link> di
-     React 19 (`precedence`): una volta sola, anche nell'HTML SSR.
+   - Il foglio di stile della pagina (modifica.css) è nel <head> di ogni
+     pagina (links di __root.tsx), non con un <link precedence> nel
+     contenuto: React 19.2 metterebbe la pagina SSR in un confine nascosto
+     rivelato fino a ~2 s dopo, e un aggiornamento prima della rivelazione
+     la farebbe rendere di nuovo dal client lasciando la copia nascosta.
    ────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -26,7 +29,6 @@ import { convexQuery } from "@convex-dev/react-query";
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { REGOLA_SOPRANNOMI } from "../../../shared/schema/campi.ts";
-import cssModifica from "./modifica.css?url";
 
 /* ── dati ─────────────────────────────────────────────────────── */
 
@@ -136,11 +138,10 @@ export function SoloNelBrowser({ children }: { children: ReactNode }) {
   return useHydrated() ? <>{children}</> : <p className="mod-attesa" aria-busy="true">Carico…</p>;
 }
 
-/** La cornice di ogni sezione: il foglio di stile (già nell'HTML SSR) e il contenuto solo nel browser. */
+/** La cornice di ogni sezione: il contenuto solo nel browser. */
 export function CorniceSezione({ children }: { children: ReactNode }) {
   return (
     <div className="mod-sezione">
-      <FoglioModifica />
       <SoloNelBrowser>{children}</SoloNelBrowser>
     </div>
   );
@@ -170,11 +171,6 @@ export function useAvviso(ms = 5000) {
 /** La regola dei soprannomi (PIANO §1.42), ovunque si inseriscono nomi. */
 export function Soprannomi() {
   return <span className="mod-hint mod-soprannomi">{REGOLA_SOPRANNOMI}.</span>;
-}
-
-/** Il foglio di stile delle sezioni (React lo mette in <head> una volta sola). */
-export function FoglioModifica() {
-  return <link rel="stylesheet" href={cssModifica} precedence="default" />;
 }
 
 /* ── modali ───────────────────────────────────────────────────── */

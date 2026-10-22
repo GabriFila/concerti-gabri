@@ -1,8 +1,8 @@
 /* ──────────────────────────────────────────────────────────────
    Le sezioni di /<handle>/modifica (T5). Classi tutte `mod-*`, colori
    dalle variabili di styles.css (scuro e chiaro); i modali riusano la
-   cornice di CommentModal (.commentmodal, .commentpop, .fp-head). Il file
-   lo collega FoglioModifica (comuni.tsx) con il <link> di React 19.
+   cornice di CommentModal (.commentmodal, .commentpop, .fp-head). Il file è
+   collegato nel <head> di ogni pagina (src/routes/__root.tsx).
    ────────────────────────────────────────────────────────────── */
 
 .mod-sezione{display:flex;flex-direction:column;gap:16px;color:var(--text);font-size:.92rem;line-height:1.5}

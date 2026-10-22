@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { CATALOGO, operazione } from "../shared/agent/catalog.ts";
 import { ESTENSIONI_CONVEX, FILE_DEL_REGISTRO, registro } from "./test.registry.ts";
 import { NOMI_LIMITI } from "./rateLimits.ts";
+import { NON_ANCORA_DISPONIBILI, tipoFunzione } from "../src/server/mcp/funzioni.ts";
 
 /** I file che la CLI Convex pubblica come moduli di funzioni (stesse regole di bundler/index.js). */
 function pubblicabili(root: string): string[] {
@@ -80,13 +81,28 @@ describe("registro delle funzioni", () => {
     }
   });
 
-  it("ogni operazione del catalogo (fino al traguardo 5) ha la sua funzione", () => {
+  it("ogni operazione del catalogo (fino al traguardo 7) ha la sua funzione", () => {
     const perOp = new Map(tutte.filter(f => f.meta?.catalogOp).map(f => [f.meta!.catalogOp!, f.path]));
-    const mancanti = CATALOGO.filter(o => o.traguardo <= 5 && perOp.get(o.name) !== o.funzione).map(o => o.name);
+    // quelle di un'altra corsia ancora assenti stanno in NON_ANCORA_DISPONIBILI (MCP risponde non_disponibile)
+    const mancanti = CATALOGO.filter(o => o.traguardo <= 7 && !NON_ANCORA_DISPONIBILI.has(o.name) && perOp.get(o.name) !== o.funzione).map(o => o.name);
     expect(mancanti).toEqual([]);
     // un'operazione non ha due funzioni
     const ops = tutte.filter(f => f.meta?.catalogOp).map(f => f.meta!.catalogOp!);
     expect(new Set(ops).size).toBe(ops.length);
+  });
+
+  it("MCP: NON_ANCORA_DISPONIBILI ha solo operazioni senza funzione (arrivata la funzione, va tolta da lì)", () => {
+    const presenti = new Set(tutte.map(f => f.path));
+    expect([...NON_ANCORA_DISPONIBILI].filter(n => presenti.has(operazione(n)!.funzione))).toEqual([]);
+  });
+
+  it("MCP: il tipo di ogni funzione del catalogo (query, mutation, action) è quello che chiama /mcp", () => {
+    for (const o of CATALOGO) {
+      const f = tutte.find(x => x.path === o.funzione);
+      if (!f) continue;
+      const tipo = f.fn.isQuery ? "query" : f.fn.isMutation ? "mutation" : "action";
+      expect(tipo, o.funzione).toBe(tipoFunzione(o));
+    }
   });
 
   it("le query pubbliche hanno returns esplicito", () => {

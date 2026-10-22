@@ -1,0 +1,84 @@
+/* ──────────────────────────────────────────────────────────────
+   #agenti, l'upload dell'import (anche nel passo 3 di /benvenuto) e
+   /autorizza (corsia 7). Classi `ag-*`, colori dalle variabili di
+   styles.css (scuro e chiaro), stesso linguaggio delle sezioni di
+   /modifica. Collegato nel <head> di ogni pagina (src/routes/__root.tsx).
+   ────────────────────────────────────────────────────────────── */
+
+.ag-sezione,.ag-import,.ag-carta{display:flex;flex-direction:column;gap:14px;color:var(--text);font-size:.92rem;line-height:1.5}
+.ag-sezione p,.ag-import p,.ag-carta p{margin:0}
+.ag-hint{display:block;font-size:.8rem;color:var(--muted);line-height:1.5}
+.ag-mini,.ag-etichetta{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ag-attesa,.ag-vuoto{color:var(--muted);font-size:.88rem;padding:4px 0}
+.ag-meta{font-size:.78rem;color:var(--muted)}
+.ag-ok{font-size:.85rem;color:var(--text);background:var(--lamp-faint);border:1px solid var(--lamp-soft);border-radius:10px;padding:8px 12px}
+.ag-errore{font-size:.85rem;color:#ef8a7a;background:rgba(220,90,70,.08);border:1px solid rgba(220,90,70,.35);border-radius:10px;padding:8px 12px}
+[data-theme="light"] .ag-errore{color:#a8392a}
+.ag-attenzione{font-size:.85rem;border-left:3px solid var(--lamp);background:var(--lamp-faint);padding:8px 12px;border-radius:0 10px 10px 0}
+.ag-elenco{margin:6px 0 0;padding-left:18px;font-size:.8rem;max-height:220px;overflow:auto}
+.ag-elenco li{margin:2px 0}
+
+/* ── blocchi e righe ── */
+.ag-blocco{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:var(--r-riquadro,12px);padding:14px 16px;background:var(--panel)}
+.ag-riga{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.ag-riga-spazio{justify-content:space-between}
+.ag-istruzioni{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+.ag-codice{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;background:var(--bg-2);border:1px solid var(--line-2);border-radius:6px;padding:2px 6px;word-break:break-all}
+.ag-riga > .ag-codice{padding:6px 10px;flex:1 1 220px;min-width:0}
+.ag-prompt{font:inherit;font-size:.84rem;line-height:1.5;color:var(--text);background:var(--bg-2);border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;width:100%;box-sizing:border-box;resize:vertical}
+
+/* ── bottoni ── */
+.ag-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:inherit;font-size:.82rem;font-weight:500;line-height:1.2;
+  padding:7px 13px;border:1px solid var(--line-2);border-radius:999px;background:var(--panel-2);color:var(--text);cursor:pointer;text-decoration:none;white-space:nowrap;
+  transition:border-color .15s ease,background .15s ease}
+.ag-btn:hover:not(:disabled){border-color:var(--lamp-soft)}
+.ag-btn:focus-visible,.ag-link:focus-visible,.ag-file-input:focus-visible + .ag-file{outline:2px solid var(--lamp);outline-offset:2px}
+.ag-btn:disabled{opacity:.5;cursor:default}
+.ag-primario{background:var(--lamp);border-color:var(--lamp);color:#0a0a0b;font-weight:600}
+.ag-primario:hover:not(:disabled){filter:brightness(1.08)}
+.ag-pericolo{background:#c8483a;border-color:#c8483a;color:#fff;font-weight:600}
+.ag-pericolo-lieve{color:var(--muted)}
+.ag-pericolo-lieve:hover:not(:disabled){color:#e0705f;border-color:rgba(224,112,95,.5)}
+.ag-link{font-size:.82rem;color:var(--lamp)}
+
+/* ── form delle API key ── */
+.ag-form{align-items:flex-end}
+.ag-campo{display:flex;flex-direction:column;gap:4px;flex:1 1 200px;min-width:0}
+.ag-campo-stretto{flex:0 1 160px}
+.ag-campo input,.ag-campo select{font:inherit;font-size:.9rem;color:var(--text);background:var(--bg-2);border:1px solid var(--line-2);border-radius:10px;padding:8px 11px;width:100%;box-sizing:border-box}
+.ag-campo input:focus,.ag-campo select:focus{outline:none;border-color:var(--lamp-soft)}
+.ag-nuova{display:flex;flex-direction:column;gap:10px;border:1px solid var(--lamp-soft);background:var(--lamp-faint);border-radius:10px;padding:12px 14px}
+.ag-nuova .ag-btn{align-self:flex-start}
+.ag-chiave{user-select:all}
+
+/* ── elenchi ── */
+.ag-lista{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.ag-voce{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;border-bottom:1px solid var(--line);padding:10px 2px}
+.ag-nome{font-weight:600}
+.ag-inizio{font-size:.76rem}
+.ag-stato{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--muted)}
+.ag-azioni{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto}
+.ag-voce > .ag-errore{flex-basis:100%}
+
+/* ── upload ── */
+.ag-file-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.ag-file{cursor:pointer}
+.ag-anteprima,.ag-esito{display:flex;flex-direction:column;gap:10px;border:1px solid var(--line-2);border-radius:10px;padding:12px 14px;background:var(--panel-2)}
+.ag-anteprima-conta{font-size:1rem;font-weight:600}
+.ag-conferma{display:flex;flex-direction:column;gap:8px;border-left:3px solid var(--lamp);padding:4px 0 4px 12px}
+.ag-dettagli summary{cursor:pointer;font-size:.82rem;color:var(--lamp)}
+.ag-dettagli[open]{display:flex;flex-direction:column;gap:8px}
+.ag-colonne{display:grid;grid-template-columns:max-content 1fr;gap:2px 12px;margin:0;font-size:.8rem}
+.ag-colonne > div{display:contents}
+.ag-colonne dt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text)}
+.ag-colonne dd{margin:0;color:var(--muted)}
+
+/* ── /autorizza ── */
+.ag-pagina{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:clamp(24px,8vh,96px) 16px;box-sizing:border-box;background:var(--bg)}
+.ag-carta{width:min(560px,100%);border:1px solid var(--line-2);border-radius:16px;background:var(--panel);padding:24px clamp(16px,4vw,28px)}
+.ag-carta h1{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;font-size:1.6rem;line-height:1.2;margin:0}
+.ag-carta a:not(.ag-btn){color:var(--lamp)}
+.ag-carta > .ag-btn{align-self:flex-start}
+.ag-sopra{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.ag-host{display:flex;flex-direction:column;gap:4px;border:1px solid var(--lamp-soft);background:var(--lamp-faint);border-radius:12px;padding:14px 16px}
+.ag-host-nome{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:clamp(1.2rem,4.5vw,1.6rem);font-weight:700;color:var(--text);word-break:break-all}

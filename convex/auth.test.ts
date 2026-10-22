@@ -317,10 +317,12 @@ describe("opzioni di Better Auth", () => {
     expect(k.hooks.before[0].matcher({ headers: new Headers({ "x-api-key": "cgk_" + "x".repeat(64) }) })).toBe(false);
   });
 
-  it("MCP spento finché la corsia 7 non lo attiva; /mcp/get-session spento sempre", () => {
-    expect(opzioni().disabledPaths).toEqual(expect.arrayContaining(PERCORSI_MCP));
-    expect(percorsiSpenti(true)).toContain("/mcp/get-session");
-    expect(percorsiSpenti(true)).not.toContain("/mcp/authorize");
+  it("MCP acceso (corsia 7) e irrobustito subito dopo mcp(); /mcp/get-session spento sempre", () => {
+    expect(percorsiSpenti(false)).toEqual(expect.arrayContaining(PERCORSI_MCP));
+    expect(opzioni().disabledPaths).toContain("/mcp/get-session");
+    for (const p of PERCORSI_MCP.filter(p => p !== "/mcp/get-session")) expect(opzioni().disabledPaths, p).not.toContain(p);
+    const ids = opzioni().plugins.map(p => p.id);
+    expect(ids.indexOf("concerti-mcp")).toBe(ids.indexOf("mcp") + 1);
   });
 
   it("Google solo con le credenziali, con prompt select_account", () => {
@@ -339,12 +341,10 @@ describe("opzioni di Better Auth", () => {
     expect(o).toMatchObject({ otpLength: 6, expiresIn: 600, allowedAttempts: 5, storeOTP: "hashed" });
   });
 
-  it("i percorsi di MCP rispondono 404 finché sono spenti", async () => {
+  it("i percorsi spenti rispondono 404: /mcp/get-session sempre, gli altri di MCP no", async () => {
     const t = setup();
-    for (const p of ["/.well-known/oauth-authorization-server", "/mcp/get-session"]) {
-      expect((await t.fetch(`/api/auth${p}`)).status, p).toBe(404);
-    }
-    expect((await post(t, "/mcp/register", { redirect_uris: ["http://localhost/cb"] })).status).toBe(404);
+    expect((await t.fetch("/api/auth/mcp/get-session")).status).toBe(404);
+    expect((await t.fetch("/api/auth/.well-known/oauth-authorization-server")).status).toBe(200);
     expect((await post(t, "/forget-password/email-otp", { email: "a@example.com" })).status).toBe(404);
   });
 });

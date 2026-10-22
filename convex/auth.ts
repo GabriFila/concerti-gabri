@@ -18,9 +18,10 @@
      Google.
    - Il primo login crea l'utente e, nella stessa transazione (trigger),
      il profilo in `onboarding` (convex/profiles.ts lo completa).
-   - MCP: `mcp({ ...opzioniMcp })` da convex/authMcp.ts (corsia 7); finché
-     MCP_ATTIVO è false tutti i suoi percorsi sono in disabledPaths, e
-     `/mcp/get-session` lo resta sempre (restituirebbe il refresh token).
+   - MCP: `mcp({ ...opzioniMcp })` seguito da `irrobustimentoMcp(ctx)`,
+     da convex/authMcp.ts (corsia 7); finché MCP_ATTIVO è false tutti i
+     suoi percorsi sono in disabledPaths, e `/mcp/get-session` lo resta
+     sempre (PERCORSI_MCP_DISATTIVATI: restituirebbe il refresh token).
    - `deleteUser` è abilitato ma `/delete-user` via HTTP no: l'account si
      elimina solo con `account.delete` (corsia 5, §5.9), che fa la cascata
      e poi chiama `auth.api.deleteUser` lato server (disabledPaths ferma
@@ -48,7 +49,7 @@ import type { DataModel } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import authConfig from "./auth.config";
 import { googleAttivo, senderOtp } from "./authFlags.ts";
-import { MCP_ATTIVO, opzioniMcp } from "./authMcp.ts";
+import { irrobustimentoMcp, MCP_ATTIVO, opzioniMcp, PERCORSI_MCP_DISATTIVATI } from "./authMcp.ts";
 import authSchema from "./betterAuth/schema";
 import { inviaOtpResend, OTP_MINUTI } from "./email.ts";
 import { internalMutation } from "./lib/builders.ts";
@@ -126,7 +127,7 @@ export const PERCORSI_OTP_SPENTI = [
 export const PERCORSI_ACCOUNT_SPENTI = ["/delete-user", "/delete-user/callback"];
 
 export function percorsiSpenti(mcpAttivo = MCP_ATTIVO): string[] {
-  return [...(mcpAttivo ? ["/mcp/get-session"] : PERCORSI_MCP), ...PERCORSI_OTP_SPENTI, ...PERCORSI_ACCOUNT_SPENTI];
+  return [...(mcpAttivo ? PERCORSI_MCP_DISATTIVATI : PERCORSI_MCP), ...PERCORSI_OTP_SPENTI, ...PERCORSI_ACCOUNT_SPENTI];
 }
 
 async function sha256(s: string): Promise<string> {
@@ -193,6 +194,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       // niente email né nome nel JWT (il default li mette): bastano sub e sessionId, aggiunti dal plugin
       convex({ authConfig, jwt: { definePayload: () => ({}) } }),
       mcp({ ...opzioniMcp }),
+      // subito dopo mcp(): consenso sempre, solo gli scope ammessi, dcrGlobal sulla registrazione (corsia 7)
+      irrobustimentoMcp(ctx),
       apiKey({ ...OPZIONI_API_KEY, rateLimit: { ...OPZIONI_API_KEY.rateLimit } }),
       ...(sender
         ? [

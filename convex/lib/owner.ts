@@ -18,6 +18,7 @@ import { components } from "../_generated/api";
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 import { errore } from "./errors.ts";
+import { nomePulito, richiediToken } from "./agentToken.ts";
 
 export type Via = "dashboard" | "oracolo" | "mcp" | "apikey" | "sistema";
 export interface Actor {
@@ -42,10 +43,20 @@ export const ETICHETTE_ATTORE: Record<Via, string> = {
 
 type AnyCtx = QueryCtx | MutationCtx | ActionCtx;
 
+/** L'etichetta di un agente nel registro: "MCP · Claude", "API key · Script di casa". */
+export function etichettaAgente(via: "mcp" | "apikey", nome?: string): string {
+  const pulito = nomePulito(nome);
+  return pulito ? `${ETICHETTE_ATTORE[via]} · ${pulito}` : ETICHETTE_ATTORE[via];
+}
+
 export async function resolveActor(ctx: AnyCtx, { agentToken, as }: { agentToken?: unknown; as?: unknown }): Promise<Actor> {
   if (agentToken !== undefined && agentToken !== null) {
-    // T7: API key e token OAuth. Fino ad allora nessun token è valido.
-    throw errore("unauthorized", "token agente non valido o scaduto");
+    // T7: "cgk_…" → API key (hash in `apikey`), un token OAuth →
+    // `oauthAccessToken` (lib/agentToken.ts). Con un token `as` si ignora:
+    // un agente resta un agente. Le sue scritture passano da `agentWrites`
+    // (limitaAgente in lib/builders.ts).
+    const t = await richiediToken(ctx, agentToken);
+    return { via: t.via, userId: t.userId, label: etichettaAgente(t.via, t.nome), clientId: t.clientId, keyId: t.keyId };
   }
   if (as !== undefined && as !== null && as !== "oracolo") {
     throw errore("input_non_valido", "as: l'unico valore ammesso è \"oracolo\"", { campo: "as" });

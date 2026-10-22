@@ -12,14 +12,20 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HandleRouteImport } from './routes/$handle'
 import { Route as AccediRouteImport } from './routes/accedi'
+import { Route as AutorizzaRouteImport } from './routes/autorizza'
 import { Route as BenvenutoRouteImport } from './routes/benvenuto'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as HandleIndexRouteImport } from './routes/$handle.index'
 import { Route as HandleDatiRouteImport } from './routes/$handle.dati'
 import { Route as HandleModificaRouteImport } from './routes/$handle.modifica'
+import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
+import { Route as DotwellKnownOauthProtectedResourceIndexRouteImport } from './routes/[.]well-known/oauth-protected-resource/index'
+import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
 import { Route as ApiChatHistoryRouteImport } from './routes/api/chat/history'
+import { Route as ApiAuthMcpAuthorizeRouteImport } from './routes/api/auth/mcp/authorize'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,9 +42,19 @@ const AccediRoute = AccediRouteImport.update({
   path: '/accedi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AutorizzaRoute = AutorizzaRouteImport.update({
+  id: '/autorizza',
+  path: '/autorizza',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BenvenutoRoute = BenvenutoRouteImport.update({
   id: '/benvenuto',
   path: '/benvenuto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -61,6 +77,24 @@ const HandleModificaRoute = HandleModificaRouteImport.update({
   path: '/modifica',
   getParentRoute: () => HandleRoute,
 } as any)
+const DotwellKnownOauthAuthorizationServerRoute =
+  DotwellKnownOauthAuthorizationServerRouteImport.update({
+    id: '/.well-known/oauth-authorization-server',
+    path: '/.well-known/oauth-authorization-server',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownOauthProtectedResourceIndexRoute =
+  DotwellKnownOauthProtectedResourceIndexRouteImport.update({
+    id: '/.well-known/oauth-protected-resource/',
+    path: '/.well-known/oauth-protected-resource/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const DotwellKnownOauthProtectedResourceMcpRoute =
+  DotwellKnownOauthProtectedResourceMcpRouteImport.update({
+    id: '/.well-known/oauth-protected-resource/mcp',
+    path: '/.well-known/oauth-protected-resource/mcp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -76,45 +110,68 @@ const ApiChatHistoryRoute = ApiChatHistoryRouteImport.update({
   path: '/api/chat/history',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthMcpAuthorizeRoute = ApiAuthMcpAuthorizeRouteImport.update({
+  id: '/api/auth/mcp/authorize',
+  path: '/api/auth/mcp/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRouteWithChildren
   '/accedi': typeof AccediRoute
+  '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
   '/$handle/modifica': typeof HandleModificaRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/$handle/': typeof HandleIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/history': typeof ApiChatHistoryRoute
+  '/.well-known/oauth-protected-resource/': typeof DotwellKnownOauthProtectedResourceIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
+  '/api/auth/mcp/authorize': typeof ApiAuthMcpAuthorizeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accedi': typeof AccediRoute
+  '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
   '/$handle/modifica': typeof HandleModificaRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/$handle': typeof HandleIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/history': typeof ApiChatHistoryRoute
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceIndexRoute
   '/api/chat': typeof ApiChatIndexRoute
+  '/api/auth/mcp/authorize': typeof ApiAuthMcpAuthorizeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$handle': typeof HandleRouteWithChildren
   '/accedi': typeof AccediRoute
+  '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
   '/$handle/modifica': typeof HandleModificaRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/$handle/': typeof HandleIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/history': typeof ApiChatHistoryRoute
+  '/.well-known/oauth-protected-resource/': typeof DotwellKnownOauthProtectedResourceIndexRoute
   '/api/chat/': typeof ApiChatIndexRoute
+  '/api/auth/mcp/authorize': typeof ApiAuthMcpAuthorizeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -122,50 +179,74 @@ export interface FileRouteTypes {
     | '/'
     | '/$handle'
     | '/accedi'
+    | '/autorizza'
     | '/benvenuto'
+    | '/mcp'
     | '/privacy'
     | '/$handle/dati'
     | '/$handle/modifica'
+    | '/.well-known/oauth-authorization-server'
     | '/$handle/'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
     | '/api/chat/history'
+    | '/.well-known/oauth-protected-resource/'
     | '/api/chat/'
+    | '/api/auth/mcp/authorize'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/accedi'
+    | '/autorizza'
     | '/benvenuto'
+    | '/mcp'
     | '/privacy'
     | '/$handle/dati'
     | '/$handle/modifica'
+    | '/.well-known/oauth-authorization-server'
     | '/$handle'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
     | '/api/chat/history'
+    | '/.well-known/oauth-protected-resource'
     | '/api/chat'
+    | '/api/auth/mcp/authorize'
   id:
     | '__root__'
     | '/'
     | '/$handle'
     | '/accedi'
+    | '/autorizza'
     | '/benvenuto'
+    | '/mcp'
     | '/privacy'
     | '/$handle/dati'
     | '/$handle/modifica'
+    | '/.well-known/oauth-authorization-server'
     | '/$handle/'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/api/auth/$'
     | '/api/chat/history'
+    | '/.well-known/oauth-protected-resource/'
     | '/api/chat/'
+    | '/api/auth/mcp/authorize'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HandleRoute: typeof HandleRouteWithChildren
   AccediRoute: typeof AccediRoute
+  AutorizzaRoute: typeof AutorizzaRoute
   BenvenutoRoute: typeof BenvenutoRoute
+  McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
+  DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
+  DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatHistoryRoute: typeof ApiChatHistoryRoute
+  DotwellKnownOauthProtectedResourceIndexRoute: typeof DotwellKnownOauthProtectedResourceIndexRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
+  ApiAuthMcpAuthorizeRoute: typeof ApiAuthMcpAuthorizeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -191,11 +272,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccediRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/autorizza': {
+      id: '/autorizza'
+      path: '/autorizza'
+      fullPath: '/autorizza'
+      preLoaderRoute: typeof AutorizzaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/benvenuto': {
       id: '/benvenuto'
       path: '/benvenuto'
       fullPath: '/benvenuto'
       preLoaderRoute: typeof BenvenutoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -226,6 +321,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HandleModificaRouteImport
       parentRoute: typeof HandleRoute
     }
+    '/.well-known/oauth-authorization-server': {
+      id: '/.well-known/oauth-authorization-server'
+      path: '/.well-known/oauth-authorization-server'
+      fullPath: '/.well-known/oauth-authorization-server'
+      preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource/': {
+      id: '/.well-known/oauth-protected-resource/'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource/'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource/mcp': {
+      id: '/.well-known/oauth-protected-resource/mcp'
+      path: '/.well-known/oauth-protected-resource/mcp'
+      fullPath: '/.well-known/oauth-protected-resource/mcp'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -245,6 +361,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat/history'
       fullPath: '/api/chat/history'
       preLoaderRoute: typeof ApiChatHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/mcp/authorize': {
+      id: '/api/auth/mcp/authorize'
+      path: '/api/auth/mcp/authorize'
+      fullPath: '/api/auth/mcp/authorize'
+      preLoaderRoute: typeof ApiAuthMcpAuthorizeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -269,11 +392,20 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HandleRoute: HandleRouteWithChildren,
   AccediRoute: AccediRoute,
+  AutorizzaRoute: AutorizzaRoute,
   BenvenutoRoute: BenvenutoRoute,
+  McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
+  DotwellKnownOauthAuthorizationServerRoute:
+    DotwellKnownOauthAuthorizationServerRoute,
+  DotwellKnownOauthProtectedResourceMcpRoute:
+    DotwellKnownOauthProtectedResourceMcpRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatHistoryRoute: ApiChatHistoryRoute,
+  DotwellKnownOauthProtectedResourceIndexRoute:
+    DotwellKnownOauthProtectedResourceIndexRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,
+  ApiAuthMcpAuthorizeRoute: ApiAuthMcpAuthorizeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

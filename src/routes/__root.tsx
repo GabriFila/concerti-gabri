@@ -23,6 +23,8 @@ import { HeadContent, Scripts, ScriptOnce, createRootRouteWithContext } from "@t
 import appCss from "../styles.css?url";
 import wishlistCss from "../wishlist.css?url";
 import accessoCss from "../accesso/accesso.css?url";
+import agentiCss from "../import/agenti.css?url";
+import modificaCss from "../modifica/sezioni/modifica.css?url";
 import { authDellaRichiesta } from "../lib/auth-sessione.ts";
 import { RootError } from "../root/errors.tsx";
 import { RootProviders } from "../root/providers.tsx";
@@ -54,6 +56,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "stylesheet", href: appCss },
       // landing, accesso, /benvenuto, scheletro di /modifica, "Esci" (traguardo 3)
       { rel: "stylesheet", href: accessoCss },
+      // #agenti, upload dell'import (anche al passo 3 di /benvenuto), /autorizza (traguardo 7):
+      // qui e non con <link precedence> nel contenuto, che fa rivelare la pagina SSR in ritardo
+      { rel: "stylesheet", href: agentiCss },
+      // le sezioni di /modifica (traguardo 5), per lo stesso motivo
+      { rel: "stylesheet", href: modificaCss },
     ],
   }),
   shellComponent: RootDocument,
