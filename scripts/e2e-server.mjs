@@ -12,18 +12,20 @@
      Vercel (src/server/now.ts) e non finiscono mai nel bundle client.
    - Build e server ricevono l'ambiente senza segreti (scripts/child-env.mjs),
      salvo la chiave di Gemini per la spec @gemini: mai chiavi di produzione.
+   - Il server parte con scripts/e2e-ingest.mjs precaricato (traguardo 8):
+     il proxy /ingest finisce nello stand-in locale, mai nel PostHog vero.
    - Resta in primo piano finché Playwright non lo ferma; inoltra i segnali.
    ────────────────────────────────────────────────────────────── */
 
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { GEMINI, senzaSegreti } from "./child-env.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENTRY = join(ROOT, ".output/server/index.mjs");
-const SOURCES = ["src", "shared", "public", "convex/_generated", "vite.config.ts", "package.json", "pnpm-lock.yaml", "tsconfig.app.json"];
+const SOURCES = ["src", "shared", "public", "convex/_generated", "vite.config.ts", "instrument.build.ts", "package.json", "pnpm-lock.yaml", "tsconfig.app.json"];
 
 function newest(p) {
   if (!existsSync(p)) return 0;
@@ -40,24 +42,28 @@ function newest(p) {
 const CLEAN_ENV = senzaSegreti(process.env, GEMINI);
 
 // il deployment Convex è inserito nel codice al build (VITE_CONVEX_URL):
-// una build fatta per un altro deployment va rifatta (il valore non si stampa)
+// una build fatta per un altro deployment va rifatta (il valore non si stampa).
+// Lo stesso per il DSN di Sentry e VITE_E2E (traguardo 8): una build senza il
+// sink locale manderebbe gli errori dei test al Sentry vero
 const STAMP = join(ROOT, ".output/.convex-url");
-const convexUrl = process.env.VITE_CONVEX_URL || "";
-const stampOk = existsSync(STAMP) && readFileSync(STAMP, "utf8") === convexUrl;
+const firma = [process.env.VITE_CONVEX_URL, process.env.VITE_SENTRY_DSN, process.env.VITE_E2E].map(v => v || "").join("\n");
+const stampOk = existsSync(STAMP) && readFileSync(STAMP, "utf8") === firma;
 
 const built = existsSync(ENTRY) ? statSync(ENTRY).mtimeMs : 0;
 const sources = Math.max(...SOURCES.map(s => newest(join(ROOT, s))));
 if (built < sources || !stampOk) {
-  console.error(!built ? "e2e-server: nessuna build, la faccio" : built < sources ? "e2e-server: build più vecchia dei sorgenti, la rifaccio" : "e2e-server: build fatta per un altro deployment Convex, la rifaccio");
+  console.error(!built ? "e2e-server: nessuna build, la faccio" : built < sources ? "e2e-server: build più vecchia dei sorgenti, la rifaccio" : "e2e-server: build fatta per un altro deployment Convex o un altro sink, la rifaccio");
   const r = spawnSync("pnpm", ["build:lock"], { cwd: ROOT, env: CLEAN_ENV, stdio: ["ignore", "ignore", "inherit"] });
   if (r.status !== 0) {
     console.error("e2e-server: build fallita");
     process.exit(1);
   }
-  writeFileSync(STAMP, convexUrl);
+  writeFileSync(STAMP, firma);
 }
 
-const child = spawn(process.execPath, [ENTRY], {
+// PostHog finto dalla prima richiesta (scripts/e2e-ingest.mjs)
+const INGEST = pathToFileURL(join(ROOT, "scripts/e2e-ingest.mjs")).href;
+const child = spawn(process.execPath, ["--import", INGEST, ENTRY], {
   cwd: ROOT,
   stdio: "inherit",
   env: { ...CLEAN_ENV, PORT: process.env.PORT || "3100", NODE_ENV: "production" },

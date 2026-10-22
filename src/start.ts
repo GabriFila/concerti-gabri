@@ -8,9 +8,11 @@
    403 prima di eseguire la funzione (e2e/http.spec.ts). Pagine e route API
    (/api/chat ha il suo controllo dell'Origin) non passano da qui.
 
-   Il traguardo 8 aggiunge solo il middleware di Sentry in testa agli array.
+   Il traguardo 8 aggiunge solo il middleware di Sentry in testa agli array:
+   cattura gli errori di route API e server function, poi li rilancia.
    ────────────────────────────────────────────────────────────── */
 
+import { sentryGlobalFunctionMiddleware, sentryGlobalRequestMiddleware } from "@sentry/tanstackstart-react";
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
 
 const csrfMiddleware = createCsrfMiddleware({
@@ -18,5 +20,6 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
-  requestMiddleware: [csrfMiddleware],
+  requestMiddleware: [sentryGlobalRequestMiddleware, csrfMiddleware],
+  functionMiddleware: [sentryGlobalFunctionMiddleware],
 }));

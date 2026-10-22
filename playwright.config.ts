@@ -14,7 +14,9 @@
      http://localhost:3100: è un'origine ammessa dal token Mapbox, quindi
      la mappa è viva. Se la build è vecchia la rifà (scripts/e2e-server.mjs);
    - main, la build del branch `main` su http://localhost:4173, per la
-     parità (scripts/parita-main.mjs, worktree /tmp/concerti-main).
+     parità (scripts/parita-main.mjs, worktree /tmp/concerti-main);
+   - il sink di Sentry e PostHog (scripts/e2e-sink.mjs, 127.0.0.1:3197,
+     traguardo 8), acceso per primo.
    Un server già acceso su quelle porte NON si riusa (potrebbe essere il dev
    collegato a Convex, senza orologio congelato): Playwright si ferma con un
    errore. E2E_REUSE=1 lo permette, a proprio rischio.
@@ -24,6 +26,7 @@
 
 import { defineConfig, devices } from "@playwright/test";
 import { E2E_NOW } from "./e2e/helpers/now.ts";
+import { SENTRY_DSN_E2E, SINK_PORT, SINK_URL } from "./e2e/helpers/osservabilita.ts";
 import { MAIN_URL, START_URL } from "./e2e/helpers/urls.ts";
 
 // Run sulla preview SOLO con E2E_PREVIEW=1, che imposta scripts/e2e.mjs per
@@ -85,12 +88,25 @@ export default defineConfig({
     ? undefined
     : [
         {
+          // Sentry e PostHog finti (traguardo 8): nessun evento di test esce dalla macchina
+          name: "sink",
+          command: "node scripts/e2e-sink.mjs",
+          url: `${SINK_URL}/_sink`,
+          env: { E2E_SINK_PORT: String(SINK_PORT) },
+          reuseExistingServer: reuse,
+          timeout: 30_000,
+          stdout: "ignore",
+          stderr: "pipe",
+        },
+        {
           name: "start",
           command: "node scripts/e2e-server.mjs",
           url: `${START_URL}/gabrifila`,
           // TZ=UTC come le funzioni di Vercel: l'SSR non deve dipendere dal fuso
-          // del server (t3node è in Europe/Rome e nasconderebbe gli errori)
-          env: { PORT: "3100", TZ: "UTC", E2E: "1", E2E_NOW },
+          // del server (t3node è in Europe/Rome e nasconderebbe gli errori).
+          // Build e2e (VITE_E2E): Sentry sul sink locale, PostHog con chiave
+          // finta e /ingest deviato al sink (E2E_INGEST_URL)
+          env: { PORT: "3100", TZ: "UTC", E2E: "1", E2E_NOW, VITE_E2E: "1", VITE_SENTRY_DSN: SENTRY_DSN_E2E, E2E_INGEST_URL: SINK_URL },
           reuseExistingServer: reuse,
           // può dover rifare la build
           timeout: 600_000,

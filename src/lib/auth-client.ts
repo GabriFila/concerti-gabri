@@ -28,6 +28,8 @@ function vaiA(dove: string) {
 /** Esce e ricarica la pagina per intero (§1.39). `verso`: dove andare invece di ricaricare questa. */
 export async function esci(verso?: string): Promise<void> {
   await authClient.signOut();
+  // PostHog torna anonimo (reset) prima del reload (traguardo 8)
+  await import("../osservabilita/posthog.ts").then(m => m.identificaProprietario(null)).catch(() => {});
   if (verso) vaiA(verso);
   else window.location.reload();
 }

@@ -29,6 +29,7 @@ import { authDellaRichiesta } from "../lib/auth-sessione.ts";
 import { RootError } from "../root/errors.tsx";
 import { RootProviders } from "../root/providers.tsx";
 import { getRootData } from "../root/rootData.ts";
+import { IdentificaProprietario } from "../osservabilita/Identifica.tsx";
 import { siteTitle } from "../root/title.ts";
 import { NotFound } from "../shell/NotFound.tsx";
 import { SYSTEM_THEME_SCRIPT, ssrDataTheme } from "../theme/tema.ts";
@@ -94,7 +95,11 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body>
         <div id="root">
-          <RootProviders>{children}</RootProviders>
+          <RootProviders>
+            {children}
+            {/* PostHog: identify del proprietario loggato (traguardo 8), non disegna niente */}
+            <IdentificaProprietario />
+          </RootProviders>
         </div>
         <Scripts />
       </body>

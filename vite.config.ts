@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { nitro } from "nitro/vite";
 import viteReact from "@vitejs/plugin-react";
+import { sentryBuild } from "./instrument.build.ts";
 
 // le credenziali della nostra origine non escono mai dal proxy /ingest
 const SENZA_CREDENZIALI = ["cookie", "authorization"];
@@ -50,5 +51,7 @@ export default defineConfig({
     }),
     // react's vite plugin must come after start's vite plugin
     viteReact(),
+    // Sentry per ultimo (traguardo 8): source map solo con SENTRY_AUTH_TOKEN, cancellate dopo l'upload
+    sentryBuild(),
   ],
 });
