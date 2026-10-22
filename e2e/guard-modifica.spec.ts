@@ -15,7 +15,9 @@ import { START_URL } from "./helpers/urls.ts";
 const ANCORE = ["concerti", "wishlist", "persone", "partenze", "regali", "stile", "agenti", "attivita", "account"];
 
 test.beforeEach(({}, info) => test.skip(onPreview(info.project.name), "solo in locale (OTP di sviluppo)"));
-test.afterAll(() => convexRun("devtools:cleanupE2E"));
+test.afterAll(({}, info) => {
+  if (!onPreview(info.project.name)) convexRun("devtools:cleanupE2E");
+});
 
 test("visitatore anonimo: 307 dall'SSR e niente Modifica", async ({ page }) => {
   const r = await http(`${START_URL}/gabrifila/modifica`);
