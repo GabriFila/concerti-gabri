@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import { codiceDi } from "./errors.ts";
-import { conProfilo, setup } from "../test.setup";
+import { components } from "../_generated/api";
+import { conProfilo, sessione, setup } from "../test.setup";
 
 const codice = async (p: Promise<unknown>) => {
   try {
@@ -21,7 +22,7 @@ describe("requireOwner e getOwned", () => {
 
   it("senza profilo, o con un profilo in onboarding → no_profile con fix /benvenuto", async () => {
     const t = setup();
-    const anon = t.withIdentity({ subject: "nessuno", sessionId: "s" });
+    const { as: anon } = await sessione(t, "nessuno");
     expect(await codice(anon.query(api.profiles.get, {}))).toBe("no_profile");
     const { as } = await conProfilo(t, "u-onb", "onb", { status: "onboarding", handle: undefined, onboardingStep: "partenze" });
     try {
@@ -88,5 +89,32 @@ describe("requireOwner e getOwned", () => {
     } catch (e) {
       expect(JSON.stringify((e as { data?: unknown }).data) + String((e as Error).message)).not.toContain("Canarini");
     }
+  });
+
+  it("una sessione scaduta o revocata viene rifiutata, anche se il JWT è ancora valido", async () => {
+    const t = setup();
+    const { profileId } = await conProfilo(t, "u-a", "utente-a");
+    expect(profileId).toBeTruthy();
+
+    // scaduta
+    const scaduta = await sessione(t, "u-a", { scadeTra: -1000 });
+    expect(await codice(scaduta.as.query(api.profiles.get, {}))).toBe("unauthorized");
+    expect(await codice(scaduta.as.mutation(api.people.add, { input: { name: "Lu" } }))).toBe("unauthorized");
+    expect(await scaduta.as.query(api.me.profile, {})).toBeNull();
+
+    // revocata (Esci, revoca, account eliminato: la riga sparisce)
+    const revocata = await sessione(t, "u-a");
+    expect(await codice(revocata.as.query(api.profiles.get, {}))).toBe("ok");
+    await t.run(ctx =>
+      ctx.runMutation(components.betterAuth.adapter.deleteOne, { input: { model: "session", where: [{ field: "_id", value: revocata.sessionId }] } }),
+    );
+    expect(await codice(revocata.as.query(api.profiles.get, {}))).toBe("unauthorized");
+    expect(await revocata.as.query(api.me.profile, {})).toBeNull();
+
+    // il JWT senza sessione, o con la sessione di un altro utente
+    expect(await codice(t.withIdentity({ subject: "u-a" }).query(api.profiles.get, {}))).toBe("unauthorized");
+    const diB = await sessione(t, "u-b");
+    expect(await codice(t.withIdentity({ subject: "u-a", sessionId: diB.sessionId }).query(api.profiles.get, {}))).toBe("unauthorized");
+    expect(await codice(t.withIdentity({ subject: "u-a", sessionId: "s-inventata" }).query(api.profiles.get, {}))).toBe("unauthorized");
   });
 });

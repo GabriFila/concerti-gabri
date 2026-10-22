@@ -10,12 +10,20 @@
    Il contesto (RouterContext, src/router.tsx) porta i client della
    richiesta; i provider stanno nello slot root/providers.tsx (traguardo 3)
    e la pagina d'errore nello slot root/errors.tsx (traguardo 8).
+
+   Il beforeLoad (traguardo 3, lib/auth-sessione.ts) legge la sessione
+   della richiesta: con un cookie valido mette il JWT sul client Convex
+   della richiesta e carica `me.profile` prima dei guard delle rotte
+   figlie; `data-auth="1"` su <html> dice al browser di aspettare
+   l'autenticazione prima di aprire le query (expectAuth, src/router.tsx).
    ────────────────────────────────────────────────────────────── */
 
 import { useEffect, type ReactNode } from "react";
 import { HeadContent, Scripts, ScriptOnce, createRootRouteWithContext } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import wishlistCss from "../wishlist.css?url";
+import accessoCss from "../accesso/accesso.css?url";
+import { authDellaRichiesta } from "../lib/auth-sessione.ts";
 import { RootError } from "../root/errors.tsx";
 import { RootProviders } from "../root/providers.tsx";
 import { getRootData } from "../root/rootData.ts";
@@ -25,6 +33,7 @@ import { SYSTEM_THEME_SCRIPT, ssrDataTheme } from "../theme/tema.ts";
 import type { RouterContext } from "../router.tsx";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: async ({ context }) => ({ auth: await authDellaRichiesta(context) }),
   loader: () => getRootData(),
   shouldReload: false,
   staleTime: Infinity,
@@ -43,6 +52,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       // stesso ordine del bundle CSS di main: wishlist.css arrivava prima di styles.css
       { rel: "stylesheet", href: wishlistCss },
       { rel: "stylesheet", href: appCss },
+      // landing, accesso, /benvenuto, scheletro di /modifica, "Esci" (traguardo 3)
+      { rel: "stylesheet", href: accessoCss },
     ],
   }),
   shellComponent: RootDocument,
@@ -56,6 +67,11 @@ let greeted = false;
 
 function RootDocument({ children }: { children: ReactNode }) {
   const tema = Route.useLoaderData()?.tema ?? "dark";
+  const autenticato = Route.useRouteContext({ select: c => !!c.auth?.autenticato });
+  // idratazione finita: gli e2e aspettano questo prima di cliccare o scrivere (e2e/helpers/auth.ts)
+  useEffect(() => {
+    document.documentElement.dataset.idratato = "1";
+  }, []);
   useEffect(() => {
     if (greeted) return;
     greeted = true;
@@ -64,7 +80,7 @@ function RootDocument({ children }: { children: ReactNode }) {
   return (
     // data-theme già nell'HTML: niente flash. Con "system" lo decide lo script
     // qui sotto prima del primo paint, e l'attributo può differire dall'SSR.
-    <html lang="it" data-theme={ssrDataTheme(tema)} suppressHydrationWarning>
+    <html lang="it" data-theme={ssrDataTheme(tema)} data-auth={autenticato ? "1" : undefined} suppressHydrationWarning>
       <head>
         {tema === "system" && <ScriptOnce>{SYSTEM_THEME_SCRIPT}</ScriptOnce>}
         <HeadContent />

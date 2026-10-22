@@ -67,22 +67,24 @@ test.describe("HTML", () => {
 });
 
 test.describe("redirect", () => {
-  test("/ → 307 /gabrifila", async ({ baseURL }) => {
+  // dal traguardo 3 `/` è la landing; i vecchi link `/?chat=` vanno a /gabrifila con un 308
+  test("/ è la landing: 200, HTML, private no-store", async ({ baseURL }) => {
     const res = await get(baseURL, "/");
-    expect(res.status()).toBe(307);
-    expect(new URL(res.headers()["location"], baseURL).pathname).toBe("/gabrifila");
+    expect(res.status()).toBe(200);
+    expect(res.headers()["content-type"]).toContain("text/html");
+    expect(res.headers()["cache-control"]).toBe(NO_STORE);
   });
 
-  test("/?chat=… conserva la query string", async ({ baseURL }) => {
+  test("/?chat=… → 308 /gabrifila e conserva la query string", async ({ baseURL }) => {
     const res = await get(baseURL, "/?chat=abc123&x=1");
-    expect(res.status()).toBe(307);
+    expect(res.status()).toBe(308);
     const to = new URL(res.headers()["location"], baseURL);
     expect(to.pathname + to.search).toBe("/gabrifila?chat=abc123&x=1");
   });
 
   test("nel browser il frammento #sec-… resta", async ({ page }) => {
-    await page.goto("/?x=1#sec-mappa");
-    await expect(page).toHaveURL(/\/gabrifila\?x=1#sec-mappa$/);
+    await page.goto("/?chat=abc123#sec-mappa");
+    await expect(page).toHaveURL(/\/gabrifila\?chat=abc123#sec-mappa$/);
   });
 });
 

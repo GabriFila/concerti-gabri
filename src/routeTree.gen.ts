@@ -11,8 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HandleRouteImport } from './routes/$handle'
+import { Route as AccediRouteImport } from './routes/accedi'
+import { Route as BenvenutoRouteImport } from './routes/benvenuto'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as HandleIndexRouteImport } from './routes/$handle.index'
 import { Route as HandleDatiRouteImport } from './routes/$handle.dati'
+import { Route as HandleModificaRouteImport } from './routes/$handle.modifica'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiChatIndexRouteImport } from './routes/api/chat/index'
 import { Route as ApiChatHistoryRouteImport } from './routes/api/chat/history'
 
@@ -26,6 +31,21 @@ const HandleRoute = HandleRouteImport.update({
   path: '/$handle',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccediRoute = AccediRouteImport.update({
+  id: '/accedi',
+  path: '/accedi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BenvenutoRoute = BenvenutoRouteImport.update({
+  id: '/benvenuto',
+  path: '/benvenuto',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HandleIndexRoute = HandleIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -35,6 +55,16 @@ const HandleDatiRoute = HandleDatiRouteImport.update({
   id: '/dati',
   path: '/dati',
   getParentRoute: () => HandleRoute,
+} as any)
+const HandleModificaRoute = HandleModificaRouteImport.update({
+  id: '/modifica',
+  path: '/modifica',
+  getParentRoute: () => HandleRoute,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatIndexRoute = ApiChatIndexRouteImport.update({
   id: '/api/chat/',
@@ -50,15 +80,25 @@ const ApiChatHistoryRoute = ApiChatHistoryRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRouteWithChildren
+  '/accedi': typeof AccediRoute
+  '/benvenuto': typeof BenvenutoRoute
+  '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
+  '/$handle/modifica': typeof HandleModificaRoute
   '/$handle/': typeof HandleIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/history': typeof ApiChatHistoryRoute
   '/api/chat/': typeof ApiChatIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accedi': typeof AccediRoute
+  '/benvenuto': typeof BenvenutoRoute
+  '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
+  '/$handle/modifica': typeof HandleModificaRoute
   '/$handle': typeof HandleIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/history': typeof ApiChatHistoryRoute
   '/api/chat': typeof ApiChatIndexRoute
 }
@@ -66,8 +106,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$handle': typeof HandleRouteWithChildren
+  '/accedi': typeof AccediRoute
+  '/benvenuto': typeof BenvenutoRoute
+  '/privacy': typeof PrivacyRoute
   '/$handle/dati': typeof HandleDatiRoute
+  '/$handle/modifica': typeof HandleModificaRoute
   '/$handle/': typeof HandleIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/chat/history': typeof ApiChatHistoryRoute
   '/api/chat/': typeof ApiChatIndexRoute
 }
@@ -76,18 +121,38 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$handle'
+    | '/accedi'
+    | '/benvenuto'
+    | '/privacy'
     | '/$handle/dati'
+    | '/$handle/modifica'
     | '/$handle/'
+    | '/api/auth/$'
     | '/api/chat/history'
     | '/api/chat/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$handle/dati' | '/$handle' | '/api/chat/history' | '/api/chat'
+  to:
+    | '/'
+    | '/accedi'
+    | '/benvenuto'
+    | '/privacy'
+    | '/$handle/dati'
+    | '/$handle/modifica'
+    | '/$handle'
+    | '/api/auth/$'
+    | '/api/chat/history'
+    | '/api/chat'
   id:
     | '__root__'
     | '/'
     | '/$handle'
+    | '/accedi'
+    | '/benvenuto'
+    | '/privacy'
     | '/$handle/dati'
+    | '/$handle/modifica'
     | '/$handle/'
+    | '/api/auth/$'
     | '/api/chat/history'
     | '/api/chat/'
   fileRoutesById: FileRoutesById
@@ -95,6 +160,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HandleRoute: typeof HandleRouteWithChildren
+  AccediRoute: typeof AccediRoute
+  BenvenutoRoute: typeof BenvenutoRoute
+  PrivacyRoute: typeof PrivacyRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiChatHistoryRoute: typeof ApiChatHistoryRoute
   ApiChatIndexRoute: typeof ApiChatIndexRoute
 }
@@ -115,6 +184,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HandleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accedi': {
+      id: '/accedi'
+      path: '/accedi'
+      fullPath: '/accedi'
+      preLoaderRoute: typeof AccediRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/benvenuto': {
+      id: '/benvenuto'
+      path: '/benvenuto'
+      fullPath: '/benvenuto'
+      preLoaderRoute: typeof BenvenutoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/$handle/': {
       id: '/$handle/'
       path: '/'
@@ -128,6 +218,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/$handle/dati'
       preLoaderRoute: typeof HandleDatiRouteImport
       parentRoute: typeof HandleRoute
+    }
+    '/$handle/modifica': {
+      id: '/$handle/modifica'
+      path: '/modifica'
+      fullPath: '/$handle/modifica'
+      preLoaderRoute: typeof HandleModificaRouteImport
+      parentRoute: typeof HandleRoute
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/chat/': {
       id: '/api/chat/'
@@ -148,11 +252,13 @@ declare module '@tanstack/react-router' {
 
 interface HandleRouteChildren {
   HandleDatiRoute: typeof HandleDatiRoute
+  HandleModificaRoute: typeof HandleModificaRoute
   HandleIndexRoute: typeof HandleIndexRoute
 }
 
 const HandleRouteChildren: HandleRouteChildren = {
   HandleDatiRoute: HandleDatiRoute,
+  HandleModificaRoute: HandleModificaRoute,
   HandleIndexRoute: HandleIndexRoute,
 }
 
@@ -162,6 +268,10 @@ const HandleRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HandleRoute: HandleRouteWithChildren,
+  AccediRoute: AccediRoute,
+  BenvenutoRoute: BenvenutoRoute,
+  PrivacyRoute: PrivacyRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiChatHistoryRoute: ApiChatHistoryRoute,
   ApiChatIndexRoute: ApiChatIndexRoute,
 }

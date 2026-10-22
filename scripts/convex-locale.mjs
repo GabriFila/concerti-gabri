@@ -29,7 +29,8 @@
      il login globale: niente `--deployment`, `--url`, `--prod`, nemmeno
      travestiti da argomenti di `run`.
    - L'env del deployment (BETTER_AUTH_SECRET, CHAT_SERVER_SECRET,
-     AUTH_DEV_OTP=1, SITE_URL e BETTER_AUTH_TRUSTED_ORIGINS = `portless get`,
+     AUTH_DEV_OTP=1, SITE_URL = `portless get`, BETTER_AUTH_TRUSTED_ORIGINS =
+     quello più http://localhost:3100 (il server degli e2e),
      NOMINATIM_URL dello stub) passa da un file temporaneo 600 con
      `env set --from-file`: nessun valore sulla riga di comando o a video.
      CHAT_SERVER_SECRET resta anche in .env.worktree (serve al server Start).
@@ -282,7 +283,9 @@ async function setEnv() {
     CHAT_SERVER_SECRET: chat,
     AUTH_DEV_OTP: "1",
     SITE_URL: site,
-    BETTER_AUTH_TRUSTED_ORIGINS: site,
+    // più l'origine del server e2e (e2e/helpers/urls.ts START_URL): lì
+    // Playwright entra con l'OTP passando dal proxy /api/auth di Start
+    BETTER_AUTH_TRUSTED_ORIGINS: `${site},http://localhost:3100`,
     NOMINATIM_URL: `http://127.0.0.1:${stubPort}`,
   };
   const tmp = join(STATE_DIR, `env-${process.pid}.tmp`);

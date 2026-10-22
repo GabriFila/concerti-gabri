@@ -9,19 +9,15 @@
      caso di `gabrifila` che si rinomina e poi torna indietro.
    - Cambiare handle: il vecchio diventa un alias (301) e resta riservato;
      se il nuovo era un alias di sé, quell'alias sparisce.
-   T3 sostituisce l'elenco dei riservati con shared/handles.ts.
+   Formato e riservati vengono da shared/handles.ts (gli stessi del form).
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { HANDLE_RE, HANDLE_RISERVATI } from "../../shared/handles.ts";
 import { errore } from "./errors.ts";
 
-export const HANDLE_RISERVATI = new Set([
-  "dati", "benvenuto", "privacy", "modifica", "api", "mcp", "ingest", "assets", "og", "login",
-  "accedi", "autorizza", "esci", "logout", "well-known", "static", "public", "admin", "account",
-  "impostazioni", "robots", "sitemap", "manifest", "www", "app", "aiuto", "gabrifila",
-]);
-export const HANDLE_RE = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/;
+export { HANDLE_RE, HANDLE_RISERVATI };
 
 /** Perché un handle non è disponibile (o null se lo è). `self`: il profilo che lo chiede. */
 export async function motivoHandle(ctx: QueryCtx | MutationCtx, handle: string, self?: Id<"profiles">): Promise<string | null> {

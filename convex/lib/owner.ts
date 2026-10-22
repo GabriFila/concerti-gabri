@@ -1,9 +1,9 @@
 /* ──────────────────────────────────────────────────────────────
    L'unico helper di proprietà (PIANO §5.4).
 
-   - `resolveActor`: chi sta chiamando. T2: solo la sessione
-     (`ctx.auth.getUserIdentity()`); T3 passa a
-     `authComponent.safeGetAuthUser`; T7 aggiunge i token agente
+   - `resolveActor`: chi sta chiamando. La sessione di Better Auth
+     (`utenteDellaSessione`: JWT di Convex più sessione ancora valida nel
+     componente, T3); T7 aggiunge i token agente
      ("cgk_…" → apikey, altro → oauthAccessToken). `as: "oracolo"` può solo
      DECLASSARE una sessione (dashboard → oracolo); con un token si ignora.
    - `requireOwner`: il profilo dell'attore (uno per utente). Un profilo in
@@ -14,6 +14,7 @@
    Il `profileId` non arriva MAI dagli argomenti.
    ────────────────────────────────────────────────────────────── */
 
+import { components } from "../_generated/api";
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 import { errore } from "./errors.ts";
@@ -57,12 +58,26 @@ export async function resolveActor(ctx: AnyCtx, { agentToken, as }: { agentToken
 
 /**
  * L'utente della sessione, o null (anonimo). L'unico punto che legge
- * l'identità: T3 lo passa a `authComponent.safeGetAuthUser`, e con lui
- * resolveActor e me.profile.
+ * l'identità (resolveActor, me.profile, handleAvailable).
+ *
+ * Il JWT di Convex resta valido fino alla sua scadenza anche dopo
+ * "Esci", una revoca o la scadenza della sessione: come
+ * `authComponent.safeGetAuthUser`, qui la sessione del JWT (`sessionId`)
+ * deve esistere ancora nel componente Better Auth e non essere scaduta;
+ * in più deve appartenere allo stesso utente del JWT (`subject`). Un
+ * utente eliminato non ha più sessioni (deleteUser le cancella).
  */
 export async function utenteDellaSessione(ctx: AnyCtx): Promise<string | null> {
   const identity = await ctx.auth.getUserIdentity();
-  return identity ? identity.subject : null;
+  if (!identity || typeof identity.sessionId !== "string" || !identity.sessionId) return null;
+  const session = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+    model: "session",
+    where: [
+      { field: "_id", value: identity.sessionId },
+      { field: "expiresAt", operator: "gt", value: Date.now() },
+    ],
+  })) as { userId: string } | null;
+  return session && session.userId === identity.subject ? identity.subject : null;
 }
 
 export interface OwnerOptions {

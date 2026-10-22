@@ -5,6 +5,7 @@ import { hasComment } from "../../shared/lib/predicates.ts";
 import { useData } from "../filters/FilterContext.tsx";
 import { useDataset, usePlanned, useToday } from "../profile/ProfileContext.tsx";
 import { ENT_ARTIST, ENT_PEOPLE } from "../ui/ShowAllBtn.tsx";
+import { EsciFooter } from "../accesso/Esci.tsx";
 import { anyMissing, FromAlert, VicinanzaAlert, VotoAlert } from "./Alerts.tsx";
 import { ArchiveTable } from "./ArchiveTable.tsx";
 import { Months, Weekdays } from "./CalendarBars.tsx";
@@ -74,6 +75,7 @@ export function FullDashboard(){
     </main>
     <footer className="sitefooter">
       <p>Creato con il fondamentale supporto di Cami</p>
+      <EsciFooter/>
     </footer>
   </>);
 }

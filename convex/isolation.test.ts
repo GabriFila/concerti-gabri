@@ -15,6 +15,7 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "profiles:get": null,
     "profiles:update": null,
     "profiles:setTheme": null,
+    "profiles:setOnboardingStep": null,
     "people:list": null,
     "people:add": null,
     "people:rename": { id: ids.person, name: "Preso" },

@@ -3,7 +3,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { haversineKm, J_MAX, J_MIN } from "./lib/km.ts";
 import { codiceDi } from "./lib/errors.ts";
-import { setup, type T } from "./test.setup";
+import { sessione, setup, type T } from "./test.setup";
 
 /* Punti pubblici qualunque, MAI le coordinate di casa di nessuno: piazza del
    Duomo a Milano e, per le uscite, il canarino di e2e/helpers/canarino.ts. */
@@ -30,7 +30,7 @@ async function gabri(t: T) {
     const d = (await ctx.db.query("departures").withIndex("by_profile", q => q.eq("profileId", p._id)).collect()).find(x => x.name === "Milano")!;
     return { pid: p._id, milano: d._id };
   });
-  const as = t.withIdentity({ subject: "u-gabri", sessionId: "s" });
+  const { as } = await sessione(t, "u-gabri");
   return { as, pid, milano };
 }
 

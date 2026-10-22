@@ -1,0 +1,119 @@
+/* ──────────────────────────────────────────────────────────────
+   Landing, accesso, /benvenuto, /privacy, scheletro di /modifica,
+   AddressPicker ed "Esci" (traguardo 3). Solo classi nuove (acc-*,
+   modifica-*), con le variabili del tema di styles.css: nessuna regola
+   esistente cambia, quindi le pagine pubbliche restano identiche.
+   ────────────────────────────────────────────────────────────── */
+
+/* ── pagine semplici ─────────────────────────────────────────── */
+main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px) 20px 64px}
+.acc-marchio{font-family:'Fraunces',Georgia,serif;font-size:1.05rem;letter-spacing:.02em;color:var(--lamp);margin-bottom:clamp(28px,5vw,48px)}
+.acc-marchio a{color:inherit;text-decoration:none}
+.acc-titolo{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.4rem,8vw,4.6rem);line-height:1;letter-spacing:-.025em;color:var(--text)}
+.acc-titolo--piccolo{font-size:clamp(2rem,6vw,3rem);margin-bottom:22px}
+.acc-sub{margin-top:24px;max-width:52ch;color:var(--muted);font-size:clamp(1rem,2.3vw,1.12rem);line-height:1.65}
+.acc-azioni{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;margin-top:32px}
+.acc-nota{color:var(--muted);font-size:.95rem;line-height:1.6;margin:12px 0}
+.acc-nota a,.acc-testo a{color:var(--lamp)}
+.acc-piccolo{color:var(--dim);font-size:.82rem;line-height:1.5}
+.acc-piccolo a{color:var(--muted)}
+.acc-piede{display:flex;gap:20px;align-items:center;margin-top:56px;font-size:.88rem}
+.acc-piede a{color:var(--muted)}
+.acc-suggerimento{font-size:.88rem;color:var(--text);background:var(--lamp-faint);border:1px solid var(--lamp-soft);border-radius:10px;padding:10px 14px;margin:8px 0 16px}
+
+/* testo lungo (/privacy) */
+.acc-testo h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:1.5rem;margin:34px 0 10px;color:var(--text)}
+.acc-testo p,.acc-testo li{color:var(--muted);line-height:1.7;margin:8px 0}
+.acc-testo ul{padding-left:20px}
+.acc-testo b{color:var(--text);font-weight:500}
+.acc-testo code{font-size:.85em}
+
+/* ── bottoni e campi ─────────────────────────────────────────── */
+.acc-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font:inherit;font-size:.95rem;font-weight:500;
+  padding:11px 20px;border-radius:999px;border:1px solid var(--lamp);background:var(--lamp);color:#0a0a0b;cursor:pointer;text-decoration:none;
+  transition:filter .15s,opacity .15s}
+.acc-btn:hover{filter:brightness(1.07)}
+.acc-btn:disabled{opacity:.5;cursor:default;filter:none}
+.acc-btn--ghost{background:transparent;color:var(--text);border-color:var(--line-2)}
+.acc-btn--google{background:var(--panel-2);color:var(--text);border-color:var(--line-2);width:100%}
+.acc-btn--piccolo{padding:6px 14px;font-size:.82rem}
+.acc-link{font:inherit;font-size:.9rem;background:none;border:none;padding:0;color:var(--muted);cursor:pointer;
+  text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
+.acc-link:hover{color:var(--text)}
+.acc-link:disabled{opacity:.5;cursor:default}
+.acc-form{display:flex;flex-direction:column;gap:16px;margin:14px 0}
+.acc-campo{display:flex;flex-direction:column;gap:6px;border:none}
+.acc-campo > span:first-child,.acc-campo legend,.acc-etichetta{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.acc-campo input,.acc-riga input,.acc-prompt{font:inherit;font-size:1rem;color:var(--text);background:var(--panel);border:1px solid var(--line-2);
+  border-radius:10px;padding:10px 12px;min-width:0}
+.acc-campo input:focus-visible,.acc-riga input:focus-visible,.acc-prompt:focus-visible{outline:2px solid var(--lamp-soft);outline-offset:1px}
+.acc-prefisso{display:flex;align-items:center;gap:2px;color:var(--dim);font-size:.95rem}
+.acc-prefisso input{flex:1}
+.acc-scelte{display:flex;flex-direction:column;gap:8px}
+.acc-scelta{display:flex;gap:10px;align-items:baseline;cursor:pointer;color:var(--text)}
+.acc-riga{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.acc-riga input{flex:1 1 220px}
+.acc-riga--spazio{justify-content:space-between}
+.acc-righe{display:flex;flex-wrap:wrap;gap:18px}
+.acc-errore{color:#e5484d;font-size:.9rem;margin:8px 0}
+.acc-errore-campo{color:#e5484d;font-size:.82rem}
+.acc-ok{color:var(--planned);font-size:.9rem;margin:8px 0}
+.acc-avviso{font-size:.88rem;color:var(--text);background:var(--planned-faint);border:1px solid var(--planned-soft);border-radius:10px;padding:10px 14px;margin:6px 0}
+
+/* ── finestra di accesso sopra la landing ────────────────────── */
+.acc-modale{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:rgba(8,8,10,.55);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.acc-finestra{width:420px;max-width:100%;max-height:90vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line-2);
+  border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:20px 22px 22px}
+.acc-finestra-testa{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.acc-finestra-testa h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:1.6rem;color:var(--text)}
+.acc-chiudi{background:none;border:none;color:var(--muted);font-size:1.6rem;line-height:1;cursor:pointer;padding:0 4px}
+.acc-pannello{display:flex;flex-direction:column;gap:12px;max-width:420px}
+.acc-pannello > .acc-btn{width:100%}
+
+/* ── /benvenuto ──────────────────────────────────────────────── */
+.acc-passi{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem;color:var(--dim);margin-bottom:6px}
+.acc-passi li.on{color:var(--text);font-weight:500}
+.acc-passi li.fatto{color:var(--muted)}
+.acc-passo{margin-top:26px;padding:clamp(20px,3vw,30px);background:var(--panel);border:1px solid var(--line);border-radius:14px}
+.acc-passo h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(1.4rem,3vw,1.8rem);color:var(--text)}
+.acc-navigazione{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;margin-top:26px}
+.acc-navigazione .acc-errore{flex-basis:100%}
+.acc-elenco{list-style:none;display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.acc-elenco-voce{padding:12px 14px;border:1px solid var(--line);border-radius:10px}
+.acc-stato{font-size:.75rem;color:var(--dim);margin-left:6px}
+.acc-stato--ok{color:var(--planned)}
+.acc-blocco{margin:20px 0}
+.acc-codice{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:8px;padding:3px 8px;word-break:break-all}
+.acc-istruzioni{padding-left:20px;color:var(--muted);font-size:.92rem;line-height:1.65}
+.acc-istruzioni b{color:var(--text);font-weight:500}
+.acc-prompt{width:100%;margin-top:8px;font-size:.85rem;line-height:1.5;resize:vertical}
+
+/* ── indirizzo di una partenza (AddressPicker) ───────────────── */
+.acc-indirizzo{margin-top:12px}
+.acc-indirizzo--attesa{min-height:120px}
+.acc-candidati{border:none;display:flex;flex-direction:column;gap:8px;margin:12px 0}
+.acc-candidati legend{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.acc-candidato{display:flex;gap:10px;align-items:baseline;cursor:pointer;color:var(--text);font-size:.92rem}
+.acc-candidati .acc-btn{align-self:flex-start}
+
+/* ── "Esci" nel footer delle pagine ──────────────────────────── */
+.sitefooter .acc-footer-esci{margin-top:10px}
+
+/* ── scheletro di /<handle>/modifica ─────────────────────────── */
+main.modifica{display:block;max-width:980px;margin:0 auto;padding:clamp(84px,12vw,112px) clamp(16px,4vw,40px) 120px}
+.modifica-indice{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:.88rem}
+.modifica-indice a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--line-2)}
+.modifica-indice a:hover{color:var(--text)}
+.modifica-sezione{margin-top:26px;padding:clamp(20px,3vw,30px);background:var(--panel);border:1px solid var(--line);border-radius:14px;scroll-margin-top:24px}
+.modifica-sezione > h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(1.4rem,3vw,1.8rem);color:var(--text);margin-bottom:10px}
+.modifica-segnaposto{color:var(--dim);font-size:.9rem}
+.modifica-esci{margin-top:18px}
+
+/* ── modelli dell'import (ModelliImport) ─────────────────────── */
+.acc-colonne{font-size:.88rem;color:var(--muted);margin:4px 0 16px}
+.acc-colonne summary{cursor:pointer;color:var(--text)}
+.acc-colonne dl{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin-top:10px}
+.acc-colonne dl > div{display:contents}
+.acc-colonne dt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;color:var(--text)}

@@ -9,13 +9,17 @@
  */
 
 import type * as activity from "../activity.js";
+import type * as admin from "../admin.js";
 import type * as agents from "../agents.js";
+import type * as auth from "../auth.js";
+import type * as authFlags from "../authFlags.js";
 import type * as authMcp from "../authMcp.js";
 import type * as chat from "../chat.js";
 import type * as crons from "../crons.js";
 import type * as departures from "../departures.js";
 import type * as devOtp from "../devOtp.js";
 import type * as devtools from "../devtools.js";
+import type * as email from "../email.js";
 import type * as entries from "../entries.js";
 import type * as geo from "../geo.js";
 import type * as gifters from "../gifters.js";
@@ -46,13 +50,17 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activity: typeof activity;
+  admin: typeof admin;
   agents: typeof agents;
+  auth: typeof auth;
+  authFlags: typeof authFlags;
   authMcp: typeof authMcp;
   chat: typeof chat;
   crons: typeof crons;
   departures: typeof departures;
   devOtp: typeof devOtp;
   devtools: typeof devtools;
+  email: typeof email;
   entries: typeof entries;
   geo: typeof geo;
   gifters: typeof gifters;
@@ -104,4 +112,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+  betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
 };
