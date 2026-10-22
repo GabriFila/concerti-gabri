@@ -524,12 +524,13 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   (`search_venue` di un POI vicino alla casa ipotizzata → `add_venue` →
   `add_concert` dalla partenza → lettura del km → `delete_concert`) e
   restringere la casa a qualche centinaio di metri. **Decisione di Gabri
-  (2026-10-22 13:15): per ora si lascia così.** Opzioni per dopo:
+  (2026-10-22, confermata la sera per lo switch): si lascia così.** Conta di
+  più che un agente compili un concerto con i km in un colpo solo che chiudere
+  le sonde; il rischio resta accettato. Opzioni se si cambia idea:
   (a) coppie nuove di km solo dalla dashboard ("Calcola i km in attesa" in
   `#partenze`; gli agenti lasciano `kmPending`); (b) un tetto giornaliero di
   coppie nuove per partenza; (c) arrotondamento più grossolano (debole: il
   confine tra due valori localizza comunque la casa alla densità dei POI).
-  **Da decidere prima dello switch.**
 - Il rischio "`add_venue` accetta un nome visualizzato" non vale più (venue,
   sopra). Una venue di ripiego sulla città si chiama liberamente, ma ha le
   coordinate del centro.

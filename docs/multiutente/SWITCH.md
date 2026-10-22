@@ -20,6 +20,8 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
 ## A. Prima dello switch
 
 ### A1. Decidere il rischio delle sonde sui km
+- **Fatto il 2026-10-22:** Gabri lascia così (compilazione dagli agenti con
+  i km subito, rischio accettato; DECISIONI → "Rischi residui").
 - **Chi:** Gabri.
 - **Come:** scegliere tra lasciare così e le opzioni (a), (b), (c) di
   DECISIONI → "Decisioni della Fase 3" → "Rischi residui". Con (a) o (b) un
