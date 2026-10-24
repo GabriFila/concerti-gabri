@@ -97,7 +97,9 @@ l'agente) propone di completare voto, vicinanza, canzoni note, commento.
 ## 3. Rotte (nessuna `@`)
 
 ```
-/                         landing: entra / crea il tuo sito
+/                         landing: «Tutti i tuoi concerti, in un solo posto.»,
+                          «Crea la tua pagina»; chi è entrato → 307 a /<handle>
+                          o a /benvenuto (superato: DECISIONI, Landing e accesso)
 /benvenuto                onboarding (solo primo accesso)
 /privacy                  informativa minima
 /<handle>                 Sul palco
@@ -113,6 +115,8 @@ l'agente) propone di completare voto, vicinanza, canzoni note, commento.
   `#wishlist`, `#persone`, `#partenze`, `#regali`, `#stile`, `#agenti`,
   `#attivita`, `#account` (handle, forma, email, esporta dati, elimina account).
   Le singole schede si modificano in finestre modali, come oggi `CommentModal`.
+  (Superato: DECISIONI, UX di /modifica: un'app di gestione, una vista alla
+  volta nell'hash `#<vista>`, form in pannelli su `<dialog>`.)
 - Handle: minuscole, numeri, `-`; modificabile (il vecchio reindirizza). Riservati
   almeno: `dati`, `benvenuto`, `privacy`, `modifica`, `api`, `mcp`, `ingest`,
   `assets`, `og`, `login`, più qualunque prefisso usato dall'app.

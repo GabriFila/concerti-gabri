@@ -46,7 +46,8 @@ Resend non ha domini liberi sull'account di Gabri, quindi **niente dominio
     mai in produzione);
   - in preview/produzione il pulsante "Entra con email" compare solo quando
     sono impostati `RESEND_API_KEY` e il mittente (`EMAIL_FROM`, default
-    previsto `Concerti <notifications@concerti.gabrifila.me>`).
+    previsto `Concerti <notifications@concerti.gabrifila.me>`); dal
+    2026-10-23 vale ovunque, salvo i build e2e («Landing e accesso»).
 - Attivarlo più avanti = verificare il dominio su Resend (regione EU) e
   impostare le due variabili su Convex, senza toccare il codice.
 - `scripts/check-setup.mjs` riporta Resend come "non configurato", non KO.
@@ -282,7 +283,8 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   regole; credito del footer e link Loop solo per `gabrifila`; layout (ordine,
   nascoste, titoli) per le sezioni di "I dati", "Sul palco" fisso; avvisi di
   manutenzione solo per il proprietario; km in attesa = "—" in Viaggio e
-  "(N viaggi in attesa)" nella KPI; utente loggato su `/` vede la landing,
+  "(N viaggi in attesa)" nella KPI; utente loggato su `/` → 307 alla sua
+  pagina o a `/benvenuto` (rivisto il 2026-10-23, «Landing e accesso»),
   `/benvenuto` finito → `/<handle>/modifica`, "Esci" in `#account` e nel
   footer; font dei titoli Fraunces, Inter, Space Grotesk, Playfair Display in
   self-hosting; manifest per profilo; regola dei soprannomi ovunque si
@@ -298,7 +300,9 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   (sezione Email): su `preview/multiutente` "Entra con email" usa il sender di
   sviluppo e nessuna email parte. La preview è protetta da Vercel
   Authentication e serve agli smoke test. Mai in produzione: il codice ignora
-  `AUTH_DEV_OTP` sul deployment prod e con gli URL di produzione.
+  `AUTH_DEV_OTP` sul deployment prod e con gli URL di produzione. Dal
+  2026-10-23 il pulsante senza Resend non c'è più: la deroga vale solo per il
+  login via API («Landing e accesso»).
 - **Riuso dei km più forte della ricetta di CLAUDE.md:** con `kmPairs` una
   coppia si riusa anche quando nessun concerto la usa più.
 
@@ -413,7 +417,8 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   usano lo storico di Convex più la sola domanda nuova (una ripresa aggiunge
   al massimo 2000 caratteri).
 - In scrittura chiedono l'approvazione in chat le cancellazioni, ogni import,
-  `undo`, `merge_person` e `set_wishlist`.
+  `undo`, `merge_person` e `set_wishlist`; dal 2026-10-24 anche ogni concerto,
+  dalla scheda di `propose_concert` («Scheda dell'Oracolo»).
 - La chat in scrittura del proprietario ha un tetto suo (`chatPageDay` con
   chiave `scrittura:<profileId>`, 60 al giorno, 120 per `gabrifila`) più
   `chatIpMinute`, fuori dai limiti dei visitatori.
@@ -531,6 +536,11 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   `#partenze`; gli agenti lasciano `kmPending`); (b) un tetto giornaliero di
   coppie nuove per partenza; (c) arrotondamento più grossolano (debole: il
   confine tra due valori localizza comunque la casa alla densità dei POI).
+  Dal 2026-10-24 («Scheda dell'Oracolo») l'Oracolo in scrittura non ha più
+  `add_concert` né `update_concert`: ogni sua scrittura di un concerto passa
+  dalla scheda (e ogni import chiede l'approvazione), quindi ogni sonda
+  dall'Oracolo, anche sotto prompt injection, vuole un Salva del
+  proprietario. Restano senza clic le sonde da MCP e da API key.
 - Il rischio "`add_venue` accetta un nome visualizzato" non vale più (venue,
   sopra). Una venue di ripiego sulla città si chiama liberamente, ma ha le
   coordinate del centro.
@@ -558,3 +568,286 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   collassino in uno (IP attraverso il proxy); il glob `fase3/*` di
   `git.deploymentEnabled`; sulla preview, una `POST` da ~1 MB a
   `/api/auth/mcp/register` → 400 e una DCR normale → 201.
+
+## Landing e accesso (corsia ux-accesso, 2026-10-23)
+
+Rivede PIANO §1.39 e la riga «Landing `/`» del traguardo 3, e restringe la
+deroga di PIANO §1.44 («OTP di sviluppo sulla preview», sopra).
+
+- **Chi è entrato non vede la landing (decisione di Gabri).** Su `/` riceve un
+  307 verso `/<handle>` se il profilo è `active` con `onboardingStep` `fatto`,
+  altrimenti verso `/benvenuto`: anche un profilo `active` a metà dei passi
+  2–4, che lì riprende. Il 308 di `/?chat=` vince comunque. Sta nel
+  `beforeLoad` di `src/routes/index.tsx` (SSR e navigazioni del browser). Nei
+  passi 2–4 il link «Puoi finire dopo: vai alla tua pagina» porta comunque
+  alla pagina. Tolti «La tua pagina / Modifica» e «Riprendi la
+  configurazione», ora irraggiungibili; anche il marchio «Concerti» che porta
+  a `/` (`/accedi`, `/privacy`) rimanda così chi è entrato.
+- Il 307 dipende dalla sessione ma non finisce in nessuna cache: le risposte
+  SSR, redirect compresi, escono `private, no-store` (`withNoStore` in
+  `src/server.ts`); lo controlla `e2e/landing.spec.ts`.
+- **Landing.** Titolo «Tutti i tuoi concerti, in un solo posto.»; azione
+  principale «Crea la tua pagina» (finestra con lo stesso titolo e
+  `next=/benvenuto`; senza JavaScript `/accedi?next=%2Fbenvenuto`); per chi
+  torna la riga «Hai già un account? Entra» (finestra «Entra», `next=/`), un
+  link grigio come «Guarda un esempio»: l'ambra resta solo all'azione
+  principale. Il prodotto si chiama «pagina», mai «sito» (decisione di Gabri);
+  la nota della finestra dice «il tuo account nasce adesso».
+- **«Entra con email» solo con un mittente vero.** `authFlags.get` dà anche
+  `emailReale` (sender Resend); il pulsante compare solo con `emailReale` o
+  nei build e2e (`VITE_E2E=1`, `src/accesso/flags.ts`), su `/accedi` e nella
+  finestra della landing, quindi anche per `/autorizza`. Il plugin resta
+  acceso col sender di sviluppo, ma quel codice non lo legge nessuna persona:
+  su dev (`agile-leopard-908`) e su `preview/multiutente` dalla UI si entra
+  solo con Google. La deroga di PIANO §1.44 copre ormai solo il login via API
+  (`e2e/helpers/auth.ts`, smoke test con `POST /api/auth/email-otp/*` e
+  `devOtp:latest`). I server locali dei worktree (niente Google, build non
+  e2e) mostrano «L'accesso non è disponibile…»: lì si entra solo via API o
+  negli e2e.
+- `/benvenuto`, passo 2: un'azione principale per volta. Senza partenze è
+  «Aggiungi» («Salta per ora» secondario), con l'indirizzo aperto sono i
+  pulsanti dell'AddressPicker, poi «Avanti» (`avantiSecondario` di
+  `Navigazione`, `src/benvenuto/comuni.tsx`).
+
+## UX di /modifica (corsia ux-modifica, 2026-10-24)
+
+Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):
+`/<handle>/modifica` è un'app di gestione (`src/modifica/Scheletro.tsx`).
+
+- **Una vista alla volta, nell'hash** (`src/modifica/vista.ts`):
+  `#<vista>[?k=v]` con le 9 viste di sempre. Senza hash, o con uno che non è
+  una vista, si apre Concerti con «Da completare» in cima, senza una vista
+  «Panoramica» (default, da confermare con Gabri). Nei parametri (`nuovo`,
+  `apri`, `completa`, `filtro`, `con`, `indirizzo`, `parte`, `elimina`) solo
+  token fissi e id opachi, mai nomi, testo cercato o indirizzi: gli URL
+  arrivano a PostHog e Sentry. Lo stato della cronologia porta solo booleani e
+  numeri (`mfPannello`, `mfOracolo`, `mfFoglio`, `mfApertura`). I link di
+  prima (`#partenze`, `#account?elimina=1`, `#agenti`) valgono ancora; nessuna
+  rotta nuova.
+- **Le 9 `<section>` stanno sempre nell'HTML**, SSR compreso, nascoste: una
+  vista si monta alla prima visita e poi resta montata (ricerca, filtri,
+  scroll e modifiche in corso sopravvivono ai cambi di vista); `#partenze`
+  solo se visitata.
+- **Navigazione** (soglie in `src/modifica/layout.ts`): barra laterale a
+  gruppi da 1280 px, riducibile a binario (scelta ricordata nel browser);
+  binario da 768 px; sotto, barra in basso Concerti · Wishlist · Oracolo ·
+  Attività · Altro (Wishlist e non Persone: default, da confermare con Gabri).
+  Con l'Oracolo agganciato la barra diventa binario sotto i 1440 px, e sotto i
+  1680 se accanto c'è anche un pannello aperto, così l'elenco resta leggibile
+  (non è una scelta salvata). Segni per i concerti da completare, le partenze
+  senza indirizzo e le novità degli agenti (`shell/distintivi.ts`).
+- **Pannelli su `<dialog>` nativo** (`ui/Pannello.tsx`): da 1024 px non
+  modali, accanto all'elenco che resta cliccabile; sotto, fogli modali (a
+  tutto schermo sul telefono). Stanno nell'hash, quindi «indietro» li chiude,
+  e una guardia sola, «Modifiche non salvate» (`useBlocker`), copre ✕, Esc,
+  «Annulla», la navigazione, il gesto indietro e l'apertura di un'altra riga.
+- **L'Oracolo in scrittura** è un solo `dialog#oracolo`
+  (`oracolo/Contenitore.tsx`), mai smontato: agganciato a destra da 1024 px,
+  foglio sotto. Alla prima visita è aperto solo da 1440 px, poi ricorda la
+  scelta (default, da confermare con Gabri). Il pannello del concerto si apre
+  accanto sul desktop, sopra sul telefono.
+- **Il ponte dell'editor** (`useEditorConcerti().apri()`, `editor.tsx`): la
+  scheda dell'Oracolo, la wishlist e «Duplica» aprono il pannello del concerto
+  in `#concerti` con una bozza solo in memoria e aspettano l'esito (`salvato`,
+  `usato`, `chiuso`). Il modo «scheda» non scrive niente e restituisce i
+  valori («Usa nella scheda»). Un'apertura che porta valori rifà il pannello
+  anche se è lo stesso (il numero `mfApertura` entra nella key; decide la
+  guardia), e quella sostituita si chiude con `sostituito`. Un'apertura a
+  mano (`apriPannello` senza numero, es. «Aggiungi un concerto» sopra il
+  «Modulo completo») toglie `mfApertura`: il ponte chiude quella di prima
+  («chiuso») e il pannello si rifà vuoto (integrazione, 2026-10-24).
+- **Scritture** con `useScrittura` (`ui/Toast.tsx`): errori in linea, l'esito
+  in una notifica (regione «Notifiche», una `role=status` per notifica, mai il
+  focus). «Annulla» lo trova il browser confrontando `activity.list` prima e
+  dopo (`annulla.ts`), senza modifiche al backend (default, da confermare con
+  Gabri); mai «Annulla» per loghi, indirizzi, handle e import. Le
+  cancellazioni tengono la finestra di conferma e hanno anche la notifica con
+  «Annulla» (default, da confermare con Gabri). Accanto a un pannello non
+  modale le notifiche non ne coprono il piede: stanno nella colonna
+  dell'elenco se è larga almeno 280 px, altrimenti sopra il piede
+  (`useRiparo`). Quando un'azione toglie il pulsante col focus («Annulla» →
+  «Annullato.»: Chrome non manda blur) il focus va al titolo della vista e
+  la notifica riprende il suo tempo, invece di restare ferma.
+- **Testate.** Ogni vista ha la sua `IntestazioneVista` (h1 `#<id>-titolo`)
+  con una sola azione piena (sul telefono il pulsante flottante di Concerti;
+  senza concerti solo «Aggiungi il primo concerto»), le altre nel menu ⋯
+  (`ui/Menu.tsx`, popover nativo); `/` porta alla ricerca della vista.
+- **`#concerti` è un elenco di lavoro**: pastiglie dei filtri con i conteggi,
+  anno, «Con X» (`?filtro=` e `?con=` fanno solo da semina), ordine,
+  separatori per anno e «oggi», ⋯ per riga (Modifica, Duplica, Cancella…); le
+  righe cambiate altrove lampeggiano. «Da completare» si riduce a una riga
+  ricordata nel browser (3 voci sul telefono, 5 altrove) e ha «Completa in
+  sequenza» (`?apri=<id>&completa=1`): il focus parte dal primo campo che
+  manca, poi «Salva e vai al prossimo».
+- **Il form del concerto** sta in `ConcertoPannello.tsx` (apertura,
+  salvataggio, coda, concorrenza) e `ConcertoForm.tsx` (parti e campi), coi
+  campi condivisi in `campiConcerto.tsx`; `ConcertoModale.tsx` non c'è più. A
+  parti con i salti in testa; voto, posizione e canzoni note a pastiglie
+  (radio con i `name` di sempre, Transenna per prima); «Com'è andata» chiusa
+  per una serata in programma; riepilogo degli errori ed errori del server sul
+  loro campo; la partenza non si precompila mai (c'è la scorciatoia «Come
+  l'ultimo»); concerto ↔ festival solo in un form nuovo, portando anche voto,
+  posizione e canzoni note. Se la riga cambia altrove: form pulito → si
+  ricarica, con modifiche → un avviso.
+- **Elenchi corti.** In cima l'aggiunta rapida (l'azione principale; un nome
+  già usato è un errore mentre si scrive). Persone ha ricerca, «Mai in un
+  concerto», ordine e il pannello della persona (`?apri=`); Wishlist ha ↑ ↓ e
+  «L'ho visto: aggiungi il concerto», che poi offre «Togli X dalla wishlist»;
+  Partenze e Regalato da sono carte (`.mf-carta`: `.mf-scheda` è la barra del
+  telefono). La finestra dell'indirizzo si apre da `#partenze?indirizzo=<id>`
+  (ci portano l'avviso dei km, il form e la notifica); il logo di un "regalato
+  da" si cambia solo dal suo pannello.
+- **Impostazioni e registro.** Stile (1080 px, anteprima ferma accanto al
+  tema), Agenti e Account (760 px) sono schede con un titolo h2
+  (`TestaImpostazione`) e barre di salvataggio (`SalvaBarra`) attive solo con
+  modifiche; con modifiche non salvate chiede solo lasciando /modifica e dice
+  dove (`useGuardiaImpostazioni`), non cambiando vista. `#agenti?parte=import`
+  porta all'import col focus sul file. Attività filtra nel browser per autore,
+  «Solo annullabili» e testo (`sezioni/registro.ts`), raggruppa per giorno e
+  segna «nuova» le voci dell'Oracolo e degli agenti arrivate dopo l'ultima
+  visita.
+- **Accessibilità** controllata da `e2e/modifica-accessibilita.spec.ts`
+  (helper `e2e/helpers/accessibilita.ts`, senza axe-core): contrasto calcolato
+  su ogni superficie (4,5:1, 3:1 per i segni), focus visibile con Tab,
+  tastiera tra pannello e Oracolo, titoli e nomi, bersagli da 44 px con le
+  dita. Dentro `.mf-app` i testi secondari usano `--mf-tenue` (un `--muted`
+  più deciso), in chiaro `--mf-ambra-testo` e `--mf-teal-testo` sono più scuri
+  e le stelle usano `--mf-ambra-segno`; `--dim` solo per i controlli spenti;
+  con le dita campi a 16 px (niente zoom su iOS). «Vai al contenuto» arriva
+  dopo i comandi dello Shell: per metterlo primo va toccato
+  `src/shell/Shell.tsx`. Restano a mano VoiceOver, TalkBack, NVDA e un
+  telefono vero.
+
+## Scheda dell'Oracolo (corsia ux-agente, 2026-10-24)
+
+- **Concerti solo dalla scheda.** Nell'Oracolo in scrittura concerti e
+  festival passano solo da `propose_concert`
+  (`src/server/oracolo/proposta.ts`), strumento solo dell'Oracolo, fuori dal
+  catalogo e da MCP; `add_concert` e `update_concert` escono dai suoi
+  strumenti (`SOSTITUITE_DALLA_SCHEDA` in `scrittura.ts`) e restano per MCP e
+  API, con input e output invariati. Vale anche per un campo solo (default, da
+  confermare con Gabri).
+- **Approvazione.** La chiamata ferma il run (`needsApproval`) e non scrive
+  niente; la chat la mostra come scheda modificabile (`src/modifica/scheda/`:
+  `bozza.ts` puro, `store.ts` in memoria per `toolCallId`). Salva risolve
+  l'approvazione con `{approved: true, editedArgs}` dopo la stessa validazione
+  del server (`propostaConcertoInput` e `daProposta` di
+  `shared/schema/proposta.ts` girano in tutti e due). Scarta, e il testo
+  scritto con una scheda aperta, la rifiutano col payload tipizzato `{motivo,
+  nota?, bozza?}` in una sola ripresa; una correzione nella chat non cancella
+  una Conferma o un Rifiuta già dati a un'altra approvazione dello stesso run.
+- **`oracoloOnly`**, terza classe di builder (`convex/lib/builders.ts`)
+  accanto a `catalogOp` e `dashboardOnly`: oggi solo `entries.salvaScheda`,
+  che accetta solo `as: "oracolo"`; dashboard, API key e OAuth ricevono
+  `solo_oracolo`. È un'etichetta che restringe, non un confine di fiducia: la
+  sessione del proprietario può mandare `as: "oracolo"` e fare una per una le
+  stesse scritture (default, da confermare con Gabri).
+- **Un lotto, un Annulla.** `salvaScheda` crea nella stessa transazione e
+  nello stesso lotto le persone, il "regalato da" e la partenza che mancano
+  (`convex/lib/mancanti.ts`), poi aggiunge o modifica il concerto con i km
+  subito (A1, «Sonde sui km»). La partenza nuova ha solo il nome
+  (`creaPartenzaNelLotto` in `convex/departures.ts` rifiuta i nomi che
+  sembrano indirizzi): i km restano in attesa finché l'indirizzo non si
+  imposta in `#partenze` (default, da confermare con Gabri). L'Annulla della
+  scheda (`activity.undo`) toglie tutto il lotto; se un nome creato è già
+  usato da un altro concerto è rifiutato (`in_uso`), e la scheda dice quale
+  nome e che va tolto prima da lì (default, da confermare con Gabri). Il
+  default diceva «rimanda ad Attività», ma il lotto si annulla tutto o
+  niente e Attività dà lo stesso `in_uso`: il rimando c'è solo per
+  `conflitto` (modificato dopo), dove Attività serve davvero (integrazione,
+  2026-10-24). In Attività l'autore è «Oracolo» anche
+  se il proprietario ha cambiato la scheda prima di salvare (default, da
+  confermare con Gabri).
+- **Schema statico.** `propostaConcertoInput` è piatto e statico (niente
+  union né literal, nessun enum preso dal vocabolario): TanStack AI confronta
+  l'hash dello schema alla ripresa, quindi cambiarlo, descrizioni comprese, fa
+  scadere le schede aperte durante un deploy.
+- **Limiti della route in scrittura** (`LIMITI_SCRITTURA`,
+  `src/server/oracolo/scrittura.ts`): testo dell'utente 4000 caratteri, per
+  incollare un biglietto, solo testo e niente immagini (default, da confermare
+  con Gabri); payload della ripresa 16000; cronologia del browser 80 messaggi
+  come lo storico salvato (`MAX_MESSAGGI_STORICO`: con 40 una sessione di
+  completamenti si fermava dopo 7–8 schede). A chiudere restano lo storico di
+  Convex (80 messaggi, 160k caratteri) e il tetto sul corpo (80k).
+  «Conversazione troppo lunga» risponde 413, e chat e scheda offrono «Apri una
+  nuova chat». La chat pubblica resta a 1500/2000/40 e risponde 400 (il widget
+  mostra l'errore generico: possibile seguito).
+- **Prompt in scrittura**: oggi col giorno della settimana più i 7 giorni
+  prima e dopo (`calendarioAttorno`), così «sabato» si legge invece di
+  contarlo. «Prezzo» conta come mancante nella scheda e nelle domande
+  dell'Oracolo (`mancanoDi` con `prezzo: true`, `shared/lib/mancano.ts`), non
+  nel riquadro «Da completare» (default, da confermare con Gabri).
+- **Lotti di schede.** Più serate nello stesso messaggio danno più schede,
+  ognuna con la casella «Da salvare», e decide la barra in fondo alla chat
+  (`src/modifica/scheda/BarraSchede.tsx`, da non confondere con
+  `shell/BarraSchede.tsx`): «Salva tutte» / «Scarta tutte» in una sola ripresa
+  (TanStack riprende solo quando ogni approvazione del run è decisa), poi
+  «Annulla tutti» dall'ultima alla prima. Una scheda sola con un'altra
+  approvazione nello stesso run dice che si salva quando si risponde
+  all'altra.
+- **Doppioni**: lo stesso artista lo stesso giorno, in archivio o in un'altra
+  scheda del run, blocca con «Aggiorna quello» (la scheda diventa la modifica
+  di quello) o «È un altro concerto»; a un giorno di distanza è un avviso con
+  «Apri quello». Una venue senza città con più omonime nel catalogo si sceglie
+  («Usa»), mai a caso.
+- **Festival**: la lineup si modifica nella scheda (↑ ↓ solo nelle nuove, ×
+  spento a due concerti); i concerti che una modifica toglie
+  (`remove_concerts`) si confermano uno per uno («Tienilo» / «Toglilo»). Con
+  lo stesso artista in due giorni `daProposta` toglie prima un concerto non
+  nominato in `concerts`, e la scheda nomina quello che resta. «Modulo
+  completo» apre il form nel modo «scheda» del ponte dell'editor (nessuna
+  scrittura, «Usa nella scheda» riporta i valori).
+- **Modulo completo aperto** (integrazione, 2026-10-24): da 1024 px è un
+  pannello non modale accanto all'Oracolo (la spec agente lo voleva modale
+  sopra la chat), quindi finché è aperto la scheda non si decide: Salva,
+  Scarta, «Salva tutte» / «Scarta tutte» sono spenti con «Il modulo
+  completo è aperto: prima «Usa nella scheda» o «Torna alla scheda»», e un
+  messaggio nella chat (la correzione) è rifiutato con lo stesso invito.
+  Lo segna `moduloAperto` nello store, per apertura. «Nuova chat» chiede
+  prima anche in quel caso; se i valori arrivano a scheda già chiusa, una
+  notifica dice che non sono stati usati. Alla chiusura il focus torna al
+  link della scheda solo se si era perso: una riga dell'elenco, un'altra
+  vista o un'altra scheda lo tengono.
+- **Nella chat** le schede stanno dopo la risposta del modello che le segue
+  (la conferma, poi «Annullato», chiude il turno); il piede col Salva resta
+  appiccicato in vista anche sul desktop (non in un lotto); un'azione che
+  toglie il pulsante premuto riporta il focus nella scheda
+  (`src/modifica/scheda/focus.ts`); «Nuova chat» con una scheda modificata
+  chiede prima («Scheda non salvata»). Uscire da /modifica (Sul palco, I
+  dati, indietro, chiudere la scheda del browser) con una scheda modificata
+  e non salvata chiede «Modifiche non salvate» e la nomina (`GuardiaSchede`
+  in `oracolo/Contenitore.tsx`, useBlocker solo sul cambio di pathname):
+  la chat non sopravvive all'uscita, e prima si perdeva in silenzio.
+  Cambiare vista dentro /modifica non chiede. Con anche un pannello sporco
+  le due guardie chiedono una dopo l'altra. Il CSS della scheda sta in
+  `src/modifica/oracolo/chat.css`, non in `modifica.css`.
+- **Invio nelle due chat** (`tastiInvio` in `src/chat/parti.tsx`): Invio
+  manda, ⇧/⌥/⌘/Ctrl+Invio va a capo, e durante la composizione IME
+  (`componendo`, anche il keyCode 229 di Safari) non manda. Con la sola
+  tastiera a schermo (`(hover: none) and (pointer: coarse)`) Invio va a capo e
+  si manda col pulsante. **Aperta per Gabri**, che aveva chiesto «se premo
+  invio dovrebbe mandare»: resta così finché non risponde; per cambiarlo si
+  toglie il ramo `soloTouch` e si mette `enterKeyHint="send"` alle due
+  caselle.
+- Prove: `ORACOLO_FAKE=1 node scripts/wt.mjs exec -- pnpm e2e
+  e2e/oracolo-scheda.spec.ts`; in `e2e/fughe/oracolo.spec.ts` una scheda
+  salvata dalla partenza col canarino (km subito) non porta canarino né
+  coordinate in SSE, riprese, `chat:myThread`, pagina, frame WebSocket e log.
+  `devtools:cleanupE2E` toglie al massimo 40 profili `e2e-*` per chiamata
+  (restituisce quanti): con molti profili di prova si richiama.
+- **Da allineare** (revisione dell'integrazione, 2026-10-24; decide Gabri):
+  - «Nuova persona» nel pannello del concerto crea la persona subito
+    (`people.add`, una voce sua in Attività), mentre la scheda la crea nel
+    lotto del concerto. Così l'«Annulla» della notifica del pannello toglie
+    solo il concerto, quello della scheda anche la persona. Per allinearli
+    servirebbe creare i nomi mancanti nella stessa transazione di
+    `entries.add`/`update` (come `convex/lib/mancanti.ts`), che però sono
+    anche `add_concert`/`update_concert` di MCP, dove un nome sconosciuto
+    è un errore.
+  - Le parole del pannello e della scheda non coincidono: «Con chi» /
+    «Con», «Partito da» / «Partenza», «Non ancora» / «Nessuna»,
+    «Transenna» / «6 · Transenna», il segno «nuova», e «Mancano» (nel
+    pannello per parte e senza prezzo, nella scheda in un elenco solo col
+    prezzo). Le due spec le fissano ciascuna a modo suo, e i titoli delle
+    differenze («Con», «Partenza») vengono dal server
+    (`shared/schema/proposta.ts`): va scelto un vocabolario solo.

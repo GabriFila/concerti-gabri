@@ -227,7 +227,7 @@ Questo piano va approvato prima di eseguirlo (PROMPT.md, Fase 3).
 38. **Dopo la serata.** Il prompt degli agenti dice di chiamare `list_concerts({da_completare: true})` a inizio sessione e di proporre voto, vicinanza, canzoni note e commento. La dashboard lo fa con il riquadro "da completare".
 39. **Navigazione dell'account.**
     - `/benvenuto` a onboarding finito → 307 a `/<handle>/modifica`.
-    - Un utente loggato su `/` vede la landing con "La tua pagina" e "Modifica", senza redirect automatico. Un profilo in `onboarding` va invece a `/benvenuto`.
+    - Un utente loggato su `/` vede la landing con "La tua pagina" e "Modifica", senza redirect automatico. Un profilo in `onboarding` va invece a `/benvenuto`. (Superato: DECISIONI, Landing e accesso: 307 a `/<handle>` a onboarding finito, altrimenti a `/benvenuto`.)
     - "Esci" sta in `#account` e nel footer, visibile solo da loggati.
 40. **Font dei titoli** (`fontTitoli`), tutti in self-hosting:
     - `fraunces` (predefinito);
@@ -251,7 +251,7 @@ Questo piano va approvato prima di eseguirlo (PROMPT.md, Fase 3).
 ### Deroghe da scrivere in DECISIONI (traguardo 9)
 
 43. **oAuthProxy non esercitato in Fase 3.** Prima dello switch la preview `multiutente` usa il callback Google diretto dell'URL del branch. Il proxy si attiva allo switch e si verifica in `SWITCH.md` (passo 13).
-44. **OTP di sviluppo sulla preview.** Su `preview/multiutente` "Entra con email" compare col sender di sviluppo, e nessuna email parte. È una deroga a "in preview solo con Resend": la preview è protetta da Vercel Authentication e serve agli smoke test.
+44. **OTP di sviluppo sulla preview.** Su `preview/multiutente` "Entra con email" compare col sender di sviluppo, e nessuna email parte. È una deroga a "in preview solo con Resend": la preview è protetta da Vercel Authentication e serve agli smoke test. (Superato in parte: DECISIONI, Landing e accesso: il pulsante non c'è più, la deroga vale solo per il login via API.)
 45. **Riuso dei km per coppia più forte della ricetta di CLAUDE.md.** Con `kmPairs` si riusa anche senza altri concerti con la stessa coppia (§1.22).
 
 ## 2. Versioni
@@ -1081,7 +1081,7 @@ Le corsie riempiono gli stub e non aggiungono voci a quei file.
   - `useViewer()` reale;
   - reload completo dopo login e logout;
   - "Esci" nel footer (§1.39).
-- **Landing `/`:** "Entra / Crea il tuo sito", con una finestra sopra la landing: Google, più "Entra con email" se `emailLogin`. Per i loggati vale §1.39. C'è anche `/accedi`, e il 308 di `/?chat=`.
+- **Landing `/`:** "Entra / Crea il tuo sito", con una finestra sopra la landing: Google, più "Entra con email" se `emailLogin`. Per i loggati vale §1.39. C'è anche `/accedi`, e il 308 di `/?chat=`. (Superato: DECISIONI, Landing e accesso: «Crea la tua pagina», «Entra con email» solo con `emailReale` o nei build e2e.)
 - **`/benvenuto`** (TanStack Form), con ripresa da `onboardingStep`:
   1. handle (regex, riservati, disponibilità dal vivo), forma e nome visualizzato → `completeOnboarding` (profilo `active`);
   2. partenze: nome e indirizzo con `src/ui/AddressPicker.tsx` (il componente condiviso, che T5 riusa);
