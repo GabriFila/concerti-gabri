@@ -1,8 +1,12 @@
 /* ──────────────────────────────────────────────────────────────
    Landing → finestra di accesso → OTP → /benvenuto (PIANO traguardo 3).
    Il codice arriva dal sender di sviluppo e si legge con devOtp:latest
-   sul deployment Convex LOCALE (e2e/helpers/convex.ts). Più i redirect
-   della landing e di /benvenuto senza sessione. Solo in locale.
+   sul deployment Convex LOCALE (e2e/helpers/convex.ts). Per le persone
+   "Entra con email" compare solo con Resend: qui c'è perché il server
+   degli e2e è un build e2e (VITE_E2E=1, src/accesso/flags.ts); il caso
+   contrario lo provano src/accesso/flags.test.ts ed e2e/landing.spec.ts
+   sulla preview. Più i redirect della landing e di /benvenuto senza
+   sessione. Solo in locale.
    ────────────────────────────────────────────────────────────── */
 
 import { idratata, unico } from "./helpers/auth.ts";
@@ -33,8 +37,8 @@ test("landing → finestra → codice → /benvenuto, poi Esci", { tag: "@sessio
   await page.goto("/");
   await expect(page.locator("html")).not.toHaveAttribute("data-auth", "1");
   await idratata(page);
-  await page.getByRole("link", { name: "Entra / Crea il tuo sito" }).click();
-  const finestra = page.getByRole("dialog", { name: "Entra" });
+  await page.getByRole("link", { name: "Crea la tua pagina" }).click();
+  const finestra = page.getByRole("dialog", { name: "Crea la tua pagina" });
   await expect(finestra).toBeVisible();
   // con Google attivo l'email è una seconda scelta; nei deployment locali (senza Google) il campo c'è subito
   const conEmail = finestra.getByRole("button", { name: "Entra con email" });
@@ -65,7 +69,10 @@ test("landing → finestra → codice → /benvenuto, poi Esci", { tag: "@sessio
   expect(html).not.toMatch(/eyJ[\w-]+\.eyJ[\w-]+\./);
   expect(html).not.toContain(email);
 
-  // la landing manda a /benvenuto chi ha il profilo in onboarding
+  // la landing manda a /benvenuto chi ha il profilo in onboarding (307 dall'SSR)
+  const r = await page.request.get("/", { maxRedirects: 0 });
+  expect(r.status()).toBe(307);
+  expect(new URL(r.headers().location, START_URL).pathname).toBe("/benvenuto");
   await page.goto("/");
   await expect(page).toHaveURL(/\/benvenuto$/);
 
@@ -73,6 +80,6 @@ test("landing → finestra → codice → /benvenuto, poi Esci", { tag: "@sessio
   await page.getByRole("button", { name: "Esci" }).click();
   await expect(page).toHaveURL(new RegExp(`${START_URL}/$`));
   await expect(page.locator("html")).not.toHaveAttribute("data-auth", "1");
-  await expect(page.getByRole("link", { name: "Entra / Crea il tuo sito" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Crea la tua pagina" })).toBeVisible();
   expect(errori.hydration()).toEqual([]);
 });

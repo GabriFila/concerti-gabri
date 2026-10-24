@@ -43,8 +43,19 @@ export function Copia({ testo, etichetta = "Copia" }: { testo: string; etichetta
   );
 }
 
-/** Indietro / Avanti tra i passi 2–4: avanzano `onboardingStep` sul server. */
-export function Navigazione({ indietro, avanti, etichettaAvanti = "Avanti" }: { indietro?: PassoDb; avanti: PassoDb; etichettaAvanti?: string }) {
+/** Indietro / Avanti tra i passi 2–4: avanzano `onboardingStep` sul server. Avanti è l'azione
+ *  principale del passo, tranne con `avantiSecondario` (es. "Salta per ora" quando la principale è un'altra). */
+export function Navigazione({
+  indietro,
+  avanti,
+  etichettaAvanti = "Avanti",
+  avantiSecondario = false,
+}: {
+  indietro?: PassoDb;
+  avanti: PassoDb;
+  etichettaAvanti?: string;
+  avantiSecondario?: boolean;
+}) {
   const imposta = useMutation(api.profiles.setOnboardingStep);
   const [attesa, setAttesa] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -72,7 +83,7 @@ export function Navigazione({ indietro, avanti, etichettaAvanti = "Avanti" }: { 
           Indietro
         </button>
       )}
-      <button type="button" className="acc-btn" disabled={attesa} onClick={() => vai(avanti)}>
+      <button type="button" className={avantiSecondario ? "acc-btn acc-btn--ghost" : "acc-btn"} disabled={attesa} onClick={() => vai(avanti)}>
         {etichettaAvanti}
       </button>
     </div>

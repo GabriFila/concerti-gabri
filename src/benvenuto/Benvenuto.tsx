@@ -4,6 +4,9 @@
    (`me.profile`, dal vivo): `onboarding` → 1, poi `onboardingStep`
    partenze → 2, agente → 3, regali → 4, fatto → 5 ("pagina pronta").
    Ogni "Avanti" scrive il passo sul server, quindi un reload riprende lì.
+   Finché i passi 2–4 non sono finiti anche `/` porta qui (routes/index.tsx):
+   un link sotto il passo porta comunque alla pagina, che dal passo 1
+   esiste già, e la prossima volta si riprende da dov'era.
    A onboarding finito il guard della rotta porta a /<handle>/modifica.
    ────────────────────────────────────────────────────────────── */
 
@@ -62,6 +65,15 @@ export function Benvenuto() {
       {passo === 2 && <PassoPartenze />}
       {passo === 3 && me.handle && <PassoAgente handle={me.handle} />}
       {passo === 4 && <PassoRegali />}
+      {passo >= 2 && passo <= 4 && me.handle && (
+        <p className="acc-secondaria">
+          Puoi finire dopo:{" "}
+          <Link className="acc-link" to="/$handle" params={{ handle: me.handle }}>
+            vai alla tua pagina
+          </Link>
+          . La prossima volta riprendi da qui.
+        </p>
+      )}
       {passo === 5 && me.handle && (
         <section className="acc-passo" aria-labelledby="acc-passo-titolo">
           <h2 id="acc-passo-titolo">La tua pagina è pronta</h2>

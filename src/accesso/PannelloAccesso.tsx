@@ -1,7 +1,8 @@
 /* ──────────────────────────────────────────────────────────────
-   Il pannello di accesso (PIANO traguardo 3): Google e, se il deployment
-   ha un sender (authFlags.emailLogin), "Entra con email" con un codice
-   di 6 cifre. Lo usano la finestra della landing e /accedi.
+   Il pannello di accesso (PIANO traguardo 3): Google e, solo se il codice
+   arriva davvero a chi lo chiede (Resend, o nei build e2e: flags.ts),
+   "Entra con email" con un codice di 6 cifre. Lo usano la finestra della
+   landing e /accedi (dove porta anche /autorizza, il consenso MCP).
 
    L'account nasce al primo accesso. Dopo un accesso riuscito la pagina si
    ricarica per intero verso `next` (lib/auth-client.ts). Nessun dato
@@ -11,11 +12,9 @@
 
 import { useState } from "react";
 import { entraConCodice, entraConGoogle, inviaCodice } from "../lib/auth-client.ts";
+import { emailVisibile, type FlagsAccesso } from "./flags.ts";
 
-export interface FlagsAccesso {
-  emailLogin: boolean;
-  googleLogin: boolean;
-}
+export type { FlagsAccesso };
 
 type Fase = "scelta" | "email" | "codice";
 
@@ -26,7 +25,8 @@ export function PannelloAccesso({ next, flags, erroreIniziale }: { next: string;
   const [errore, setErrore] = useState<string | null>(erroreIniziale ?? null);
   const [attesa, setAttesa] = useState(false);
 
-  const nessuno = !flags.emailLogin && !flags.googleLogin;
+  const conEmail = emailVisibile(flags);
+  const nessuno = !conEmail && !flags.googleLogin;
 
   async function google() {
     setErrore(null);
@@ -77,13 +77,13 @@ export function PannelloAccesso({ next, flags, erroreIniziale }: { next: string;
         </button>
       )}
 
-      {flags.emailLogin && fase === "scelta" && (
+      {conEmail && fase === "scelta" && (
         <button type="button" className="acc-btn acc-btn--ghost" onClick={() => setFase("email")}>
           Entra con email
         </button>
       )}
 
-      {flags.emailLogin && fase === "email" && (
+      {conEmail && fase === "email" && (
         <form className="acc-form" onSubmit={chiediCodice}>
           <label className="acc-campo">
             <span>Email</span>
@@ -95,7 +95,7 @@ export function PannelloAccesso({ next, flags, erroreIniziale }: { next: string;
         </form>
       )}
 
-      {flags.emailLogin && fase === "codice" && (
+      {conEmail && fase === "codice" && (
         <form className="acc-form" onSubmit={entra}>
           <p className="acc-nota">Ti abbiamo mandato un codice di 6 cifre: vale 10 minuti.</p>
           <label className="acc-campo">
@@ -132,7 +132,7 @@ export function PannelloAccesso({ next, flags, erroreIniziale }: { next: string;
         </p>
       )}
       <p className="acc-piccolo">
-        Se è la prima volta, la tua pagina nasce adesso. <a href="/privacy">Privacy</a>
+        Se è la prima volta, il tuo account nasce adesso. <a href="/privacy">Privacy</a>
       </p>
     </div>
   );

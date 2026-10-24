@@ -68,7 +68,7 @@ test.describe("HTML", () => {
 });
 
 test.describe("redirect", () => {
-  // dal traguardo 3 `/` è la landing; i vecchi link `/?chat=` vanno a /gabrifila con un 308
+  // dal traguardo 3 `/` è la landing (per chi è entrato un 307, e2e/landing.spec.ts); i vecchi link `/?chat=` vanno a /gabrifila con un 308
   test("/ è la landing: 200, HTML, private no-store", async ({ baseURL }) => {
     const res = await get(baseURL, "/");
     expect(res.status()).toBe(200);

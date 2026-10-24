@@ -1,7 +1,8 @@
 /* Email del login (PIANO traguardo 3, Accettazione): payload di Resend e
    modello, EMAIL_FROM predefinito, precedenza tra i sender, `emailLogin`
-   falso senza sender, limiti `otpSendEmail`/`otpSendGlobal`. `fetch` è
-   simulato: nessuna email parte davvero. */
+   falso senza sender, `emailReale` solo con Resend, limiti
+   `otpSendEmail`/`otpSendGlobal`. `fetch` è simulato: nessuna email parte
+   davvero. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./_generated/api";
@@ -115,7 +116,7 @@ describe("i sender dal vivo (route di Better Auth)", () => {
     const f = fetchFinto();
     vi.stubGlobal("fetch", f.fn);
     const t = setup();
-    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: true, googleLogin: false });
+    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: true, emailReale: true, googleLogin: false });
     expect((await chiediCodice(t, "marta@example.com")).status).toBe(200);
     const resend = f.chiamate.filter(c => c.url === RESEND_URL);
     expect(resend).toHaveLength(1);
@@ -130,7 +131,7 @@ describe("i sender dal vivo (route di Better Auth)", () => {
   it("senza sender: emailLogin falso e l'invio del codice non esiste", async () => {
     envLocale({ AUTH_DEV_OTP: undefined });
     const t = setup();
-    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: false, googleLogin: false });
+    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: false, emailReale: false, googleLogin: false });
     expect((await chiediCodice(t, "marta@example.com")).status).toBe(404);
   });
 
@@ -139,14 +140,23 @@ describe("i sender dal vivo (route di Better Auth)", () => {
     const f = fetchFinto();
     vi.stubGlobal("fetch", f.fn);
     const t = setup();
-    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: false, googleLogin: false });
+    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: false, emailReale: false, googleLogin: false });
     expect((await chiediCodice(t, "marta@example.com")).status).toBe(404);
     expect(f.chiamate.filter(c => c.url === RESEND_URL)).toEqual([]);
   });
 
   it("googleLogin segue le credenziali", async () => {
     envLocale({ GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "s" });
-    expect(await setup().query(api.authFlags.get, {})).toEqual({ emailLogin: true, googleLogin: true });
+    expect(await setup().query(api.authFlags.get, {})).toEqual({ emailLogin: true, emailReale: false, googleLogin: true });
+  });
+
+  it("col sender di sviluppo l'email è accesa ma non è reale: la UI nasconde il bottone fuori dagli e2e", async () => {
+    // envLocale: AUTH_DEV_OTP=1 come sui deployment locali, dev e preview
+    const t = setup();
+    expect(await t.query(api.authFlags.get, {})).toEqual({ emailLogin: true, emailReale: false, googleLogin: false });
+    // il percorso degli e2e (e2e/helpers/auth.ts) resta: il codice finisce nell'outbox
+    expect((await chiediCodice(t, "marta@example.com")).status).toBe(200);
+    expect(await ultimoCodice(t, "marta@example.com")).toMatch(/^\d{6}$/);
   });
 });
 

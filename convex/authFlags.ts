@@ -12,8 +12,12 @@
    - Precedenza: fuori produzione con AUTH_DEV_OTP=1 vince il sender di
      sviluppo; altrimenti Resend, se è configurato.
    - `emailLogin` è vero solo se uno dei due sender è attivo: è lui che
-     accende il plugin emailOTP in convex/auth.ts e il bottone "Entra con
-     email" nella UI. `googleLogin`: le credenziali Google ci sono (i
+     accende il plugin emailOTP in convex/auth.ts (gli e2e entrano da lì,
+     via API, con l'OTP di sviluppo). `emailReale`: il sender è Resend, cioè
+     il codice arriva davvero nella casella di chi lo chiede. Il bottone
+     "Entra con email" la UI lo mostra solo con `emailReale`, o nei build
+     e2e (src/accesso/flags.ts): il codice del sender di sviluppo non lo
+     legge nessuna persona. `googleLogin`: le credenziali Google ci sono (i
      deployment locali dei worktree non le hanno: lì si entra con l'OTP).
    ────────────────────────────────────────────────────────────── */
 
@@ -47,6 +51,9 @@ export const googleAttivo = (env: Env = process.env) => !!(env.GOOGLE_CLIENT_ID 
 
 export const get = publicQuery({
   args: {},
-  returns: v.object({ emailLogin: v.boolean(), googleLogin: v.boolean() }),
-  handler: async () => ({ emailLogin: emailLoginAttivo(), googleLogin: googleAttivo() }),
+  returns: v.object({ emailLogin: v.boolean(), emailReale: v.boolean(), googleLogin: v.boolean() }),
+  handler: async () => {
+    const sender = senderOtp();
+    return { emailLogin: sender !== null, emailReale: sender === "resend", googleLogin: googleAttivo() };
+  },
 });

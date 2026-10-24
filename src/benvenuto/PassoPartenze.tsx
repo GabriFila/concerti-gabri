@@ -34,6 +34,10 @@ export function PassoPartenze() {
   });
 
   const partenze = data?.departures ?? [];
+  // un'azione principale per volta: senza partenze è Aggiungi ("Salta per ora" resta un'uscita); con
+  // l'indirizzo aperto (anche subito dopo Aggiungi) è Cerca/Conferma dell'AddressPicker; poi Avanti
+  const nessuna = partenze.length === 0;
+  const avantiSecondario = nessuna || partenze.some(d => d.id === aperta);
   return (
     <Passo titolo="Da dove parti">
       <p className="acc-nota">
@@ -96,7 +100,7 @@ export function PassoPartenze() {
                 <form.Subscribe
                   selector={s => [s.canSubmit, s.isSubmitting, s.values.name.trim().length > 0] as const}
                   children={([puo, invio, pieno]) => (
-                    <button type="submit" className="acc-btn" disabled={!puo || invio || !pieno}>
+                    <button type="submit" className={nessuna ? "acc-btn" : "acc-btn acc-btn--ghost"} disabled={!puo || invio || !pieno}>
                       Aggiungi
                     </button>
                   )}
@@ -113,7 +117,7 @@ export function PassoPartenze() {
         )}
       </form>
 
-      <Navigazione avanti="agente" etichettaAvanti={partenze.length ? "Avanti" : "Salta per ora"} />
+      <Navigazione avanti="agente" etichettaAvanti={nessuna ? "Salta per ora" : "Avanti"} avantiSecondario={avantiSecondario} />
     </Passo>
   );
 }

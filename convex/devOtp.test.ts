@@ -74,7 +74,7 @@ describe("le funzioni", () => {
   it("in produzione il login non scrive mai nell'outbox: senza Resend l'email è spenta", async () => {
     envLocale({ CONVEX_CLOUD_URL: PROD_URL });
     const t = setup();
-    expect(await t.query(api.authFlags.get, {})).toMatchObject({ emailLogin: false });
+    expect(await t.query(api.authFlags.get, {})).toMatchObject({ emailLogin: false, emailReale: false });
     expect((await chiediCodice(t, "marta@example.com")).status).toBe(404);
     expect(await t.run(ctx => ctx.db.query("devOtpOutbox").collect())).toEqual([]);
   });
