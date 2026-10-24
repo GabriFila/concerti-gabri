@@ -8,7 +8,9 @@
      DECLASSARE una sessione (dashboard → oracolo); con un token si ignora.
    - `requireOwner`: il profilo dell'attore (uno per utente). Un profilo in
      `onboarding` → `no_profile` con fix `/benvenuto`. `dashboardOnly` e un
-     attore non "dashboard" → `solo_dashboard`.
+     attore non "dashboard" → `solo_dashboard`; `oracoloOnly` (la scheda
+     dell'Oracolo, entries.salvaScheda) e un attore non "oracolo" →
+     `solo_oracolo`.
    - `getOwned`: un documento del proprietario; `not_found` identico per un
      id altrui, inesistente o malformato.
    Il `profileId` non arriva MAI dagli argomenti.
@@ -95,6 +97,8 @@ export interface OwnerOptions {
   agentToken?: unknown;
   as?: unknown;
   dashboardOnly?: boolean;
+  /** solo l'Oracolo in scrittura (`as: "oracolo"` da una sessione): agenti e dashboard no */
+  oracoloOnly?: boolean;
   /** solo onboardingMutation: accetta un profilo ancora in onboarding */
   allowOnboarding?: boolean;
 }
@@ -103,12 +107,19 @@ function checkProfile(profile: Doc<"profiles"> | null, actor: Actor, opts: Owner
   if (opts.dashboardOnly && actor.via !== "dashboard") {
     throw errore("solo_dashboard", "questa operazione si fa solo dalla dashboard");
   }
+  if (opts.oracoloOnly && actor.via !== "oracolo") {
+    throw errore("solo_oracolo", "questa operazione la fa solo l'Oracolo in scrittura, dopo il tuo Salva nella chat");
+  }
   if (!profile) throw errore("no_profile", "nessun profilo per questo account", { fix: "/benvenuto" });
   if (profile.status === "onboarding" && !opts.allowOnboarding) {
     throw errore("no_profile", "completa prima il profilo", { fix: "/benvenuto" });
   }
   return { profile, actor };
 }
+
+/** L'attore non è quello della classe della funzione: l'errore arriva prima di leggere il profilo. */
+const fuoriClasse = (actor: Actor, opts: OwnerOptions) =>
+  (opts.dashboardOnly && actor.via !== "dashboard") || (opts.oracoloOnly && actor.via !== "oracolo");
 
 export async function profileOfUser(ctx: QueryCtx | MutationCtx, userId: string) {
   return await ctx.db
@@ -119,7 +130,7 @@ export async function profileOfUser(ctx: QueryCtx | MutationCtx, userId: string)
 
 export async function requireOwner(ctx: QueryCtx | MutationCtx, opts: OwnerOptions = {}): Promise<Owner> {
   const actor = await resolveActor(ctx, opts);
-  if (opts.dashboardOnly && actor.via !== "dashboard") checkProfile(null, actor, opts);
+  if (fuoriClasse(actor, opts)) checkProfile(null, actor, opts);
   return checkProfile(await profileOfUser(ctx, actor.userId), actor, opts);
 }
 
@@ -130,7 +141,7 @@ export async function requireOwnerAction(
   loadProfile: (userId: string) => Promise<Doc<"profiles"> | null>,
 ): Promise<Owner> {
   const actor = await resolveActor(ctx, opts);
-  if (opts.dashboardOnly && actor.via !== "dashboard") checkProfile(null, actor, opts);
+  if (fuoriClasse(actor, opts)) checkProfile(null, actor, opts);
   return checkProfile(await loadProfile(actor.userId), actor, opts);
 }
 

@@ -44,7 +44,7 @@ import { isPlanned } from "../../shared/lib/dates.ts";
 import { useProfile } from "../profile/ProfileContext.tsx";
 import type { Tema } from "../theme/tema.ts";
 import { logMessagesToUIMessages } from "./chatlog.ts";
-import { Message, Puntini, copyText, firstUserText, fmtWhen, friendlyError, randomId } from "./parti.tsx";
+import { Message, Puntini, copyText, firstUserText, fmtWhen, friendlyError, randomId, tastiInvio } from "./parti.tsx";
 import { chatToolDefs, type ChatVocab } from "./tools.ts";
 
 export type ThemeMode = Tema;
@@ -555,6 +555,7 @@ export default function ChatWidget({ ctx, apiRef, corner }: { ctx: ChatSiteConte
                     ref={inputRef}
                     value={input}
                     onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => tastiInvio(e, () => send(input))}
                     placeholder="Scrivi un messaggio…"
                     maxLength={1500}
                     rows={1}

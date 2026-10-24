@@ -1,13 +1,14 @@
 /* Il registro (PIANO §4.7.1): scorre gli export di convex/ SENZA un elenco
    centrale. Ogni funzione nasce da un builder che la classifica; ogni
-   funzione del proprietario è un'operazione del catalogo o `dashboardOnly`
-   con motivo; ogni operazione del catalogo (del suo traguardo) ha la sua
-   funzione; le query pubbliche hanno `returns`. */
+   funzione del proprietario è un'operazione del catalogo, `dashboardOnly`
+   oppure `oracoloOnly` (la scheda dell'Oracolo), con motivo; ogni
+   operazione del catalogo (del suo traguardo) ha la sua funzione; le query
+   pubbliche hanno `returns`. */
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CATALOGO, operazione } from "../shared/agent/catalog.ts";
+import { CATALOGO, NOMI_CATALOGO, operazione } from "../shared/agent/catalog.ts";
 import { ESTENSIONI_CONVEX, FILE_DEL_REGISTRO, registro } from "./test.registry.ts";
 import { NOMI_LIMITI } from "./rateLimits.ts";
 import { NON_ANCORA_DISPONIBILI, tipoFunzione } from "../src/server/mcp/funzioni.ts";
@@ -67,18 +68,26 @@ describe("registro delle funzioni", () => {
     }
   });
 
-  it("ogni funzione del proprietario è un'operazione del catalogo o dashboardOnly con motivo", () => {
+  it("ogni funzione del proprietario è un'operazione del catalogo, dashboardOnly o oracoloOnly, con motivo", () => {
     const nomi = new Set(CATALOGO.map(o => o.name));
     for (const f of tutte.filter(x => x.meta?.kind === "owner" || x.meta?.kind === "onboarding")) {
       const m = f.meta!;
-      expect(!!m.catalogOp !== !!m.dashboardOnly, `${f.path}: catalogOp XOR dashboardOnly`).toBe(true);
+      expect([m.catalogOp, m.dashboardOnly, m.oracoloOnly].filter(Boolean), `${f.path}: una sola tra catalogOp, dashboardOnly e oracoloOnly`).toHaveLength(1);
       if (m.catalogOp) {
         expect(nomi.has(m.catalogOp), `${f.path}: ${m.catalogOp} non è nel catalogo`).toBe(true);
         expect(CATALOGO.find(o => o.name === m.catalogOp)!.funzione, f.path).toBe(f.path);
       } else {
-        expect(m.dashboardOnly!.length, `${f.path}: motivo`).toBeGreaterThan(3);
+        expect((m.dashboardOnly ?? m.oracoloOnly)!.length, `${f.path}: motivo`).toBeGreaterThan(3);
       }
     }
+  });
+
+  it("le funzioni oracoloOnly (la scheda dell'Oracolo) non sono mai del catalogo né di MCP", () => {
+    const solo = tutte.filter(f => f.meta?.oracoloOnly).map(f => f.path);
+    expect(solo).toEqual(["entries:salvaScheda"]);
+    expect(CATALOGO.filter(o => solo.includes(o.funzione)).map(o => o.name)).toEqual([]);
+    // lo strumento della scheda è solo dell'Oracolo in scrittura
+    expect(NOMI_CATALOGO).not.toContain("propose_concert");
   });
 
   it("ogni operazione del catalogo (fino al traguardo 7) ha la sua funzione", () => {

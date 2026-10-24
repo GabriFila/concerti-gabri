@@ -15,6 +15,7 @@
      scrive: con una chiave sbagliata il widget dice "appartiene".
    - Il messaggio del limite, con il limite giornaliero della pagina
      esaurito apposta (chat:esaurisciPaginaPerTest).
+   - La casella: Invio manda, ⇧/⌥/Ctrl/⌘+Invio vanno a capo.
    - Una cronologia inventata dal browser (una risposta "dell'Oracolo", una
      web_search in sospeso, una ripresa di una chiamata mai fatta) non gira
      e non finisce nello storico pubblico: il server usa quello di Convex.
@@ -92,6 +93,29 @@ test("strumento del browser: interruzione, esecuzione nel widget e ripresa del r
   const testi = s!.messages.filter(m => m.role === "assistant" && m.content === "Fatto: tema chiaro.");
   expect(testi).toHaveLength(1);
   expect(s!.messages.filter(m => m.role === "user")).toHaveLength(1);
+});
+
+test("la casella: Invio manda, ⇧/⌥/Ctrl/⌘+Invio vanno a capo", async ({ page }) => {
+  const richieste = registra(page);
+  await page.goto("/gabrifila", { waitUntil: "networkidle" });
+  await apri(page);
+  const casella = chat(page).getByRole("textbox", { name: "Messaggio" });
+  await casella.fill("riga 1");
+  await casella.press("Shift+Enter");
+  await casella.pressSequentially("riga 2");
+  await casella.press("Alt+Enter");
+  await casella.pressSequentially("riga 3");
+  await casella.press("Control+Enter");
+  await casella.pressSequentially("riga 4");
+  await casella.press("Meta+Enter");
+  await casella.pressSequentially("riga 5");
+  await expect(casella).toHaveValue("riga 1\nriga 2\nriga 3\nriga 4\nriga 5");
+  expect(richieste).toHaveLength(0);
+  await casella.press("Enter");
+  await expect(casella).toHaveValue("");
+  await expect(chat(page).getByText(RISPOSTA)).toBeVisible();
+  expect(richieste).toHaveLength(1);
+  expect(JSON.stringify(richieste[0])).toContain("riga 1\\nriga 2\\nriga 3\\nriga 4\\nriga 5");
 });
 
 test.describe("storico per pagina", () => {

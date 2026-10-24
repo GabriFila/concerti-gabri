@@ -4,7 +4,12 @@
    Ogni funzione esportata da convex/ nasce da uno di questi:
    - publicQuery          query pubblica, con `returns` obbligatorio;
    - ownerQuery/Mutation/Action  del proprietario, etichettate da sole con
-     `catalogOp: "<nome del catalogo>"` oppure `dashboardOnly: "<motivo>"`;
+     `catalogOp: "<nome del catalogo>"`, `dashboardOnly: "<motivo>"` oppure
+     `oracoloOnly: "<motivo>"` (solo l'Oracolo in scrittura: oggi soltanto
+     entries.salvaScheda, il Salva della scheda di propose_concert). È
+     un'etichetta che RESTRINGE, non un confine di fiducia: anche la sessione
+     del proprietario può mandare `as: "oracolo"`, e può già fare una per una
+     le scritture che quella funzione compone;
    - onboardingMutation   l'unica che accetta un profilo in onboarding;
    - internalQuery/Mutation/Action  interne.
    convex/registry.test.ts scorre gli export e rifiuta tutto il resto.
@@ -33,6 +38,7 @@ export interface FnMeta {
   type: "query" | "mutation" | "action";
   catalogOp?: string;
   dashboardOnly?: string;
+  oracoloOnly?: string;
   /** Lo schema Zod dell'input: per una `catalogOp` è lo STESSO oggetto del catalogo (registry.test). */
   input?: z.ZodType;
 }
@@ -44,7 +50,11 @@ function tag<T>(fn: T, meta: FnMeta): T {
 }
 export const metaOf = (fn: unknown): FnMeta | undefined => (fn as Record<string, FnMeta> | null)?.[META];
 
-type Classe = { catalogOp: string; dashboardOnly?: undefined } | { dashboardOnly: string; catalogOp?: undefined };
+/** Una e una sola delle tre etichette. */
+type Classe =
+  | { catalogOp: string; dashboardOnly?: undefined; oracoloOnly?: undefined }
+  | { dashboardOnly: string; catalogOp?: undefined; oracoloOnly?: undefined }
+  | { oracoloOnly: string; catalogOp?: undefined; dashboardOnly?: undefined };
 
 /** Gli argomenti larghi delle funzioni del proprietario, tipizzati con l'input Zod. */
 function ownerArgs<I extends z.ZodType>() {
@@ -59,7 +69,10 @@ const opts = (c: Classe, a: { agentToken?: unknown; as?: unknown }): OwnerOption
   agentToken: a.agentToken,
   as: a.as,
   dashboardOnly: !!c.dashboardOnly,
+  oracoloOnly: !!c.oracoloOnly,
 });
+
+const classe = (c: Classe) => ({ catalogOp: c.catalogOp, dashboardOnly: c.dashboardOnly, oracoloOnly: c.oracoloOnly });
 
 /* ── pubbliche ─────────────────────────────────────────────────── */
 export function publicQuery<Args extends PropertyValidators, Returns extends GenericValidator, R>(spec: {
@@ -81,7 +94,7 @@ export function ownerQuery<I extends z.ZodType, R>(spec: Classe & { input: I; ha
       return await spec.handler(ctx, owner, parseInput(spec.input, a.input));
     },
   });
-  return tag(fn, { kind: "owner", type: "query", catalogOp: spec.catalogOp, dashboardOnly: spec.dashboardOnly, input: spec.input });
+  return tag(fn, { kind: "owner", type: "query", ...classe(spec), input: spec.input });
 }
 
 /** Le scritture degli agenti passano dal limite `agentWrites` (PIANO §5.4). */
@@ -101,7 +114,7 @@ export function ownerMutation<I extends z.ZodType, R>(spec: Classe & { input: I;
       return await spec.handler(ctx, owner, input);
     },
   });
-  return tag(fn, { kind: "owner", type: "mutation", catalogOp: spec.catalogOp, dashboardOnly: spec.dashboardOnly, input: spec.input });
+  return tag(fn, { kind: "owner", type: "mutation", ...classe(spec), input: spec.input });
 }
 
 export function ownerAction<I extends z.ZodType, R>(spec: Classe & {
@@ -116,7 +129,7 @@ export function ownerAction<I extends z.ZodType, R>(spec: Classe & {
       return await spec.handler(ctx, owner, parseInput(spec.input, a.input));
     },
   });
-  return tag(fn, { kind: "owner", type: "action", catalogOp: spec.catalogOp, dashboardOnly: spec.dashboardOnly, input: spec.input });
+  return tag(fn, { kind: "owner", type: "action", ...classe(spec), input: spec.input });
 }
 
 /** L'unica che accetta un profilo in `onboarding` (PIANO §1.19). Solo sessione. */

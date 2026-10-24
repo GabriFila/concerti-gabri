@@ -129,7 +129,17 @@ export const reset = internalMutation({
   },
 });
 
-/** Cancella i profili di prova `e2e-*` e i loro dati. */
+/** Quanti profili di prova cancella al massimo una chiamata: le righe lette restano sotto il limite di Convex (16 MB). */
+const PROFILI_PER_PULIZIA = 40;
+
+/**
+ * Cancella i profili di prova `e2e-*` e i loro dati, leggendo solo le righe
+ * di ciascuno (gli indici per profilo), al massimo PROFILI_PER_PULIZIA per
+ * chiamata: restituisce quanti ne ha cancellati (gli altri alla prossima).
+ * Prima leggeva le tabelle intere per ogni profilo, e con molti profili di
+ * prova (le spec della scheda dell'Oracolo ne creano uno per test) superava
+ * il limite di lettura di Convex.
+ */
 export const cleanupE2E = internalMutation({
   args: {},
   handler: async ctx => {
@@ -137,12 +147,20 @@ export const cleanupE2E = internalMutation({
     let n = 0;
     for (const p of await ctx.db.query("profiles").collect()) {
       if (!p.handle?.startsWith("e2e-")) continue;
-      await svuotaProfilo(ctx, p._id);
-      for (const t of ["entries", "people", "gifters", "wishlist", "activity", "chatThreads"] as const) {
-        for (const d of await ctx.db.query(t).collect()) if ((d as { profileId?: Id<"profiles"> }).profileId === p._id) await ctx.db.delete(d._id);
-      }
-      for (const a of await ctx.db.query("handleAliases").withIndex("by_profile", q => q.eq("profileId", p._id)).collect()) await ctx.db.delete(a._id);
-      await ctx.db.delete(p._id);
+      if (n === PROFILI_PER_PULIZIA) break;
+      const id = p._id;
+      await svuotaProfilo(ctx, id);
+      const righe = [
+        ...(await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", id)).collect()),
+        ...(await ctx.db.query("people").withIndex("by_profile_name", q => q.eq("profileId", id)).collect()),
+        ...(await ctx.db.query("gifters").withIndex("by_profile", q => q.eq("profileId", id)).collect()),
+        ...(await ctx.db.query("wishlist").withIndex("by_profile_ordine", q => q.eq("profileId", id)).collect()),
+        ...(await ctx.db.query("activity").withIndex("by_profile_at", q => q.eq("profileId", id)).collect()),
+        ...(await ctx.db.query("chatThreads").withIndex("by_profile_visibility_updatedAt", q => q.eq("profileId", id)).collect()),
+        ...(await ctx.db.query("handleAliases").withIndex("by_profile", q => q.eq("profileId", id)).collect()),
+      ];
+      for (const d of righe) await ctx.db.delete(d._id);
+      await ctx.db.delete(id);
       n++;
     }
     return n;

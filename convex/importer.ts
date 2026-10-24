@@ -21,7 +21,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
+import type { ActionCtx, QueryCtx } from "./_generated/server";
 import { analizzaImport, serveConferma, type ErroreRiga, type VoceImport } from "../shared/import.ts";
 import type { EntryInput } from "../shared/schema/entry.ts";
 import { CONFIRM_IMPORT_ROWS, importaConcertiInput } from "../shared/schema/importFormat.ts";
@@ -29,8 +29,8 @@ import { istantanea, logActivity, nuovoBatch } from "./lib/activity.ts";
 import { internalMutation, internalQuery, limitaAgente, ownerAction, ownerQuery } from "./lib/builders.ts";
 import { codiceDi, errore } from "./lib/errors.ts";
 import { campiKm } from "./lib/km.ts";
-import type { Actor } from "./lib/owner.ts";
-import { caricaRefs, campiDaInput, chiave, venuePerNome, type Refs } from "./lib/refs.ts";
+import { creaMancanti } from "./lib/mancanti.ts";
+import { caricaRefs, campiDaInput, chiave, venuePerNome } from "./lib/refs.ts";
 
 /** Voci per mutation: ogni voce legge i riferimenti e scrive concerto e registro. */
 export const LOTTO_IMPORT = 25;
@@ -116,25 +116,6 @@ export const verifica = internalQuery({
 
 const etichetta = (e: EntryInput) => `${e.kind === "festival" ? e.name : e.artist} (${e.date})`;
 
-/** Le persone e i "regalato da" che mancano nascono qui, nel lotto (si annullano con lui). */
-async function creaMancanti(ctx: MutationCtx, owner: { profile: Doc<"profiles">; actor: Pick<Actor, "via" | "label"> }, refs: Refs, entry: EntryInput, batchId: string) {
-  const profileId = owner.profile._id;
-  for (const name of nomiDi(entry)) {
-    if (refs.people.has(chiave(name))) continue;
-    const id = await ctx.db.insert("people", { profileId, name });
-    refs.people.set(chiave(name), id);
-    refs.peopleNames.push(name);
-    await logActivity(ctx, owner, { op: "create", table: "people", docId: id, batchId, summary: `persona aggiunta dall'import: ${name}`, after: istantanea(await ctx.db.get(id)) });
-  }
-  if (entry.giftFrom && !refs.gifters.has(chiave(entry.giftFrom))) {
-    const label = entry.giftFrom;
-    const id = await ctx.db.insert("gifters", { profileId, label });
-    refs.gifters.set(chiave(label), id);
-    refs.gifterNames.push(label);
-    await logActivity(ctx, owner, { op: "create", table: "gifters", docId: id, batchId, summary: `"regalato da" aggiunto dall'import: ${label}`, after: istantanea(await ctx.db.get(id)) });
-  }
-}
-
 /** Un lotto: persone e "regalato da" mancanti, poi i concerti, tutti con lo stesso batchId. */
 export const scriviLotto = internalMutation({
   args: {
@@ -150,7 +131,8 @@ export const scriviLotto = internalMutation({
     const refs = await caricaRefs(ctx, profileId);
     let scritte = 0;
     for (const { entry } of voci as VoceImport[]) {
-      await creaMancanti(ctx, owner, refs, entry, batchId);
+      // persone e "regalato da" mancanti nascono nel lotto (lib/mancanti.ts); le partenze no: devono esistere
+      await creaMancanti(ctx, owner, refs, { persone: nomiDi(entry), ...(entry.giftFrom ? { regalo: entry.giftFrom } : {}) }, batchId, "dall'import");
       const campi = await campiDaInput(ctx, refs, entry);
       const km = await campiKm(ctx, { profileId, departureId: campi.departureId, venueId: campi.venueId });
       const doc = Object.fromEntries(

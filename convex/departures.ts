@@ -8,10 +8,13 @@
    del piano) dà al solo proprietario, solo dalla dashboard, il TESTO degli
    indirizzi; la correzione è al massimo una al giorno per partenza
    (`lastCorrectionAt` più il limite `addressCorrection`); l'eliminazione
-   dell'account (convex/account.ts) passa dagli helper in fondo.
+   dell'account (convex/account.ts) passa dagli helper in fondo. La scheda
+   dell'Oracolo (entries.salvaScheda) crea una partenza nuova, solo col
+   nome, con `creaPartenzaNelLotto`.
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
+import { sembraIndirizzo } from "../shared/lib/nomi.ts";
 import { nessunInput } from "../shared/schema/campi.ts";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -21,6 +24,7 @@ import { istantanea, logActivity, nuovoBatch } from "./lib/activity.ts";
 import { internalMutation, internalQuery, ownerMutation, ownerQuery } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
 import { cancellaSegretiPartenza, estraiPerPartenza, haversineKm, kmSalvato } from "./lib/km.ts";
+import type { AutoreLotto } from "./lib/mancanti.ts";
 import { getOwned } from "./lib/owner.ts";
 import { chiave, departuresOf } from "./lib/refs.ts";
 import { rateLimiter } from "./rateLimits.ts";
@@ -36,6 +40,22 @@ async function nomeLibero(ctx: MutationCtx, profileId: Id<"profiles">, name: str
   if ((await departuresOf(ctx, profileId)).some(d => d._id !== self && chiave(d.name) === chiave(name))) {
     throw errore("conflitto", "esiste già una partenza con questo nome", { campo: "name" });
   }
+}
+
+/**
+ * Una partenza nuova dentro il lotto di un'altra scrittura (la scheda
+ * dell'Oracolo, via lib/mancanti.ts): solo il nome, senza indirizzo, quindi
+ * i km del concerto restano in attesa finché non si imposta in #partenze.
+ * Il nome è pubblico: uno che sembra un indirizzo non passa.
+ */
+export async function creaPartenzaNelLotto(ctx: MutationCtx, owner: AutoreLotto, name: string, batchId: string, suffisso: string) {
+  if (sembraIndirizzo(name)) {
+    throw errore("input_non_valido", "il nome della partenza è pubblico: usa un nome come «Casa», l'indirizzo si imposta in Partenze", { campo: "from" });
+  }
+  await nomeLibero(ctx, owner.profile._id, name);
+  const id = await ctx.db.insert("departures", { profileId: owner.profile._id, name, hasAddress: false, legacy: false, createdAt: Date.now() });
+  await logActivity(ctx, owner, { op: "create", table: "departures", docId: id, batchId, summary: `partenza aggiunta ${suffisso}: ${name}`, after: istantanea(await ctx.db.get(id)) });
+  return id;
 }
 
 export const list = ownerQuery({

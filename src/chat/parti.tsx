@@ -2,11 +2,12 @@
    I pezzi comuni delle due chat dell'Oracolo: quella pubblica di ogni
    pagina (ChatWidget) e quella in scrittura del proprietario in
    /<handle>/modifica (src/modifica/ChatScrittura.tsx). Messaggi, copia,
-   date brevi ed errori leggibili; gli strumenti li disegna ciascuna chat
+   date brevi, errori leggibili e i tasti della casella (Invio manda,
+   ⇧/⌥/⌘/Ctrl+Invio va a capo); gli strumenti li disegna ciascuna chat
    a modo suo (`Strumento`).
    ────────────────────────────────────────────────────────────── */
 
-import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEffect, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
 
 /** Il <crypto.randomUUID> se c'è (serve un contesto sicuro), altrimenti la stessa forma di TanStack. */
 export const randomId = () =>
@@ -75,12 +76,24 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-/** Un messaggio: testo, strumenti (disegnati da `Strumento`) e il bottone per copiarlo. */
-export function Message({ message, Strumento }: { message: any; Strumento: ComponentType<{ part: any }> }) {
+/**
+ * Un messaggio: testo, strumenti (disegnati da `Strumento`) e il bottone
+ * per copiarlo. `nascondi(part)` (facoltativo, solo la chat in scrittura):
+ * quegli strumenti non si mostrano nella nuvoletta (le letture finite e
+ * le schede dei concerti, che la chat mette a tutta larghezza da sé).
+ */
+export function Message({ message, Strumento, nascondi }: {
+  message: any;
+  Strumento: ComponentType<{ part: any }>;
+  nascondi?: (part: any) => boolean;
+}) {
   const isUser = message.role === "user";
   const parts = (message.parts || []).map((part: any, i: number) => {
     if (part.type === "text" && part.content) return <p key={i}>{part.content}</p>;
-    if (part.type === "tool-call") return <Strumento key={i} part={part} />;
+    if (part.type === "tool-call") {
+      if (nascondi?.(part)) return null;
+      return <Strumento key={i} part={part} />;
+    }
     return null;
   }).filter(Boolean);
   if (parts.length === 0) return null;
@@ -95,6 +108,45 @@ export function Message({ message, Strumento }: { message: any; Strumento: Compo
       {text && <CopyBtn text={text} />}
     </div>
   );
+}
+
+/* ── la casella: Invio manda, ⇧/⌥/⌘/Ctrl+Invio va a capo ─────── */
+
+/** Una tastiera solo sullo schermo (telefono, tablet senza tastiera): lì Invio va a capo e si manda col pulsante. */
+const soloTouch = () => typeof matchMedia === "function" && matchMedia("(hover: none) and (pointer: coarse)").matches;
+
+/** Un a capo dove c'è il cursore, con l'annulla del browser (e l'onChange di React). */
+function aCapo(el: HTMLTextAreaElement) {
+  if (document.execCommand?.("insertText", false, "\n")) return;
+  el.setRangeText("\n", el.selectionStart, el.selectionEnd, "end");
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/**
+ * Invio (o Esc) che chiude la composizione di un IME (giapponese, cinese,
+ * accenti composti): Safari lo manda dopo compositionend, con
+ * isComposing false ma keyCode 229. Non è un Invio da interpretare.
+ */
+export const componendo = (e: KeyboardEvent<Element>) => e.nativeEvent.isComposing || e.keyCode === 229;
+
+/**
+ * I tasti della casella di una chat (le due chat dell'Oracolo):
+ * Invio manda; ⇧, ⌥, ⌘ o Ctrl con Invio vanno a capo. Mentre si compone
+ * con un IME (giapponese, cinese, accenti composti) Invio conferma la
+ * composizione e non manda niente. Con la sola tastiera a schermo Invio
+ * va a capo, come nelle app di messaggi: si manda col pulsante.
+ */
+export function tastiInvio(e: KeyboardEvent<HTMLTextAreaElement>, invia: () => void) {
+  if (e.key !== "Enter" || componendo(e)) return;
+  if (e.shiftKey) return; // a capo nativo
+  if (e.altKey || e.metaKey || e.ctrlKey) {
+    e.preventDefault();
+    aCapo(e.currentTarget);
+    return;
+  }
+  if (soloTouch()) return;
+  e.preventDefault();
+  invia();
 }
 
 /** I tre puntini mentre l'Oracolo pensa. */

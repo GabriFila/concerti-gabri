@@ -5,4 +5,242 @@
    stanno sotto .mf-oracolo (le classi .chat-* di styles.css sono anche
    dell'Oracolo pubblico). La cornice (.mf-oracolo, .mf-oracolo-testa,
    .mf-oracolo-corpo) è di modifica.css.
+
+   La scheda dei concerti (src/modifica/scheda/, spec ux-agente §9.14):
+   sta fuori dalla nuvoletta, a tutta larghezza (.chat-schede), e si
+   adatta alla LARGHEZZA DELLA CHAT con le container query (380–420 px
+   agganciata, tutto schermo sul telefono), non a quella della finestra.
+   Il piede col Salva sta appiccicato in fondo alla chat mentre si scorre
+   una scheda più alta del pannello (anche sul desktop: il primario resta
+   in vista). Al tocco (pointer: coarse) bersagli da 44 px, campi a 16 px
+   (niente zoom su iOS), e il piede smette di stare appiccicato mentre si
+   scrive in un campo di testo (la tastiera lo coprirebbe). Solo i token
+   del sito: chiaro e scuro vengono da soli.
+
+   La barra del lotto (.schede-barra, scheda/BarraSchede.tsx): con due o
+   più schede nello stesso run sta appiccicata in fondo a .chat-body, e le
+   schede al posto del piede hanno la casella «Da salvare».
    ────────────────────────────────────────────────────────────── */
+
+/* l'ambra dei testi della scheda: in chiaro più scura, ≥ 4,5:1 anche sul fondo ambra (testi piccoli) */
+.mf-oracolo{--scheda-ambra:var(--mf-ambra-testo,var(--lamp))}
+[data-theme="light"] .mf-oracolo{--scheda-ambra:color-mix(in oklab,var(--lamp) 42%,var(--text))}
+
+.mf-oracolo .scheda-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* la casella: l'avviso sopra quando c'è una scheda aperta */
+.mf-oracolo .chat-avviso-schede{margin:0;padding:8px 16px 0;font-size:.76rem;line-height:1.4;color:var(--muted);flex-shrink:0}
+
+/* ── la scheda ─────────────────────────────────────────────────── */
+
+.mf-oracolo .chat-schede{container:schede / inline-size;display:grid;gap:10px;margin:6px 0 2px;width:100%;flex-shrink:0}
+.mf-oracolo .scheda{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;padding:14px;border:1px solid var(--line-2);border-radius:var(--r-riquadro,14px);
+  background:var(--panel-2);color:var(--text);font-size:.88rem;line-height:1.45}
+.mf-oracolo .scheda p{margin:0}
+.mf-oracolo .scheda-testa{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:22px}
+.mf-oracolo .scheda-occhiello{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.66rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mf-oracolo .scheda-pillola{flex-shrink:0;padding:2px 9px;border-radius:999px;border:1px solid var(--line-2);font-size:.72rem;font-weight:600;white-space:nowrap;color:var(--muted)}
+.mf-oracolo .scheda-pillola[data-tono="ambra"]{background:var(--lamp-faint);border-color:var(--lamp-soft);color:var(--scheda-ambra)}
+.mf-oracolo .scheda-pillola[data-tono="ok"]{background:var(--planned-faint);border-color:var(--planned-soft);color:var(--mf-teal-testo,var(--planned))}
+.mf-oracolo .scheda-titolo{margin:-4px 0 0;font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;font-size:1.15rem;line-height:1.25;color:var(--text);overflow-wrap:anywhere}
+/* il titolo e le righe chiuse prendono il focus quando il pulsante premuto sparisce (scheda/focus.ts) */
+.mf-oracolo .scheda-titolo:focus,.mf-oracolo .scheda-chiusa:focus{outline:none}
+.mf-oracolo .scheda-titolo:focus-visible,.mf-oracolo .scheda-chiusa:focus-visible{outline:2px solid var(--lamp);outline-offset:2px;border-radius:6px}
+.mf-oracolo .scheda-sotto{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.mf-oracolo .scheda-passato{color:var(--scheda-ambra)}
+.mf-oracolo .scheda-programma{color:var(--mf-teal-testo,var(--planned))}
+/* il puntino ha il colore dei KpiDots (ambra = passato, teal = in programma); la parola il tono leggibile */
+.mf-oracolo .scheda-passato .scheda-punto{color:var(--lamp)}
+.mf-oracolo .scheda-programma .scheda-punto{color:var(--planned)}
+.mf-oracolo .scheda-badge{display:inline-block;margin-left:8px;padding:0 7px;border-radius:999px;border:1px dashed var(--lamp-soft);font-size:.68rem;color:var(--muted);white-space:nowrap}
+.mf-oracolo .scheda-muto{color:var(--muted)}
+
+/* da sistemare (blocca il Salva): il riquadro ambra con le sue azioni */
+.mf-oracolo .scheda-sistemare:empty{display:none}
+.mf-oracolo .scheda-box{display:flex;flex-direction:column;gap:8px;margin:0}
+.mf-oracolo .scheda-box-titolo{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--scheda-ambra)}
+.mf-oracolo .scheda-problemi{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.mf-oracolo .scheda-azioni-problema{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
+.mf-oracolo .scheda-candidati{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.mf-oracolo .scheda-opzioni{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.mf-oracolo .scheda-opzioni li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 10px;border:1px solid var(--line-2);border-radius:10px;background:var(--panel);min-width:0}
+.mf-oracolo .scheda-opzioni li > span{min-width:0;overflow-wrap:anywhere}
+.mf-oracolo .scheda-opzioni .mod-btn{flex-shrink:0}
+
+/* le righe: etichetta sopra il valore se stretta, a due colonne da 330 px */
+.mf-oracolo .scheda-righe{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.mf-oracolo .scheda-riga{border-bottom:1px solid var(--line);min-width:0}
+.mf-oracolo .scheda-riga-btn{display:block;width:100%;margin:0;padding:8px 6px;border:none;border-radius:8px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.mf-oracolo .scheda-riga-btn:disabled{cursor:default;color:inherit;opacity:1}
+.mf-oracolo .scheda-riga-btn:focus-visible,.mf-oracolo .scheda-aggiungi-btn:focus-visible,.mf-oracolo .scheda-link:focus-visible{outline:2px solid var(--lamp);outline-offset:-2px}
+.mf-oracolo .scheda-con-testa,.mf-oracolo .scheda-lineup{padding:8px 6px}
+.mf-oracolo .scheda-lineup{display:block}
+.mf-oracolo .scheda-etichetta{display:block;font-size:.7rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mf-oracolo .scheda-valore{display:block;min-width:0;overflow-wrap:anywhere}
+.mf-oracolo .scheda-con-testa .scheda-valore{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mf-oracolo .scheda-aggiungi{color:var(--muted)}
+.mf-oracolo .scheda-aggiungi-btn{padding:2px 4px;margin:0;border:none;border-radius:6px;background:none;font:inherit;font-size:.85rem;cursor:pointer}
+.mf-oracolo .scheda-aggiungi-btn:hover,.mf-oracolo .scheda-riga-btn:hover:not(:disabled) .scheda-aggiungi{color:var(--scheda-ambra)}
+.mf-oracolo .scheda-matita{display:none;color:var(--muted)}
+.mf-oracolo .scheda-tuo{color:var(--scheda-ambra);white-space:nowrap}
+.mf-oracolo .scheda-riga.muta .scheda-valore{color:var(--muted)}
+.mf-oracolo .scheda-cambio{display:block}
+.mf-oracolo .scheda-prima{display:inline-block;max-width:100%;color:var(--muted)}
+.mf-oracolo .scheda-dopo{display:inline-block;max-width:100%;font-weight:600;color:var(--text)}
+.mf-oracolo .scheda-stelle{color:var(--lamp);letter-spacing:1px}
+.mf-oracolo .scheda-righe-lineup{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;min-width:0;overflow-wrap:anywhere}
+.mf-oracolo .scheda-altri{align-self:flex-start;margin-top:6px}
+@container schede (min-width:330px){
+  .mf-oracolo .scheda-riga-btn,.mf-oracolo .scheda-con-testa,.mf-oracolo .scheda-lineup-testa{display:grid;grid-template-columns:104px minmax(0,1fr) auto;gap:10px;align-items:baseline}
+  .mf-oracolo .scheda-matita{display:inline;opacity:0}
+}
+@media (pointer:fine){
+  .mf-oracolo .scheda-riga-btn:hover:not(:disabled){background:var(--panel)}
+  .mf-oracolo .scheda-riga-btn:hover:not(:disabled) .scheda-matita,.mf-oracolo .scheda-riga-btn:focus-visible .scheda-matita{opacity:1}
+}
+
+/* gli editor: sotto la riga aperta */
+.mf-oracolo .scheda-riga.aperta{background:var(--panel);border-radius:10px}
+.mf-oracolo .scheda-editor{display:flex;flex-direction:column;gap:8px;padding:2px 8px 12px}
+.mf-oracolo .scheda-input{width:100%;min-width:0;padding:8px 11px;border:1px solid var(--line-2);border-radius:var(--r-campo,10px);background:var(--bg-2);color:var(--text);font:inherit;font-size:.9rem}
+.mf-oracolo textarea.scheda-input{resize:vertical;min-height:72px}
+.mf-oracolo .scheda-input:focus{outline:2px solid var(--lamp-soft);outline-offset:0;border-color:var(--lamp-soft)}
+.mf-oracolo .scheda-input[aria-invalid="true"]{border-color:#e0705f}
+.mf-oracolo .scheda-editor select{width:100%;padding:8px 10px;border:1px solid var(--line-2);border-radius:var(--r-campo,10px);background:var(--bg-2);color:var(--text);font:inherit;font-size:.9rem}
+.mf-oracolo .scheda-editor .mod-riga > .scheda-input{flex:1 1 160px}
+.mf-oracolo .scheda-prezzo{display:inline-flex;align-items:center;gap:6px}
+.mf-oracolo .scheda-prezzo .scheda-input{width:120px}
+.mf-oracolo .scheda-biglietto{display:flex;flex-direction:column;gap:10px}
+.mf-oracolo .scheda-scelta{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+
+/* chip: compagni e scelte (radio nativi stesi sul chip: il chip è il bersaglio) */
+.mf-oracolo .scheda-chips{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.mf-oracolo .scheda-chip{display:inline-flex;align-items:center;gap:2px;padding:2px 2px 2px 10px;border-radius:999px;border:1px solid var(--line-2);background:var(--panel);font-size:.84rem}
+.mf-oracolo .scheda-chip[data-stato="nuovo"]{border-style:dashed;border-color:var(--lamp-soft)}
+.mf-oracolo .scheda-chip[data-stato="problema"]{border-color:var(--lamp);background:var(--lamp-faint);color:var(--scheda-ambra)}
+.mf-oracolo .scheda-chip-nota{margin-left:4px;font-size:.7rem;color:var(--muted)}
+.mf-oracolo .scheda-chip button{display:inline-flex;align-items:center;justify-content:center;min-width:26px;min-height:26px;padding:0;border:none;border-radius:999px;background:none;color:var(--muted);font-size:1rem;line-height:1;cursor:pointer}
+.mf-oracolo .scheda-chip button:hover{color:var(--text);background:var(--panel-2)}
+.mf-oracolo .scheda-opzione{position:relative;display:inline-flex;align-items:center;padding:5px 12px;border:1px solid var(--line-2);border-radius:999px;background:var(--panel);font-size:.82rem;cursor:pointer;user-select:none}
+.mf-oracolo .scheda-opzione input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.mf-oracolo .scheda-opzione:hover{border-color:var(--lamp-soft)}
+.mf-oracolo .scheda-opzione[data-scelta]{background:var(--lamp);border-color:var(--lamp);color:#171106;font-weight:600}
+.mf-oracolo .scheda-opzione:focus-within{outline:2px solid var(--lamp);outline-offset:2px}
+.mf-oracolo .scheda-stelline{display:inline-flex;gap:2px}
+.mf-oracolo .scheda-stellina{position:relative;display:inline-flex;padding:2px 3px;border-radius:6px;font-size:1.6rem;line-height:1;color:var(--line-2);cursor:pointer}
+.mf-oracolo .scheda-stellina input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.mf-oracolo .scheda-stellina[data-piena]{color:var(--lamp)}
+.mf-oracolo .scheda-stellina:focus-within{outline:2px solid var(--lamp);outline-offset:1px}
+
+/* da controllare (avvisi) e mancano */
+.mf-oracolo .scheda-controlla{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.8rem;color:var(--muted)}
+.mf-oracolo .scheda-controlla li{display:flex;gap:8px;align-items:baseline}
+.mf-oracolo .scheda-esclamativo{flex-shrink:0;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--lamp-faint);color:var(--scheda-ambra);font-size:.7rem;font-weight:700}
+.mf-oracolo .scheda-mancano{font-size:.8rem;color:var(--muted)}
+.mf-oracolo .scheda-attenzione{font-size:.8rem;color:var(--scheda-ambra)}
+.mf-oracolo .scheda-link{padding:0;border:none;background:none;font:inherit;color:var(--scheda-ambra);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;cursor:pointer}
+
+/* il piede: un primario (Salva) a destra, Scarta accanto; stretto, il primario prende il resto della riga
+   (una riga sola: sul telefono il piede appiccicato copre meno scheda) */
+.mf-oracolo .scheda-piede{display:flex;flex-direction:column;gap:8px}
+.mf-oracolo .scheda-azioni{display:flex;flex-direction:row-reverse;gap:8px}
+.mf-oracolo .scheda-azioni .mod-btn{min-height:38px;min-width:96px}
+.mf-oracolo .scheda-azioni .mod-primario{flex:1 1 auto}
+.mf-oracolo .scheda-blocco{font-size:.78rem;color:var(--muted)}
+.mf-oracolo .scheda-nota{font-size:.74rem;color:var(--muted)}
+@container schede (min-width:420px){
+  .mf-oracolo .scheda-azioni{justify-content:flex-start;flex-wrap:wrap}
+  .mf-oracolo .scheda-azioni .mod-primario{flex:0 0 auto}
+  .mf-oracolo .scheda-piede-pronta{flex-direction:row;align-items:center;justify-content:space-between}
+}
+/* i link della scheda nell'ambra leggibile (in chiaro .mod-link è troppo tenue sul fondo ambra), sottolineati:
+   in chiaro quell'ambra scura è vicina al testo, e senza la riga sembrerebbero etichette */
+.mf-oracolo .scheda .mod-link{color:var(--scheda-ambra);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px}
+
+/* la testa: la pillola e il ⋯ (È un festival / Fanne un concerto singolo) */
+.mf-oracolo .scheda-testa-destra{display:inline-flex;align-items:center;gap:4px;flex-shrink:0}
+.mf-oracolo .scheda-menu .mf-menu-pulsante{width:28px;height:28px}
+/* sotto i pulsanti: «Modulo completo» (terziario) e la nota */
+.mf-oracolo .scheda-piede-altro{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.mf-oracolo .scheda-modulo{white-space:nowrap}
+
+/* la lineup di un festival: una riga per concerto, il suo editor sotto */
+.mf-oracolo .scheda-lineup-testa .scheda-etichetta:focus{outline:none}
+.mf-oracolo .scheda-lineup-mostra{display:block;margin-top:4px}
+.mf-oracolo .scheda-set-lista{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.mf-oracolo .scheda-set{border:1px solid var(--line);border-radius:10px;background:var(--panel-2);min-width:0}
+.mf-oracolo .scheda-set.aperta{background:var(--panel);border-color:var(--line-2)}
+.mf-oracolo .scheda-set-riga{display:flex;align-items:center;gap:2px;min-width:0}
+.mf-oracolo .scheda-set-btn{flex:1;min-width:0;padding:7px 8px;border:none;border-radius:10px;background:none;color:inherit;font:inherit;font-size:.85rem;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.mf-oracolo .scheda-set-btn:disabled{cursor:default}
+.mf-oracolo .scheda-set-btn:focus-visible,.mf-oracolo .scheda-icona:focus-visible{outline:2px solid var(--lamp);outline-offset:-2px}
+.mf-oracolo .scheda-set-azioni{display:inline-flex;flex-shrink:0;padding-right:4px}
+.mf-oracolo .scheda-icona{display:inline-flex;align-items:center;justify-content:center;min-width:28px;min-height:28px;padding:0;border:none;border-radius:8px;background:none;color:var(--muted);font:inherit;font-size:.95rem;cursor:pointer}
+.mf-oracolo .scheda-icona:hover:not(:disabled){color:var(--text);background:var(--panel-2)}
+.mf-oracolo .scheda-icona:disabled{opacity:.35;cursor:default}
+.mf-oracolo .scheda-set-editor{display:flex;flex-direction:column;gap:10px}
+.mf-oracolo .scheda-set-editor .mod-campo{display:flex;flex-direction:column;gap:6px;margin:0}
+.mf-oracolo .scheda-set-fatto{align-self:flex-start}
+.mf-oracolo .scheda-set-aggiungi{display:inline-block;margin-top:6px}
+.mf-oracolo .scheda-righe-lineup .scheda-dopo{font-weight:600}
+
+/* in un lotto: la casella «Da salvare» al posto del piede; una scheda tolta si attenua */
+.mf-oracolo .scheda-lotto-riga{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px}
+.mf-oracolo .scheda-inclusa{display:inline-flex;align-items:center;gap:8px;font-weight:600;cursor:pointer}
+.mf-oracolo .scheda-inclusa input{width:18px;height:18px;accent-color:var(--lamp)}
+.mf-oracolo .scheda-esclusa{border-style:dashed}
+.mf-oracolo .scheda-esclusa > :not(.scheda-piede){opacity:.55}
+
+/* la barra del lotto, appiccicata in fondo alla chat */
+.mf-oracolo .schede-barra{position:sticky;bottom:0;z-index:2;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;
+  margin:8px -4px 0;padding:10px 12px;border:1px solid var(--line-2);border-radius:var(--r-riquadro,14px);background:var(--panel);
+  box-shadow:0 -8px 18px -10px rgba(0,0,0,.45);font-size:.84rem;flex-shrink:0}
+.mf-oracolo .schede-barra p{margin:0}
+.mf-oracolo .schede-barra-stato{font-weight:600;color:var(--text)}
+.mf-oracolo .schede-barra-nota{flex-basis:100%;order:3;font-size:.78rem;color:var(--muted)}
+.mf-oracolo .schede-barra .mod-errore{flex-basis:100%;order:4}
+.mf-oracolo .schede-barra-azioni{display:flex;gap:8px;margin-left:auto}
+.mf-oracolo .schede-barra-azioni .mod-btn{min-height:38px}
+.mf-oracolo .schede-barra-fatta{position:static;box-shadow:none;border-color:var(--planned-soft)}
+
+/* in arrivo, conferma, chiuse */
+.mf-oracolo .scheda-attesa{gap:6px;color:var(--muted)}
+.mf-oracolo .scheda-attesa p{animation:scheda-respira 1.4s ease-in-out infinite}
+@keyframes scheda-respira{0%,100%{opacity:.5}50%{opacity:1}}
+.mf-oracolo .scheda-esito{gap:6px;border-color:var(--planned-soft)}
+.mf-oracolo .scheda-esito:focus{outline:none}
+.mf-oracolo .scheda-esito:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.mf-oracolo .scheda-esito-titolo{font-weight:600}
+.mf-oracolo .scheda-segno{color:var(--mf-teal-testo,var(--planned));font-weight:700}
+.mf-oracolo .scheda-annullata{border-color:var(--line-2)}
+.mf-oracolo .scheda-annullata .scheda-segno{color:var(--muted)}
+.mf-oracolo .scheda-creati{list-style:none;margin:0;padding:0;font-size:.8rem;color:var(--muted)}
+.mf-oracolo .scheda-azioni-esito{flex-direction:row;flex-wrap:wrap}
+.mf-oracolo .scheda-azioni-esito .mod-btn{flex:0 0 auto;min-width:88px}
+.mf-oracolo .scheda-chiusa{padding:9px 13px;gap:4px;font-size:.82rem}
+.mf-oracolo .scheda-riga-muta{background:transparent;border-style:dashed;color:var(--muted)}
+.mf-oracolo .scheda-chiusa-errore{border-color:rgba(220,90,70,.35)}
+.mf-oracolo .scheda-nota-utente{align-self:flex-end;max-width:88%;margin-top:6px}
+
+/* il piede col Salva in vista mentre si scorre una scheda lunga (in un lotto decide la barra in fondo);
+   bottom −16px = il padding di .chat-body: appiccicato sta sul bordo, senza una striscia di scheda sotto */
+.mf-oracolo .scheda[data-stato="bozza"]:not([data-lotto]) .scheda-piede{position:sticky;bottom:-16px;z-index:1;margin:0 -14px;padding:10px 14px;
+  background:var(--panel-2);box-shadow:0 -6px 12px -8px rgba(0,0,0,.35)}
+.mf-oracolo .scheda[data-stato="bozza"]:not([data-lotto]) .scheda-piede:last-child{margin-bottom:-14px;padding-bottom:14px;border-radius:0 0 var(--r-riquadro,14px) var(--r-riquadro,14px)}
+
+/* al tocco: bersagli grandi, campi senza zoom */
+@media (pointer:coarse){
+  .mf-oracolo .scheda .mod-btn,.mf-oracolo .scheda-riga-btn,.mf-oracolo .scheda-aggiungi-btn,.mf-oracolo .scheda-opzione,.mf-oracolo .scheda-set-btn,.mf-oracolo .schede-barra .mod-btn{min-height:44px}
+  .mf-oracolo .scheda-icona{min-width:40px;min-height:44px}
+  .mf-oracolo .scheda-menu .mf-menu-pulsante{width:44px;height:44px}
+  .mf-oracolo .scheda-chip button{min-width:36px;min-height:36px}
+  .mf-oracolo .scheda input,.mf-oracolo .scheda select,.mf-oracolo .scheda textarea{font-size:16px}
+  /* mentre si scrive in un campo di testo il piede torna al suo posto (la tastiera a schermo lo coprirebbe);
+     non per radio e caselle (Voto, Posizione…): lì la tastiera non si apre */
+  .mf-oracolo .scheda[data-stato="bozza"]:has(:is(input:not([type="radio"],[type="checkbox"]),textarea,select):focus) .scheda-piede{position:static;box-shadow:none}
+  /* il piede appiccicato resta basso: «oppure scrivi qui sotto» lo dice già l'avviso sopra la casella */
+  .mf-oracolo .scheda[data-stato="bozza"] .scheda-nota{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .mf-oracolo .scheda *{transition:none !important;animation:none !important}
+}

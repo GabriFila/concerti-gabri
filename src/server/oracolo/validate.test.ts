@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  allowedOrigins, deployKind, isAllowedOrigin, MAX_BODY_CHARS, MAX_MESSAGES, MAX_PAYLOAD_RIPRESA, MAX_USER_TEXT, originOk, validate,
+  allowedOrigins, deployKind, isAllowedOrigin, MAX_BODY_CHARS, MAX_MESSAGES, MAX_MESSAGGI_STORICO, MAX_PAYLOAD_RIPRESA, MAX_USER_TEXT, originOk, TROPPO_LUNGA, validate,
 } from "./validate.ts";
 
 const PROD = { VERCEL_ENV: "production" };
@@ -204,5 +204,35 @@ describe("validate: forma e dimensioni della richiesta", () => {
     // resume senza il run che riprende: è un turno normale, che vuole una domanda
     const senzaRun = validate(body({ messages: [user("ciao"), { role: "assistant", content: "x" }], resume: [voce] }));
     expect(senzaRun).toEqual({ error: "Richiesta non valida." });
+  });
+
+  it("i limiti della scrittura (biglietto incollato, scheda corretta) valgono solo dove si passano", () => {
+    const ripresa = (n: number) => ({ interruptId: "approval_c1", status: "resolved", payload: { approved: true, editedArgs: { comments: "x".repeat(n) } } });
+    const conRipresa = (n: number) => body({ messages: [user("ciao")], runId: "run-1792644544574-jzb5gd", parentRunId: "run-1792644544047-8q3hse", resume: [ripresa(n)] });
+    const SCRITTURA = { maxPayloadRipresa: 16_000, maxTestoUtente: 4_000 };
+    // il widget pubblico: una scheda di 10k si scarta, un testo di 3000 è troppo lungo
+    const pubblica = validate(conRipresa(10_000));
+    expect("error" in pubblica ? pubblica.error : pubblica.resume).toBeUndefined();
+    expect(validate(body({ messages: [user("a".repeat(3000))] }))).toEqual({ error: `Messaggio troppo lungo (max ${MAX_USER_TEXT} caratteri).` });
+    // la scrittura: passano entrambi
+    const scrittura = validate(conRipresa(10_000), SCRITTURA);
+    if ("error" in scrittura) throw new Error(scrittura.error);
+    expect(scrittura.resume).toHaveLength(1);
+    const lungo = validate(body({ messages: [user("a".repeat(4000))] }), SCRITTURA);
+    expect("error" in lungo ? lungo.error : lungo.domanda?.length).toBe(4000);
+    // oltre i suoi limiti no, e il messaggio dice il limite vero
+    const troppo = validate(conRipresa(16_000), SCRITTURA);
+    expect("error" in troppo ? troppo.error : troppo.resume).toBeUndefined();
+    expect(validate(body({ messages: [user("a".repeat(4001))] }), SCRITTURA)).toEqual({ error: "Messaggio troppo lungo (max 4000 caratteri)." });
+    // il tetto sul corpo intero resta quello di sempre
+    expect(validate(body({ messages: [user("a".repeat(MAX_BODY_CHARS))] }), SCRITTURA)).toEqual({ error: "Conversazione troppo lunga: apri una nuova chat." });
+  });
+
+  it("i messaggi del browser: 40 nel widget pubblico, quanti ne passa la route in scrittura", () => {
+    const molti = (n: number) => body({ messages: Array.from({ length: n }, (_, i) => user("m" + i)) });
+    expect(validate(molti(MAX_MESSAGES + 1))).toEqual({ error: TROPPO_LUNGA });
+    const scrittura = validate(molti(MAX_MESSAGES + 1), { maxMessaggi: MAX_MESSAGGI_STORICO });
+    expect("error" in scrittura ? scrittura.error : scrittura.domanda).toBe(`m${MAX_MESSAGES}`);
+    expect(validate(molti(MAX_MESSAGGI_STORICO + 1), { maxMessaggi: MAX_MESSAGGI_STORICO })).toEqual({ error: TROPPO_LUNGA });
   });
 });

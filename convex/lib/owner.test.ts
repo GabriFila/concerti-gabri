@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { api } from "../_generated/api";
 import { codiceDi } from "./errors.ts";
 import { components } from "../_generated/api";
-import { conProfilo, sessione, setup } from "../test.setup";
+import { nuovoClientOAuth, nuovoTokenOAuth } from "../test.authFinto.ts";
+import { conProfilo, sessione, setup, venue } from "../test.setup";
 
 const codice = async (p: Promise<unknown>) => {
   try {
@@ -55,6 +56,27 @@ describe("requireOwner e getOwned", () => {
     await a.as.mutation(api.people.add, { as: "oracolo", input: { name: "Lu" } });
     const voci = await a.as.query(api.activity.list, {});
     expect(voci.voci[0].autore).toBe("Oracolo");
+  });
+
+  it("oracoloOnly (la scheda dell'Oracolo): solo con as: \"oracolo\"; la dashboard e gli agenti → solo_oracolo", async () => {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    await venue(t, "Fabrique", "Milano", 9.25, 45.45);
+    const input = { proposta: { artist: "X", date: "2026-01-01", venue: "Fabrique", city: "Milano" } };
+    // la sessione senza `as` è la dashboard
+    expect(await codice(a.as.mutation(api.entries.salvaScheda, { input }))).toBe("solo_oracolo");
+    // un agente resta un agente, anche con as: "oracolo"
+    const { chiave } = await a.as.mutation(api.agents.createApiKey, { input: { nome: "Script" } });
+    await nuovoClientOAuth(t, "client-a");
+    const token = await nuovoTokenOAuth(t, "u-a", "client-a");
+    for (const agentToken of [chiave, token]) {
+      expect(await codice(t.mutation(api.entries.salvaScheda, { agentToken, input }))).toBe("solo_oracolo");
+      expect(await codice(t.mutation(api.entries.salvaScheda, { agentToken, as: "oracolo", input }))).toBe("solo_oracolo");
+    }
+    expect((await a.as.query(api.entries.list, {})).concerts).toEqual([]);
+    // l'Oracolo sì, e nel registro firma "Oracolo"
+    expect(await codice(a.as.mutation(api.entries.salvaScheda, { as: "oracolo", input }))).toBe("ok");
+    expect((await a.as.query(api.activity.list, {})).voci[0]).toMatchObject({ autore: "Oracolo", riassunto: "aggiunto: X (01/01/2026)" });
   });
 
   it("un input non valido non viene ripetuto nell'errore", async () => {

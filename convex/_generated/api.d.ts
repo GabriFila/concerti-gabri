@@ -32,6 +32,7 @@ import type * as lib_builders from "../lib/builders.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_handles from "../lib/handles.js";
 import type * as lib_km from "../lib/km.js";
+import type * as lib_mancanti from "../lib/mancanti.js";
 import type * as lib_owner from "../lib/owner.js";
 import type * as lib_refs from "../lib/refs.js";
 import type * as lib_zodConvex from "../lib/zodConvex.js";
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "lib/errors": typeof lib_errors;
   "lib/handles": typeof lib_handles;
   "lib/km": typeof lib_km;
+  "lib/mancanti": typeof lib_mancanti;
   "lib/owner": typeof lib_owner;
   "lib/refs": typeof lib_refs;
   "lib/zodConvex": typeof lib_zodConvex;

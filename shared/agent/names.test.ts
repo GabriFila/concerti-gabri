@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chatToolDefs, chatToolList } from "../../src/chat/tools.ts";
+import { proponiConcertoDef } from "../../src/server/oracolo/proposta.ts";
 import { queryConcertsDef, reportUnsupportedDef, webSearchDef } from "../../src/server/oracolo/tools.ts";
 import { CATALOGO, NOMI_CATALOGO } from "./catalog.ts";
 
@@ -16,6 +17,8 @@ describe("nomi degli strumenti", () => {
       queryConcertsDef(vocab).name,
       reportUnsupportedDef.name,
       webSearchDef.name,
+      // la scheda dell'Oracolo in scrittura: solo sua, mai nel catalogo (MCP)
+      proponiConcertoDef.name,
     ];
     expect(new Set(oracolo).size).toBe(oracolo.length);
     const comuni = oracolo.filter(n => NOMI_CATALOGO.includes(n));
@@ -23,6 +26,7 @@ describe("nomi degli strumenti", () => {
     // set_theme è del catalogo (stile della pagina), quello del visitatore si chiama set_visitor_theme
     expect(NOMI_CATALOGO).toContain("set_theme");
     expect(oracolo).toContain("set_visitor_theme");
+    expect(NOMI_CATALOGO).not.toContain("propose_concert");
   });
 
   it("ogni operazione indica la sua funzione Convex e il traguardo", () => {

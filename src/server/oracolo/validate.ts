@@ -15,6 +15,12 @@
    non arrivano mai al modello né allo storico pubblico. Una ripresa
    (`resume` + `parentRunId`) non porta una domanda: risponde a uno
    strumento del browser o a un'approvazione del run interrotto.
+
+   I limiti del testo dell'utente, del payload di una ripresa e del numero
+   di messaggi valgono per il widget pubblico; l'Oracolo in scrittura passa
+   i suoi (scrittura.ts: un biglietto incollato, la scheda corretta di
+   propose_concert, le sessioni lunghe di schede). Il tetto sul corpo intero
+   (MAX_BODY_CHARS) resta uguale per tutti.
    ────────────────────────────────────────────────────────────── */
 
 import { randomUUID } from "node:crypto";
@@ -75,23 +81,36 @@ export interface RipresaRun {
 
 const MAX_RIPRESE = 20;
 
-const payloadPiccolo = (p: unknown) => p === undefined || (JSON.stringify(p) ?? "").length <= MAX_PAYLOAD_RIPRESA;
+const payloadPiccolo = (p: unknown, max: number) => p === undefined || (JSON.stringify(p) ?? "").length <= max;
 
 /** Le voci di `resume` ben formate (le altre si scartano: il motore rifiuta comunque quelle che non aspetta). */
-function riprese(v: unknown): RipresaRun[] | undefined {
+function riprese(v: unknown, maxPayload: number): RipresaRun[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const ok = v.slice(0, MAX_RIPRESE).filter(
     (r): r is RipresaRun =>
       !!r && typeof r === "object" && typeof r.interruptId === "string" && r.interruptId.length <= 200 &&
-      (r.status === "resolved" || r.status === "cancelled") && payloadPiccolo(r.payload),
+      (r.status === "resolved" || r.status === "cancelled") && payloadPiccolo(r.payload, maxPayload),
   );
   return ok.map(r => ({ interruptId: r.interruptId, status: r.status, ...(r.payload !== undefined ? { payload: r.payload } : {}) }));
 }
 
 const idRun = (v: unknown): string | undefined => (typeof v === "string" && THREAD_ID_RE.test(v) ? v : undefined);
 
-export function validate(raw: string): ValidChatRequest | { error: string } {
-  if (raw.length > MAX_BODY_CHARS) return { error: "Conversazione troppo lunga: apri una nuova chat." };
+/** I limiti di una route (default: quelli del widget pubblico). */
+export interface LimitiRichiesta {
+  /** Il payload di una voce di `resume` (JSON), in caratteri. */
+  maxPayloadRipresa?: number;
+  /** Il testo di un messaggio dell'utente, in caratteri. */
+  maxTestoUtente?: number;
+  /** I messaggi della cronologia del browser (del tetto: il server ne legge solo l'ultima domanda). */
+  maxMessaggi?: number;
+}
+
+export function validate(
+  raw: string,
+  { maxPayloadRipresa = MAX_PAYLOAD_RIPRESA, maxTestoUtente = MAX_USER_TEXT, maxMessaggi = MAX_MESSAGES }: LimitiRichiesta = {},
+): ValidChatRequest | { error: string } {
+  if (raw.length > MAX_BODY_CHARS) return { error: TROPPO_LUNGA };
   let body: any;
   try { body = JSON.parse(raw); } catch { return { error: "Richiesta non valida." }; }
   const extra = body?.forwardedProps ?? body?.data;
@@ -108,19 +127,19 @@ export function validate(raw: string): ValidChatRequest | { error: string } {
   const author = sanitizeAuthor(extra?.author);
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0) return { error: "Richiesta non valida." };
-  if (messages.length > MAX_MESSAGES) return { error: "Conversazione troppo lunga: apri una nuova chat." };
+  if (messages.length > maxMessaggi) return { error: TROPPO_LUNGA };
   for (const m of messages) {
     if (typeof m !== "object" || m === null || typeof m.role !== "string") return { error: "Richiesta non valida." };
     if (m.role !== "user") continue;
     const testo = testoUtente(m.content);
     if (testo === null) return { error: "Richiesta non valida." };
-    if (testo.length > MAX_USER_TEXT) return { error: `Messaggio troppo lungo (max ${MAX_USER_TEXT} caratteri).` };
+    if (testo.length > maxTestoUtente) return { error: `Messaggio troppo lungo (max ${maxTestoUtente} caratteri).` };
   }
   const conversazione = messages.filter(m => RUOLI_AMMESSI.has(m.role));
   if (!conversazione.some(m => m.role === "user")) return { error: "Richiesta non valida." };
   const runId = idRun(body?.runId);
   const parentRunId = idRun(body?.parentRunId);
-  const resume = riprese(body?.resume);
+  const resume = riprese(body?.resume, maxPayloadRipresa);
   const base = { handle, threadId, writeKey, author, ...(runId ? { runId } : {}) };
   // una ripresa vale solo col run che riprende: niente domanda nuova
   if (parentRunId && resume?.length) return { ...base, parentRunId, resume };

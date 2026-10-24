@@ -9,8 +9,10 @@
       nel 2025): la stessa domanda conta i concerti di QUELLA pagina.
    3. (@sessione, solo in locale) L'Oracolo in scrittura: una proprietaria
       nuova chiede di aggiungere un concerto, poi di annullare l'ultima
-      modifica; il concerto compare, l'annullamento aspetta il suo sì
-      (annullare un'aggiunta la cancella) e col sì sparisce.
+      modifica. Il concerto passa dalla scheda (propose_concert, che
+      aspetta il Salva: qui la ripresa col sì) e compare; l'annullamento
+      aspetta il suo sì (annullare un'aggiunta la cancella) e col sì
+      sparisce.
 
    In locale serve GEMINI_API_KEY nell'ambiente del server, cioè di
    Playwright: `node scripts/wt.mjs exec -- pnpm e2e --grep @gemini` (wt.mjs
@@ -146,9 +148,20 @@ test("@gemini @sessione in scrittura: aggiunge un concerto e poi annulla l'aggiu
     return { threadId, runId: String(fine?.runId ?? ""), strumenti: [...nomi.values()], nomi, interruzioni, traccia };
   };
 
-  const primo = await scrivi(`Aggiungi un concerto: ${artista}, il 20/11/2026, al Fabrique di Milano, ci vado da sola. Aggiungilo subito, senza chiedermi altro.`);
-  expect(primo.strumenti, primo.traccia).toContain("add_concert");
-  expect(entries().map(e => e.artist), primo.traccia).toContain(artista);
+  // la scheda: il modello propone, niente è scritto finché la proprietaria non salva
+  const primo = await scrivi(`Aggiungi un concerto: ${artista}, il 20/11/2026, al Fabrique di Milano, ci vado da sola.`);
+  expect(primo.strumenti, primo.traccia).toContain("propose_concert");
+  expect(primo.strumenti, primo.traccia).not.toContain("add_concert");
+  const scheda = primo.interruzioni.find(i => i.id.startsWith("approval_") && primo.nomi.get(i.toolCallId) === "propose_concert");
+  expect(scheda, primo.traccia).toBeTruthy();
+  expect(primo.interruzioni, primo.traccia).toHaveLength(1);
+  expect(entries().map(e => e.artist), primo.traccia).not.toContain(artista);
+  // Salva (la ripresa col sì, come il bottone della scheda): il concerto c'è
+  const salvata = await scrivi("Salva", {
+    threadId: primo.threadId, parentRunId: primo.runId,
+    resume: [{ interruptId: scheda!.id, status: "resolved", payload: { approved: true } }],
+  });
+  expect(entries().map(e => e.artist), salvata.traccia).toContain(artista);
 
   // annullare un'aggiunta la cancella: lo strumento aspetta il sì, e intanto il concerto resta
   const secondo = await scrivi("Annulla l'ultima modifica del registro attività (l'aggiunta del concerto). Fallo subito, senza chiedermi altro.");

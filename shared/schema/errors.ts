@@ -11,6 +11,7 @@ export const CODICI_ERRORE = [
   "unauthorized",
   "no_profile",
   "solo_dashboard",
+  "solo_oracolo",
   "not_found",
   "input_non_valido",
   "nome_sconosciuto",

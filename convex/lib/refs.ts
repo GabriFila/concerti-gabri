@@ -9,14 +9,14 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { sortKey } from "../../shared/lib/dates.ts";
+import { chiaveNome } from "../../shared/lib/nomi.ts";
 import type { EntryInput } from "../../shared/schema/entry.ts";
 import { errore } from "./errors.ts";
 
 type Ctx = QueryCtx | MutationCtx;
 
-/** Chiave di confronto dei nomi: minuscole, senza accenti, spazi compressi. */
-export const chiave = (s: string): string =>
-  s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+/** Chiave di confronto dei nomi: minuscole, senza accenti, spazi compressi (la stessa della scheda: shared/lib/nomi.ts). */
+export const chiave = chiaveNome;
 
 const elenco = (nomi: string[], max = 60) => {
   const s = [...nomi].sort((a, b) => a.localeCompare(b, "it"));

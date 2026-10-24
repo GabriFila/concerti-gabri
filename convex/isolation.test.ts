@@ -1,7 +1,9 @@
 /* Isolamento (PIANO §4.7.5), generato dal registro: ogni funzione del
    proprietario che prende id viene chiamata come B con gli id di A e deve
    rispondere solo `not_found` o `unauthorized`; quelle senza id agiscono
-   solo su B. Alla fine i dati di A sono identici. */
+   solo su B. Le `oracoloOnly` (la scheda dell'Oracolo) la sessione le
+   chiama come Oracolo (`as: "oracolo"`); un agente riceve `solo_oracolo`.
+   Alla fine i dati di A sono identici. */
 
 import { describe, expect, it } from "vitest";
 import { codiceDi } from "./lib/errors.ts";
@@ -41,6 +43,7 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "entries:get": { id: ids.entry },
     "entries:add": null,
     "entries:update": { id: ids.entry, patch: { artist: "Preso" } },
+    "entries:salvaScheda": { proposta: { id: ids.entry, voto: 3 } },
     "entries:remove": { id: ids.entry, confirm: true },
     "activity:list": null,
     "activity:undo": { activityId: ids.activity },
@@ -89,7 +92,7 @@ const authDi = (t: T) => t.run(async ctx => [
 ]);
 
 describe("isolamento tra profili", () => {
-  it("B (sessione, API key o token OAuth) con gli id di A ottiene solo not_found/unauthorized (solo_dashboard per un agente) e A resta invariata", async () => {
+  it("B (sessione, API key o token OAuth) con gli id di A ottiene solo not_found/unauthorized (solo_dashboard o solo_oracolo per un agente) e A resta invariata", async () => {
     const t = setup();
       const a = await conProfilo(t, "u-a", "utente-a");
     const b = await conProfilo(t, "u-b", "utente-b");
@@ -123,19 +126,21 @@ describe("isolamento tra profili", () => {
 
     const attori = [
       { nome: "sessione", chi: b.as, extra: {}, ammessi: ["not_found", "unauthorized"] },
-      { nome: "API key", chi: t, extra: { agentToken: chiaveB }, ammessi: ["not_found", "unauthorized", "solo_dashboard"] },
-      { nome: "OAuth", chi: t, extra: { agentToken: tokenB }, ammessi: ["not_found", "unauthorized", "solo_dashboard"] },
+      { nome: "API key", chi: t, extra: { agentToken: chiaveB }, ammessi: ["not_found", "unauthorized", "solo_dashboard", "solo_oracolo"] },
+      { nome: "OAuth", chi: t, extra: { agentToken: tokenB }, ammessi: ["not_found", "unauthorized", "solo_dashboard", "solo_oracolo"] },
     ];
     for (const { nome, chi, extra, ammessi } of attori) {
       for (const f of owner) {
         const input = tabella[f.path];
         if (input === null) continue;
         const fn = f.fn as never;
+        // la sessione arriva alle funzioni dell'Oracolo come Oracolo, così prova davvero gli id di A
+        const args = { ...extra, ...(nome === "sessione" && f.meta?.oracoloOnly ? { as: "oracolo" } : {}), input };
         let codice = "ok";
         try {
-          if (f.fn.isQuery) await chi.query(fn, { ...extra, input });
-          else if (f.fn.isMutation) await chi.mutation(fn, { ...extra, input });
-          else await chi.action(fn, { ...extra, input });
+          if (f.fn.isQuery) await chi.query(fn, args);
+          else if (f.fn.isMutation) await chi.mutation(fn, args);
+          else await chi.action(fn, args);
         } catch (e) {
           codice = codiceDi(e) ?? "altro";
         }

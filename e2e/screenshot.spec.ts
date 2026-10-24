@@ -28,14 +28,25 @@
    telefono) e, sul desktop, la coda «Salva e vai al prossimo» con
    l'Oracolo agganciato a 1440 e 1024 px, notifica compresa (sta fuori
    dal piede del pannello).
+
+   E la scheda dell'Oracolo (spec ux-agente §9), con l'Oracolo finto
+   (ORACOLO_FAKE=1) e una proprietaria nuova, mai gabrifila (i suoi dati
+   servono alla parità): e2e-shots/ux/scheda-<stato>-<tema>-<progetto>.png
+   (nuova senza dati, nuova da sistemare, un editor aperto, salvata coi km da «Casa»,
+   annullata, salvata da una partenza nuova coi km in attesa, modifica,
+   festival con l'editor di un suo concerto, due schede con la barra del
+   lotto, un doppione, un concerto tolto dal festival, il «Modulo
+   completo», venue fuori catalogo, correzione), la scheda da sola e la
+   schermata.
    ────────────────────────────────────────────────────────────── */
 
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
-import { accediComeGabrifila, idratata, nuovoProprietario } from "./helpers/auth.ts";
+import { accediComeGabrifila, idratata, nuovoProprietario, unico } from "./helpers/auth.ts";
 import { convexRun } from "./helpers/convex.ts";
 import { vaiA } from "./helpers/modifica.ts";
+import { stubNominatim } from "./helpers/nominatim.ts";
 import { setTemaCookie } from "./helpers/tema.ts";
 import { expect, onPreview, test } from "./helpers/test.ts";
 
@@ -441,4 +452,166 @@ test.describe("ux: su una proprietaria di prova", { tag: "@sessione" }, () => {
       await page.setViewportSize({ width: 1280, height: 1000 });
     }
   });
+});
+
+test("ux: la scheda dell'Oracolo in chiaro e in scuro", { tag: "@sessione" }, async ({ page, context, baseURL }, info) => {
+  test.skip(onPreview(info.project.name), "solo in locale (l'accesso usa l'OTP di sviluppo)");
+  test.skip(process.env.ORACOLO_FAKE !== "1", "serve l'Oracolo finto: ORACOLO_FAKE=1");
+  test.setTimeout(700_000);
+  mkdirSync(UX, { recursive: true });
+  convexRun("chat:azzeraLimitiPerTest");
+  const spegni = await stubNominatim();
+  const telefono = info.project.name === "mobile";
+  const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+  const scatta = async (nome: string, tema: string, scheda?: ReturnType<Page["locator"]>) => {
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: join(UX, `scheda-${nome}-${tema}-${info.project.name}.png`), animations: "disabled" });
+    // la scheda da sola solo sul desktop: sul telefono è già a tutta larghezza, e lo scatto di un elemento
+    // spegne l'emulazione del tocco di Chromium (poi `pointer: coarse` non vale più)
+    if (scheda && !telefono) await scheda.screenshot({ path: join(UX, `scheda-${nome}-sola-${tema}-${info.project.name}.png`), animations: "disabled" });
+  };
+  const scrivi = async (testo: string) => {
+    // tanti turni in pochi secondi: il limite al minuto si azzera prima di ognuno
+    convexRun("chat:azzeraLimitiPerTest");
+    await oracolo.getByRole("textbox", { name: "Messaggio per l'Oracolo" }).fill(testo);
+    await oracolo.getByRole("button", { name: "Invia" }).click();
+  };
+  const aperta = () => oracolo.locator("article.scheda[data-stato=bozza]").last();
+  // Scarta e aspetta la risposta di QUESTA scheda (non quella di una scartata prima)
+  const scarta = async () => {
+    const prima = await oracolo.getByText("Va bene, non lo salvo.").count();
+    await aperta().getByRole("button", { name: "Scarta", exact: true }).click();
+    await expect(oracolo.getByText("Va bene, non lo salvo.")).toHaveCount(prima + 1);
+  };
+
+  try {
+    const { handle } = await nuovoProprietario(page, { forma: "f", nome: "Fotografa" });
+    // «Casa» con un indirizzo (di prova, mai una casa vera): la scheda salvata mostra i km subito
+    convexRun("account:creaPartenzaPerTest", { handle, name: "Casa" });
+    convexRun("devtools:setDepartureForTest", { handle, departure: "Casa", address: "Piazza De Ferrari, Genova", lng: 8.934, lat: 44.4072 });
+    convexRun("devtools:addEntry", { handle, entry: { kind: "concert", date: "2025-05-10", artist: "Verdena", venue: "Fabrique", city: "Milano", with: [], voto: 5, cost: 35 } });
+    // un doppione (lo stesso giorno della frase «Ho visto … al Fabrique») e un festival da cui togliere un concerto
+    convexRun("devtools:addEntry", { handle, entry: { kind: "concert", date: "2025-10-18", artist: "Marlene Kuntz", venue: "Fabrique", city: "Milano", with: [] } });
+    convexRun("devtools:addEntry", {
+      handle,
+      entry: { kind: "festival", name: "MI AMI 2025", date: "2025-05-31", venue: "Fabrique", city: "Milano", concerts: ["Coma_Cose", "Calcutta", "Fast Animals and Slow Kids"].map(artist => ({ artist, with: [] })) },
+    });
+    for (const tema of TEMI) {
+      await setTemaCookie(context, baseURL!, tema);
+      await page.goto(`/${handle}/modifica`);
+      await idratata(page);
+      const apri = telefono
+        ? page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri L'Oracolo in scrittura" })
+        : page.getByRole("button", { name: "Apri L'Oracolo in scrittura" });
+      if (!(await oracolo.isVisible())) await apri.click();
+      await expect(oracolo).toBeVisible();
+      if (await oracolo.getByRole("button", { name: "Nuova chat" }).isEnabled()) await oracolo.getByRole("button", { name: "Nuova chat" }).click();
+      await scatta("vuota", tema);
+
+      // la scheda senza dati («Aggiungi un concerto»): una voce sola per i campi che mancano, niente «Completa.»
+      await scrivi("Aggiungi un concerto");
+      await expect(aperta()).toContainText("Mancano artista, data e venue");
+      await expect(aperta()).not.toContainText("Completa.");
+      await scatta("nuova-vuota", tema, aperta());
+      await scarta();
+
+      // nuova, da sistemare (nome e cognome), poi un editor aperto
+      await scrivi(`Ho visto Afterhours ${unico()} al Fabrique con Marco Rossi partita da Casa, voto 5`);
+      await expect(aperta()).toContainText("è nome e cognome");
+      await scatta("nuova", tema, aperta());
+      await aperta().getByRole("button", { name: "Aggiungi posizione" }).click();
+      await scatta("editor", tema, aperta());
+      await aperta().getByRole("radio", { name: "6 · Transenna" }).check();
+      await aperta().getByRole("button", { name: "Usa «Marco R.»" }).click();
+      await scatta("pronta", tema, aperta());
+      await aperta().getByRole("button", { name: "Salva concerto" }).click();
+      await expect(oracolo.getByText("Fatto: concerto aggiunto.").last()).toBeVisible();
+      await expect(oracolo.locator(".scheda-esito").last()).toContainText("km da Casa");
+      await scatta("salvata", tema, oracolo.locator(".scheda-esito").last());
+      // «Annulla» sulla conferma: via il concerto e Marco R. (creato con lui)
+      await oracolo.locator(".scheda-esito").last().getByRole("button", { name: "Annulla" }).click();
+      await expect(oracolo.locator(".scheda-esito").last()).toContainText("Annullato:");
+      await scatta("annullata", tema, oracolo.locator(".scheda-esito").last());
+
+      // da una partenza nuova: si crea senza indirizzo, i km restano in attesa
+      {
+        const prima = await oracolo.getByText("Fatto: concerto aggiunto.").count();
+        await scrivi(`Ho visto Baustelle ${unico()} al Fabrique partita da Ufficio`);
+        await expect(aperta()).toContainText("Partenza nuova: «Ufficio» si aggiunge senza indirizzo");
+        await aperta().getByRole("button", { name: "Salva concerto" }).click();
+        await expect(oracolo.getByText("Fatto: concerto aggiunto.")).toHaveCount(prima + 1);
+        await expect(oracolo.locator(".scheda-esito").last()).toContainText("km in attesa");
+        await scatta("salvata-attesa", tema, oracolo.locator(".scheda-esito").last());
+        await oracolo.locator(".scheda-esito").last().getByRole("button", { name: "Annulla" }).click();
+        await expect(oracolo.locator(".scheda-esito").last()).toContainText("Annullato:");
+      }
+
+      // modifica (diff)
+      await scrivi("Cambia il voto di Verdena in 4");
+      await expect(aperta()).toContainText("Modifica concerto");
+      await scatta("modifica", tema, aperta());
+      await scarta();
+
+      // festival
+      await scrivi("Aggiungi il festival MI AMI 2026 con Verdena, Calcutta e Afterhours");
+      await expect(aperta()).toContainText("Nuovo festival");
+      await scatta("festival", tema, aperta());
+      await aperta().getByRole("list", { name: "Concerti del festival" }).getByRole("button", { name: /^1 · Verdena/ }).click();
+      await aperta().getByRole("radiogroup", { name: "Voto di Verdena" }).getByRole("radio", { name: "5 stelle" }).check();
+      await scatta("festival-editor", tema, aperta());
+      await scarta();
+
+      // due schede nello stesso run: la barra del lotto
+      await scrivi("Aggiungi i concerti di Verdena e Afterhours");
+      const barra = oracolo.getByRole("group", { name: "Le schede di questo messaggio" });
+      await expect(barra.getByRole("button", { name: "Salva tutte (2)" })).toBeEnabled();
+      await oracolo.getByRole("checkbox", { name: "Da salvare: «Afterhours»" }).uncheck();
+      await scatta("lotto", tema, oracolo.locator(".chat-schede").last());
+      {
+        const prima = await oracolo.getByText("Va bene, non lo salvo.").count();
+        await barra.getByRole("button", { name: "Scarta tutte" }).click();
+        await expect(oracolo.getByText("Va bene, non lo salvo.")).toHaveCount(prima + 1);
+      }
+
+      // un doppione: lo stesso artista lo stesso giorno
+      await scrivi("Ho visto Marlene Kuntz al Fabrique con Lu");
+      await expect(aperta()).toContainText("Hai già Marlene Kuntz");
+      await scatta("doppione", tema, aperta());
+      await scarta();
+
+      // una modifica che toglie un concerto dal festival
+      await scrivi("Togli Calcutta dal festival MI AMI 2025");
+      await expect(aperta()).toContainText("Questa modifica toglie Calcutta dal festival.");
+      await scatta("festival-tolto", tema, aperta());
+      await scarta();
+
+      // il «Modulo completo» della scheda, accanto all'Oracolo (sul telefono sopra)
+      await scrivi(`Aggiungi il concerto di Baustelle ${unico()}`);
+      await aperta().getByRole("button", { name: "Modulo completo" }).click();
+      const modulo = page.getByRole("dialog", { name: "Scheda: nuovo concerto" });
+      await expect(modulo).toBeVisible();
+      await scatta("modulo", tema);
+      await modulo.getByRole("button", { name: "Torna alla scheda" }).click();
+      await expect(modulo).toHaveCount(0);
+      await scarta();
+
+      // venue fuori catalogo, poi una correzione scritta nella chat
+      await scrivi(`Ho visto Calcutta al Locale Prova ${unico()} con Lu`);
+      await expect(aperta().getByRole("list", { name: "Venue da OpenStreetMap" })).toBeVisible();
+      await scatta("venue", tema, aperta());
+      await scrivi("voto 3");
+      await expect(oracolo.getByText("Sostituita dalla tua correzione").last()).toBeVisible();
+      await expect(aperta()).toContainText("Calcutta");
+      await scatta("correzione", tema);
+      await scarta();
+      if (telefono) {
+        await page.goBack();
+        await expect(oracolo).toBeHidden();
+      }
+    }
+  } finally {
+    spegni();
+    convexRun("devtools:cleanupE2E");
+  }
 });
