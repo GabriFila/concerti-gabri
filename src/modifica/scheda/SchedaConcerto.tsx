@@ -25,7 +25,10 @@
    - ⋯ di una scheda nuova: «È un festival» / «Fanne un concerto singolo».
      «Modulo completo» apre il form dei concerti in modo scheda (il ponte
      di editor.tsx): «Usa nella scheda» riporta qui i valori, senza
-     scrivere niente.
+     scrivere niente. Finché è aperto (accanto, da 1024 px) Salva e
+     Scarta sono spenti: decidere la scheda perderebbe i valori del
+     modulo. Se arrivano lo stesso a scheda già decisa, una notifica lo
+     dice.
    - Con più schede nel run il piede diventa la casella «Da salvare»: le
      salva o le scarta tutte insieme la barra del lotto (BarraSchede.tsx).
      Ogni scheda le scrive nello store se è pronta.
@@ -39,8 +42,9 @@ import { api } from "../../../convex/_generated/api";
 import { isPlanned, todayKey } from "../../../shared/lib/dates.ts";
 import { chiaveNome } from "../../../shared/lib/nomi.ts";
 import { propostaConcertoInput, type EventoEsterno, type PropostaConcerto } from "../../../shared/schema/proposta.ts";
-import { useEditorConcerti } from "../editor.tsx";
+import { useEditorConcerti, type EsitoConcerto } from "../editor.tsx";
 import { Menu, type VoceMenu } from "../ui/Menu.tsx";
+import { useToast } from "../ui/Toast.tsx";
 import { Soprannomi, useConvex, useDati, useOperazione } from "../sezioni/comuni.tsx";
 import type { ValoriConcerto, ValoriFestival } from "../sezioni/forme.ts";
 import {
@@ -52,7 +56,7 @@ import { CampiScheda, Sr, focusEditor, focusSet, type NomiScheda } from "./Campi
 import { EsitoScheda, SchedaChiusa, VaiA } from "./EsitoScheda.tsx";
 import { dopoProblema, recuperaFocus, riprovaFocus } from "./focus.ts";
 import { useRun, type Risolvibile } from "./run.ts";
-import { aggiorna, apriEditor, cambia, inizia, leggi, rimpiazza, useFratelli, useScheda, type VoceScheda } from "./store.ts";
+import { aggiorna, apriEditor, cambia, inizia, leggi, rimpiazza, segnaModulo, useFratelli, useScheda, type VoceScheda } from "./store.ts";
 
 /** La proposta del modello (già validata dal server: qui solo per sicurezza). */
 function propostaDi(part: ParteScheda): PropostaConcerto {
@@ -167,7 +171,7 @@ function BersaglioSparito({ part, interruzione }: { part: ParteScheda; interruzi
 }
 
 function scarta(id: string, interruzione: Risolvibile | undefined) {
-  if (!interruzione) return;
+  if (!interruzione || leggi(id)?.moduloAperto !== undefined) return;
   aggiorna(id, () => ({ scartata: true, editorAperto: null }));
   try {
     interruzione.resolveInterrupt({ approved: false, payload: { motivo: "scartata" } });
@@ -292,6 +296,7 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
   const voce = useScheda(part.id)!;
   const run = useRun();
   const editor = useEditorConcerti();
+  const { mostra } = useToast();
   const persone = useDati(api.people.list);
   const partenze = useDati(api.departures.list);
   const regali = useDati(api.gifters.list);
@@ -341,6 +346,11 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
   // più schede nel run: niente piede, la casella «Da salvare» e la barra del lotto in fondo
   const lotto = molte && run.schede.has(part.id) && stato === "bozza";
   const nProblemi = problemi.daSistemare.length;
+  // il «Modulo completo» è aperto accanto: la scheda aspetta i suoi valori («Usa nella scheda») o «Torna alla scheda»
+  const conModulo = voce.moduloAperto !== undefined;
+  const testoBlocco = conModulo
+    ? "Il modulo completo è aperto: prima «Usa nella scheda» o «Torna alla scheda»."
+    : problemi.daSistemare.length ? `Prima sistema: ${cosaSistemare(problemi.daSistemare)}.` : "Controllo i nomi e la venue…";
 
   // una scheda nuova si annuncia (una volta), senza spostare il focus
   useEffect(() => {
@@ -360,7 +370,7 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
   }, [part.id, bloccata, nProblemi, voce.bloccata, voce.nProblemi]);
 
   const salva = () => {
-    if (!interruzione || bloccata) return;
+    if (!interruzione || bloccata || voce.moduloAperto !== undefined) return;
     const r = validaScheda(voce);
     if (!r.ok) {
       setErrore(`Non si può salvare: ${r.errori[0].campo} ${r.errori[0].messaggio}.`);
@@ -389,21 +399,41 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
 
   /** «Modulo completo»: il form dei concerti in modo scheda; «Usa nella scheda» riporta qui i valori (niente scritture). */
   const modulo = async () => {
-    const esito = await editor.apri({
-      tipo: voce.tipo,
-      ...(voce.id ? { id: voce.id } : {}),
-      bozza: voce.valori,
-      evidenzia: evidenziaDi(voce),
-      origine: "oracolo",
-      modo: "scheda",
-    });
-    const ora = leggi(part.id);
-    // nel frattempo la scheda è stata decisa (Salva, Scarta, una correzione): i valori non servono più
-    if (esito.esito === "usato" && ora && !ora.inviata && !ora.scartata && ora.notaInviata === undefined) {
-      const r = daModulo(ora, esito.valori);
-      rimpiazza(part.id, { valori: r.valori }, r.cambiati);
+    // finché è aperto la scheda non si decide (Salva, Scarta, barra del lotto, correzione): sono spenti
+    const chiuso = segnaModulo(part.id);
+    let esito: EsitoConcerto;
+    try {
+      esito = await editor.apri({
+        tipo: voce.tipo,
+        ...(voce.id ? { id: voce.id } : {}),
+        bozza: voce.valori,
+        evidenzia: evidenziaDi(voce),
+        origine: "oracolo",
+        modo: "scheda",
+      });
+    } finally {
+      chiuso();
     }
-    requestAnimationFrame(() => linkModulo.current?.focus({ preventScroll: true }));
+    const ora = leggi(part.id);
+    if (esito.esito === "usato") {
+      if (ora && !ora.inviata && !ora.scartata && ora.notaInviata === undefined && !ora.annullata) {
+        const r = daModulo(ora, esito.valori);
+        rimpiazza(part.id, { valori: r.valori }, r.cambiati);
+      } else {
+        // la scheda non c'è più (una chat nuova, il run finito): i valori del modulo non si perdono in silenzio
+        mostra({ testo: "La scheda non è più aperta: le modifiche del modulo completo non sono state usate." });
+        return;
+      }
+    }
+    // un'altra apertura (il «Modulo completo» di un'altra scheda) ha preso il posto del pannello: il focus è suo
+    if (esito.esito === "chiuso" && esito.sostituito) return;
+    // il focus torna qui solo se si è perso: una riga dell'elenco, un'altra vista o il pannello che si chiude (che lo rende a chi l'ha aperto) l'hanno già messo a posto
+    requestAnimationFrame(() => {
+      const att = document.activeElement;
+      const dialogo = att?.closest("dialog");
+      if (att && att !== document.body && att.isConnected && (!dialogo || dialogo.open)) return;
+      linkModulo.current?.focus({ preventScroll: true });
+    });
   };
 
   // ⋯ di una scheda nuova: concerto ↔ festival
@@ -537,27 +567,23 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
             </label>
             {!soloScarta && linkDelModulo}
           </div>
-          {voce.inclusa && bloccata && !soloScarta && (
-            <p className="scheda-blocco">
-              {problemi.daSistemare.length ? `Prima sistema: ${cosaSistemare(problemi.daSistemare)}.` : "Controllo i nomi e la venue…"}
-            </p>
+          {((voce.inclusa && bloccata) || conModulo) && !soloScarta && (
+            <p className="scheda-blocco">{testoBlocco}</p>
           )}
         </div>
       ) : (
         <>
           <div className="scheda-piede">
-            {bloccata && !soloScarta && (
-              <p className="scheda-blocco" id={idBlocco}>
-                {problemi.daSistemare.length ? `Prima sistema: ${cosaSistemare(problemi.daSistemare)}.` : "Controllo i nomi e la venue…"}
-              </p>
+            {(bloccata || conModulo) && !soloScarta && (
+              <p className="scheda-blocco" id={idBlocco}>{testoBlocco}</p>
             )}
             <div className="scheda-azioni">
               {!soloScarta && (
                 <button
                   type="button"
                   className="mod-btn mod-primario"
-                  disabled={bloccata || !interruzione}
-                  aria-describedby={bloccata ? idBlocco : undefined}
+                  disabled={bloccata || conModulo || !interruzione}
+                  aria-describedby={bloccata || conModulo ? idBlocco : undefined}
                   aria-label={molte ? `${salvaTesto(voce, diff.length)} «${titolo}»` : undefined}
                   onClick={salva}
                 >
@@ -567,7 +593,7 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
               <button
                 type="button"
                 className={"mod-btn" + (soloScarta ? " mod-primario" : "")}
-                disabled={!interruzione}
+                disabled={!interruzione || conModulo}
                 aria-label={molte ? `Scarta «${titolo}»` : undefined}
                 onClick={() => scarta(part.id, interruzione)}
               >

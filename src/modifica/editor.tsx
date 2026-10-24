@@ -30,7 +30,10 @@
    - La promessa si risolve quando il pannello si chiude: «salvato» se il
      form ha scritto, «usato» se ha restituito i valori alla scheda,
      altrimenti «chiuso» (con `sostituito` se un'altra apertura ha preso
-     il suo posto: chi aspettava non riprenda il focus).
+     il suo posto: chi aspettava non riprenda il focus). Anche quando
+     resta lo stesso pannello ma cambia il numero nello stato (un
+     «Aggiungi un concerto» a mano, che apre senza numero): quello del
+     ponte non c'è più.
    ────────────────────────────────────────────────────────────── */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -106,6 +109,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
 
   const chiave = vista === "concerti" ? chiavePannello(parametri) : null;
   const arrivata = (v: Voce | null) => !!v && chiave === chiaveDi(v.apertura) && numeroUrl === v.n;
+  // il pannello aperto è ancora quello della voce: stessa chiave e stesso numero (0 = aperto a mano, senza numero nello stato)
+  const ancora = (v: Voce | null) => !!v && chiave === chiaveDi(v.apertura) && (numeroUrl ?? 0) === v.n;
 
   // l'URL è arrivato (pannello e numero): l'attesa diventa il pannello aperto; un pannello che sparisce si risolve «chiuso»
   useEffect(() => {
@@ -117,7 +122,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       attesaRef.current = null;
       setCorrente(a);
       setAttesa(null);
-    } else if (c && chiave !== chiaveDi(c.apertura)) {
+    } else if (c && !ancora(c)) {
       c.risolvi(CHIUSO);
       correnteRef.current = null;
       setCorrente(null);
@@ -135,7 +140,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
         if (stesso && nuda(a) && (!cAperta || nuda(cAperta.apertura))) {
           // è già aperto e non c'è niente da portare: questa promessa prende il posto di quella di prima (il form resta com'è)
           c?.risolvi(SOSTITUITO);
-          const voce = { apertura: a, risolvi, n: cAperta?.n ?? 0 };
+          const voce = { apertura: a, risolvi, n: cAperta?.n ?? numeroUrl ?? 0 };
           correnteRef.current = voce;
           setAttesa(null);
           setCorrente(voce);
@@ -152,7 +157,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
           await apriPannello(p, "concerti", { apertura: voce.n, sostituisci: stesso });
         })();
       }),
-    [vista, parametri, chiave, vai, apriPannello],
+    [vista, parametri, chiave, numeroUrl, vai, apriPannello],
   );
 
   const salvato = useCallback((id: string, kmPending: boolean) => {
@@ -173,7 +178,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // il pannello aperto: l'attesa appena arrivata, o quella di prima finché l'URL non cambia (una bozza nuova non lo cambia sotto il form)
-  const voce = arrivata(attesa) ? attesa : corrente && chiave === chiaveDi(corrente.apertura) ? corrente : null;
+  const voce = arrivata(attesa) ? attesa : ancora(corrente) ? corrente : null;
   const aperto = voce?.apertura ?? null;
   const numero = voce?.n ?? 0;
 

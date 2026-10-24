@@ -61,6 +61,19 @@ const Stelle = ({ n }: { n: number }) => (
   </>
 );
 
+/**
+ * «Annulla» rifiutato con `in_uso`: un nome creato con la scheda (persona,
+ * partenza o "regalato da") ora è usato anche da un altro concerto. Si
+ * dice quale e cosa fare; Attività non aiuta (annulla lo stesso lotto).
+ */
+function testoInUso(creati: EsitoOk["creati"]): string | null {
+  const nomi = [...creati.persone, creati.partenza, creati.regalatoDa].filter((x): x is string => !!x).map(x => `«${x}»`);
+  if (!nomi.length) return null;
+  return nomi.length === 1
+    ? `Non si può annullare: ${nomi[0]}, un nome nuovo di questa scheda, ora è usato anche in un altro concerto. Toglilo da lì, poi annulla.`
+    : `Non si può annullare: uno dei nomi nuovi di questa scheda (${nomi.join(", ")}) ora è usato anche in un altro concerto. Toglilo da lì, poi annulla.`;
+}
+
 /** La conferma di una scheda salvata: cosa è stato scritto, cosa manca, «Apri» e «Annulla». */
 export function EsitoScheda({ part }: { part: ParteScheda }) {
   const out = esitoDi(part) as unknown as EsitoOk;
@@ -98,9 +111,9 @@ export function EsitoScheda({ part }: { part: ParteScheda }) {
     } catch (e) {
       const err = erroreDi(e);
       if (err.code === "conflitto" && /già annullata/.test(err.messaggio)) setAnnullataQui(true);
-      else if (err.code === "in_uso") {
-        setErrore(<>Non si può annullare da qui: una persona creata con questo concerto ora compare anche altrove. Annulla da <VaiA vista="attivita">Attività</VaiA>.</>);
-      } else if (err.code === "conflitto") {
+      // un nome nuovo del lotto ora è anche in un altro concerto: neanche Attività lo annulla (il lotto va tutto o niente)
+      else if (err.code === "in_uso") setErrore(testoInUso(out.creati) ?? <>Non si può annullare: {err.messaggio}.</>);
+      else if (err.code === "conflitto") {
         setErrore(<>Non si può annullare da qui: è cambiato dopo. Annulla da <VaiA vista="attivita">Attività</VaiA>.</>);
       } else setErrore(<>Non si può annullare: {err.messaggio}.</>);
     } finally {

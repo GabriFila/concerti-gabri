@@ -22,7 +22,10 @@
      con solo una cancellazione in sospeso, un messaggio parte lo stesso
      e la domanda dice «Non confermato»;
    - «Nuova chat» con una scheda toccata chiede prima («Resta» / «Scarta e
-     apri una nuova chat»);
+     apri una nuova chat»); uscire da Modifica («Sul palco») pure
+     («Modifiche non salvate»), cambiare vista no;
+   - «Annulla» di una scheda il cui nome nuovo ora è in un altro concerto
+     (`in_uso`): dice quale nome e cosa fare, senza rimandare ad Attività;
    - una conversazione troppo lunga (413 alla ripresa del Salva): la chat e
      la scheda lo dicono, niente «Riprova», «Apri una nuova chat»;
    - la casella: Invio manda, ⇧/⌥/Ctrl/⌘+Invio vanno a capo;
@@ -38,8 +41,11 @@
      la scheda di modifica, nessun concerto nuovo; un giorno prima è solo
      un avviso;
    - «Modulo completo»: «Scheda: nuovo concerto» accanto all'Oracolo, Esc
-     chiude solo il modulo, «Usa nella scheda» riporta l'artista cambiato
-     nella scheda, senza scrivere niente.
+     chiude solo il modulo; finché è aperto Salva e Scarta sono spenti e
+     una correzione nella chat non parte; «Usa nella scheda» riporta
+     l'artista cambiato nella scheda, senza scrivere niente. Una riga
+     dell'elenco aperta sopra il modulo tiene il focus; «Aggiungi un
+     concerto» sopra il modulo apre un concerto nuovo vuoto.
    Telefono (Pixel 7): la scheda a tutta larghezza fuori dalla nuvoletta,
    campi a 16 px, il salvataggio, «Apri» col foglio del concerto sopra la
    chat e la chat di nuovo lì quando lo si chiude; su un festival lungo il
@@ -65,6 +71,8 @@ async function scrivi(page: Page, testo: string) {
   await chat(page).getByRole("button", { name: "Invia" }).click();
 }
 const scheda = (page: Page, nome: RegExp | string) => chat(page).getByRole("group", { name: nome });
+/** Due frame: le richieste di focus in requestAnimationFrame sono passate. */
+const dueFrame = (page: Page) => page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
 const concerti = (page: Page) => page.locator("section#concerti").getByRole("list", { name: "Concerti e festival" });
 
 /** Le POST a /api/chat/scrittura della pagina, col loro corpo. */
@@ -358,6 +366,53 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
       expect(datiDi(handle, artista)).toBeUndefined();
     });
 
+    test("uscire da Modifica con una scheda toccata e non salvata chiede prima; cambiare vista no", async ({ page }) => {
+      const { handle } = await nuovoProprietario(page);
+      const artista = `Canarino uscita ${unico()}`;
+      await page.goto(`/${handle}/modifica`);
+      await apriOracolo(page);
+      await scrivi(page, `Aggiungi il concerto di ${artista}`);
+      const card = scheda(page, `Scheda: nuovo concerto ${artista}`);
+      await card.getByRole("button", { name: "Aggiungi commento" }).click();
+      await card.getByRole("textbox", { name: "Commento" }).fill("da non perdere");
+      // un'altra vista di Modifica: la chat resta viva, niente domanda
+      await vaiA(page, "persone");
+      await expect(card).toBeVisible();
+      const domanda = page.getByRole("dialog", { name: "Modifiche non salvate" });
+      await expect(domanda).toHaveCount(0);
+      await page.getByRole("tab", { name: "Sul palco" }).click();
+      await expect(domanda).toContainText(`La scheda di «${artista}» nell'Oracolo non è salvata: se esci adesso la perdi.`);
+      await domanda.getByRole("button", { name: "Continua a modificare" }).click();
+      await expect(domanda).toHaveCount(0);
+      await expect(page).toHaveURL(new RegExp(`/${handle}/modifica`));
+      await expect(card).toBeVisible();
+      await page.getByRole("tab", { name: "Sul palco" }).click();
+      await domanda.getByRole("button", { name: "Esci senza salvare" }).click();
+      await expect(page).toHaveURL(new RegExp(`/${handle}$`));
+      expect(datiDi(handle, artista)).toBeUndefined();
+    });
+
+    test("«Annulla» di una scheda il cui nome nuovo ora è in un altro concerto: dice quale e cosa fare", async ({ page }) => {
+      test.setTimeout(180_000);
+      const { handle } = await nuovoProprietario(page);
+      const [a, b] = ["A", "B"].map(x => `Canarino in uso ${x} ${unico()}`);
+      await page.goto(`/${handle}/modifica`);
+      await apriOracolo(page);
+      await scrivi(page, `Ho visto ${a} al Fabrique con Cami, voto 5`);
+      await scheda(page, `Scheda: nuovo concerto ${a}`).getByRole("button", { name: "Salva concerto" }).click();
+      const ea = chat(page).locator(".scheda-esito").filter({ hasText: `Aggiunto · ${a}` });
+      await expect(ea).toContainText("+ Cami tra le persone");
+      await scrivi(page, `Ho visto ${b} al Fabrique con Cami, voto 5`);
+      await scheda(page, `Scheda: nuovo concerto ${b}`).getByRole("button", { name: "Salva concerto" }).click();
+      await expect(chat(page).locator(".scheda-esito").filter({ hasText: `Aggiunto · ${b}` })).toBeVisible();
+      // il lotto di A va annullato tutto o niente: «Cami» è in B, quindi no (e neanche da Attività)
+      await ea.getByRole("button", { name: "Annulla" }).click();
+      await expect(ea.getByRole("alert")).toHaveText(
+        "Non si può annullare: «Cami», un nome nuovo di questa scheda, ora è usato anche in un altro concerto. Toglilo da lì, poi annulla.",
+      );
+      expect(datiDi(handle, a)).toBeTruthy();
+    });
+
     test("conversazione troppo lunga (413) al Salva: la scheda lo dice, niente «Riprova», e porta a una chat nuova", async ({ page }) => {
       const { handle } = await nuovoProprietario(page);
       const artista = `Canarino lungo ${unico()}`;
@@ -431,6 +486,22 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
       // al posto del piede, la casella: niente Salva per scheda
       await expect(ca.getByRole("button", { name: /^Salva/ })).toHaveCount(0);
       await expect(ca.getByRole("checkbox", { name: `Da salvare: «${a}»` })).toBeChecked();
+
+      // il «Modulo completo» di B mentre è aperto quello di A: il pannello si rifà con B, e A non si riprende il focus
+      const modulo = page.getByRole("dialog", { name: "Scheda: nuovo concerto" });
+      await ca.getByRole("button", { name: `Modulo completo per «${a}»` }).click();
+      await expect(modulo.locator("input[name=artist]")).toHaveValue(a);
+      await cb.getByRole("button", { name: `Modulo completo per «${b}»` }).click();
+      await expect(modulo.locator("input[name=artist]")).toHaveValue(b);
+      await dueFrame(page);
+      expect(await modulo.evaluate(d => d.contains(document.activeElement))).toBe(true);
+      // con un modulo aperto il lotto non si decide: i valori del modulo andrebbero persi
+      await expect(barra.getByRole("button", { name: "Salva tutte (2)" })).toBeDisabled();
+      await expect(barra.getByRole("button", { name: "Scarta tutte" })).toBeDisabled();
+      await expect(barra).toContainText("Il modulo completo è aperto");
+      await modulo.getByRole("button", { name: "Torna alla scheda" }).click();
+      await expect(modulo).toHaveCount(0);
+      await expect(cb.getByRole("button", { name: `Modulo completo per «${b}»` })).toBeFocused();
 
       await cb.getByRole("checkbox", { name: `Da salvare: «${b}»` }).uncheck();
       await expect(cb).toContainText("Non la salvo");
@@ -586,6 +657,7 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
 
     test("«Modulo completo»: il form in modo scheda, Esc chiude solo lui, «Usa nella scheda» senza scrivere", async ({ page }) => {
       test.setTimeout(180_000);
+      const richieste = registra(page);
       const { handle } = await nuovoProprietario(page);
       const artista = `Canarino modulo ${unico()}`;
       await page.goto(`/${handle}/modifica`);
@@ -609,6 +681,15 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
 
       await link.click();
       await expect(modulo).toBeVisible();
+      // finché il modulo è aperto (non modale, accanto) la scheda non si decide: i suoi valori andrebbero persi
+      await expect(card.getByRole("button", { name: "Salva concerto" })).toBeDisabled();
+      await expect(card.getByRole("button", { name: "Scarta" })).toBeDisabled();
+      await expect(card).toContainText("Il modulo completo è aperto: prima «Usa nella scheda» o «Torna alla scheda».");
+      const inviate = richieste.length;
+      await scrivi(page, "metti voto 4");
+      await expect(chat(page).getByRole("alert").filter({ hasText: "Il modulo completo di una scheda è aperto" })).toBeVisible();
+      expect(richieste.length).toBe(inviate);
+      await casella(page).fill("");
       await modulo.locator("input[name=artist]").fill(`${artista} live`);
       await modulo.getByRole("button", { name: "Usa nella scheda" }).click();
       await expect(modulo).toHaveCount(0);
@@ -621,6 +702,38 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
       await expect(chat(page).getByText("Fatto: concerto aggiunto.")).toBeVisible();
       expect(datiDi(handle, `${artista} live`)).toBeTruthy();
       expect(datiDi(handle, artista)).toBeUndefined();
+
+      // più largo, così l'elenco resta cliccabile accanto all'Oracolo e al modulo
+      await page.setViewportSize({ width: 1700, height: 1000 });
+      const altro = `Canarino modulo bis ${unico()}`;
+      await scrivi(page, `Aggiungi il concerto di ${altro}`);
+      const card2 = scheda(page, `Scheda: nuovo concerto ${altro}`);
+      const link2 = card2.getByRole("button", { name: "Modulo completo" });
+      // una riga dell'elenco al posto del modulo (non passa dal ponte): il focus resta nel suo pannello
+      await link2.click();
+      await expect(modulo).toBeVisible();
+      await concerti(page).getByText(`${artista} live`).click();
+      const rigaAperta = page.getByRole("dialog", { name: "Modifica concerto" });
+      await expect(rigaAperta).toBeVisible();
+      await expect(modulo).toHaveCount(0);
+      await dueFrame(page);
+      expect(await rigaAperta.evaluate(d => d.contains(document.activeElement))).toBe(true);
+      await expect(card2.getByRole("button", { name: "Salva concerto" })).toBeEnabled();
+      await rigaAperta.getByRole("button", { name: "Chiudi" }).click();
+      await expect(rigaAperta).toHaveCount(0);
+      // «Aggiungi un concerto» sopra il modulo (da tastiera: la testa del pannello copre il pulsante): un concerto nuovo, vuoto
+      await link2.click();
+      await expect(modulo).toBeVisible();
+      await page.locator("section#concerti").getByRole("button", { name: "Aggiungi un concerto", exact: true }).focus();
+      await page.keyboard.press("Enter");
+      const vuoto = page.getByRole("dialog", { name: "Nuovo concerto" });
+      await expect(vuoto).toBeVisible();
+      await expect(modulo).toHaveCount(0);
+      await expect(vuoto.locator("input[name=artist]")).toHaveValue("");
+      await dueFrame(page);
+      expect(await vuoto.evaluate(d => d.contains(document.activeElement))).toBe(true);
+      await expect(card2.getByRole("button", { name: "Salva concerto" })).toBeEnabled();
+      expect(datiDi(handle, altro)).toBeUndefined();
     });
   });
 

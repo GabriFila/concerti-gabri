@@ -14,7 +14,13 @@
      (BarraSchede.tsx) le salva o le scarta tutte insieme.
    - Solo memoria: niente localStorage (una bozza ha nomi di persone).
    - «Nuova chat» e il cambio di chat passano da `puoLasciareLaChat()`:
-     con una scheda modificata e non salvata chiede prima.
+     con una scheda modificata e non salvata (o col suo «Modulo completo»
+     aperto) chiede prima; uscire da /modifica con una scheda modificata
+     lo chiede la guardia del contenitore (oracolo/Contenitore.tsx).
+   - `moduloAperto`: il «Modulo completo» della scheda è aperto accanto
+     (non modale da 1024 px). Finché c'è, la scheda non si decide (Salva,
+     Scarta, la barra del lotto, una correzione nella chat): i valori
+     del modulo andrebbero persi.
    ────────────────────────────────────────────────────────────── */
 
 import { useMemo, useSyncExternalStore } from "react";
@@ -68,6 +74,8 @@ export interface VoceScheda extends Bozza {
   notaInviata?: string;
   /** Annullata da qui (activity.undo). */
   annullata: boolean;
+  /** Il «Modulo completo» aperto da questa scheda (il numero della sua apertura: solo quella lo chiude). */
+  moduloAperto?: number;
   /** Già annunciata agli screen reader («Nuova scheda: …»). */
   annunciata?: boolean;
   /** Salvata da qui e la conferma ha già preso il focus. */
@@ -197,6 +205,25 @@ export function impostaAperte(ids: readonly string[]) {
 /** C'è una scheda ancora da decidere e modificata a mano? */
 export const haModificate = () => aperte.some(id => schede.get(id)?.modificata);
 
+/** I titoli delle schede ancora da decidere e modificate a mano (per la guardia all'uscita da /modifica). */
+export const titoliModificate = (): string[] =>
+  aperte.flatMap(id => {
+    const v = schede.get(id);
+    if (!v?.modificata) return [];
+    return [(v.tipo === "festival" ? (v.valori as ValoriFestival).name : (v.valori as ValoriConcerto).artist).trim() || "senza titolo"];
+  });
+
+/** Una scheda da decidere ha il suo «Modulo completo» aperto? */
+export const conModuloAperto = () => aperte.some(id => schede.get(id)?.moduloAperto !== undefined);
+
+let aperture = 0;
+/** Il «Modulo completo» della scheda si apre: restituisce come segnarlo chiuso (solo questa apertura, non una dopo). */
+export function segnaModulo(id: string): () => void {
+  const n = ++aperture;
+  aggiorna(id, () => ({ moduloAperto: n }));
+  return () => aggiorna(id, v => (v.moduloAperto === n ? { moduloAperto: undefined } : {}));
+}
+
 /** La chat registra come chiedere conferma («Hai una scheda non salvata: la scarti?»). */
 export function registraDomanda(f: ((azione: string) => Promise<boolean>) | null) {
   chiedi = f;
@@ -208,7 +235,7 @@ export function registraDomanda(f: ((azione: string) => Promise<boolean>) | null
  * «Scarta e …».
  */
 export function puoLasciareLaChat(azione = "apri una nuova chat"): Promise<boolean> {
-  if (!haModificate() || !chiedi) return Promise.resolve(true);
+  if ((!haModificate() && !conModuloAperto()) || !chiedi) return Promise.resolve(true);
   return chiedi(azione);
 }
 

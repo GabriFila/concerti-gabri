@@ -18,7 +18,9 @@
      con la scheda come `editedArgs`, Scarta con `{motivo: "scartata"}`.
      Un messaggio scritto mentre una scheda è aperta non è un messaggio
      nuovo: è la correzione della scheda (il suo rifiuto tipizzato, con le
-     parole e la bozza toccata), in una sola richiesta. Con più schede
+     parole e la bozza toccata), in una sola richiesta; non con il
+     «Modulo completo» di una scheda aperto (i suoi valori andrebbero
+     persi: prima «Usa nella scheda» o «Torna alla scheda»). Con più schede
      nello stesso run le decide insieme la barra del lotto in fondo alla
      chat (scheda/BarraSchede.tsx: «Salva tutte», «Scarta tutte», poi
      «Annulla tutti»).
@@ -53,7 +55,7 @@ import { idApprovazione, propostaDaValori } from "./scheda/bozza.ts";
 import { RunContesto, risolvibile, useRun, type Risolvibile, type RunChat } from "./scheda/run.ts";
 import { BarraSchede } from "./scheda/BarraSchede.tsx";
 import { SchedaConcerto } from "./scheda/SchedaConcerto.tsx";
-import { aggiorna, impostaAperte, leggi, puoLasciareLaChat, registraDomanda, svuota } from "./scheda/store.ts";
+import { aggiorna, conModuloAperto, impostaAperte, leggi, puoLasciareLaChat, registraDomanda, svuota } from "./scheda/store.ts";
 import { Conferma, useConvex, useDati } from "./sezioni/comuni.tsx";
 
 /** Gli errori della route in italiano (il client vede solo lo stato HTTP). */
@@ -302,6 +304,11 @@ function Pannello({ handle }: { handle: string }) {
     if (!t || isLoading) return;
     setErroreInvio(null);
     if (schedeAperte.length) {
+      // il «Modulo completo» di una scheda è aperto accanto: la correzione la chiuderebbe e i valori del modulo andrebbero persi
+      if (conModuloAperto()) {
+        setErroreInvio("Il modulo completo di una scheda è aperto: prima «Usa nella scheda» o «Torna alla scheda», poi scrivi la correzione.");
+        return;
+      }
       const nota = t.slice(0, 4000);
       try {
         for (const i of aperte) {

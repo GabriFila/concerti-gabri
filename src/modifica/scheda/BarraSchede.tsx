@@ -9,7 +9,8 @@
 
    - Il Salva aspetta che ogni scheda spuntata sia pronta («Prima sistema
      1 scheda») e che le altre approvazioni del run (una cancellazione…)
-     abbiano la loro risposta.
+     abbiano la loro risposta. Con il «Modulo completo» di una scheda
+     aperto non si salva e non si scarta: i suoi valori andrebbero persi.
    - Dopo il Salva: «3 concerti salvati» e «Annulla tutti», un
      activity.undo per scheda, dall'ultima alla prima (una persona creata
      dalla prima scheda può essere usata dalla seconda).
@@ -54,8 +55,11 @@ function DaDecidere({ ids }: { ids: string[] }) {
   const inAttesa = incluse.filter(x => !(x.v?.nProblemi ?? 0) && x.v?.bloccata !== false).length;
   const altre = run.altre.filter(i => i.status === "pending").length;
   const tutte = incluse.length === ids.length;
+  const conModulo = voci.some(x => x.v?.moduloAperto !== undefined);
 
-  const suggerimento = altre
+  const suggerimento = conModulo
+    ? "Il modulo completo è aperto: prima «Usa nella scheda» o «Torna alla scheda»."
+    : altre
     ? "Rispondi anche alla domanda qui sopra (Conferma o Rifiuta)."
     : bloccate
       ? `Prima sistema ${schede(bloccate)}.`
@@ -65,11 +69,12 @@ function DaDecidere({ ids }: { ids: string[] }) {
           ? "Nessuna scheda da salvare: usa «Scarta tutte»."
           : null;
   const puoSalvare = !suggerimento && !run.caricando;
-  const puoScartare = !altre && !run.caricando;
+  const puoScartare = !altre && !conModulo && !run.caricando;
 
   /** Decide tutte le schede insieme: TanStack manda la ripresa quando l'ultima è decisa. */
   const decidi = (salva: boolean) => {
     setErrore(null);
+    if (voci.some(x => x.v?.moduloAperto !== undefined)) return;
     const decisioni: { id: string; i: (typeof voci)[number]["i"]; editedArgs?: unknown }[] = [];
     for (const x of voci) {
       if (!x.v) return;
@@ -149,6 +154,7 @@ function Salvate({ parti }: { parti: readonly ParteScheda[] }) {
     setInCorso(true);
     setEsito(null);
     let falliti = 0;
+    let inUso = 0;
     // dall'ultima alla prima: una persona creata dalla prima scheda può comparire nella seconda
     for (const s of [...ancora].reverse()) {
       try {
@@ -157,15 +163,27 @@ function Salvate({ parti }: { parti: readonly ParteScheda[] }) {
       } catch (e) {
         const err = erroreDi(e);
         if (err.code === "conflitto" && /già annullata/.test(err.messaggio)) aggiorna(s.id, () => ({ annullata: true }));
+        // un nome nuovo della scheda ora è anche in un altro concerto: neanche Attività lo annulla (il lotto va tutto o niente)
+        else if (err.code === "in_uso") inUso++;
         else falliti++;
       }
     }
     setInCorso(false);
-    if (falliti) {
+    if (falliti || inUso) {
       setEsito(
         <>
-          {falliti === 1 ? "Una non si è potuta annullare da qui" : `${falliti} non si sono potute annullare da qui`}: annulla da{" "}
-          <VaiA vista="attivita">Attività</VaiA>.
+          {inUso > 0 && (
+            <>
+              {inUso === 1 ? "Una non si è potuta annullare" : `${inUso} non si sono potute annullare`}: un nome nuovo
+              {inUso === 1 ? " di quella scheda" : " di quelle schede"} ora è usato anche in un altro concerto. Toglilo da lì, poi annulla.{" "}
+            </>
+          )}
+          {falliti > 0 && (
+            <>
+              {falliti === 1 ? "Una non si è potuta annullare da qui" : `${falliti} non si sono potute annullare da qui`}: annulla da{" "}
+              <VaiA vista="attivita">Attività</VaiA>.
+            </>
+          )}
         </>,
       );
     }

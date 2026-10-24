@@ -72,7 +72,10 @@ export function useVista() {
    * `ignoraGuardia` salta la conferma delle modifiche non salvate (il form
    * ha appena salvato, o porta con sé i suoi valori). `apertura` è il
    * numero del ponte dell'editor: con lo stesso hash cambia solo lo stato,
-   * e il pannello si rifà (passando comunque dalla guardia).
+   * e il pannello si rifà (passando comunque dalla guardia). Senza
+   * `apertura` il numero si toglie: «Aggiungi un concerto» sopra un
+   * pannello aperto dal ponte (il «Modulo completo» della scheda) lo
+   * rifà vuoto, invece di lasciarlo com'è.
    */
   const apriPannello = useCallback(
     (p: Parametri, v?: IdVista, o: { sostituisci?: boolean; ignoraGuardia?: boolean; apertura?: number } = {}) => {
@@ -81,14 +84,14 @@ export function useVista() {
       // al posto di una voce che non abbiamo aperto noi (un link diretto) mfPannello non si aggiunge: chiudere non deve tornare indietro fuori da qui
       const agg: StatoModifica = {
         ...(gia || !o.sostituisci ? { mfPannello: true } : {}),
-        ...(o.apertura !== undefined ? { mfApertura: o.apertura } : {}),
+        mfApertura: o.apertura,
       };
       return router.navigate({
         to: "/$handle/modifica",
         params: { handle },
         hash: scriviHash(v ?? corrente.vista ?? "concerti", p),
         replace: gia || !!o.sostituisci,
-        state: Object.keys(agg).length ? conStato(agg) : true,
+        state: conStato(agg),
         ...(o.ignoraGuardia ? { ignoreBlocker: true } : {}),
         resetScroll: false,
         hashScrollIntoView: false,

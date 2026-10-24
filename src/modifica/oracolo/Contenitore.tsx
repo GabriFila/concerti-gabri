@@ -16,12 +16,19 @@
      focus è dentro e la chat non l'ha già usato (preventDefault).
    - Il contenitore non lega mai Invio: Invio manda e ⌘/⌥/⇧+Invio va a
      capo, ed è affare della chat.
+   - Uscire da /modifica (Sul palco, I dati, il gesto indietro, la
+     scheda del browser) con una scheda dell'Oracolo modificata a mano e
+     non salvata chiede prima, come un pannello con modifiche
+     (`GuardiaSchede`, useBlocker): la chat non sopravvive all'uscita.
+     Cambiare vista dentro /modifica non chiede (la chat resta viva).
    ────────────────────────────────────────────────────────────── */
 
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { useHydrated } from "@tanstack/react-router";
+import { useBlocker, useHydrated } from "@tanstack/react-router";
 import { Icon } from "../../ui/Icon.tsx";
 import { ChatScrittura } from "../ChatScrittura.tsx";
+import { haModificate, titoliModificate } from "../scheda/store.ts";
+import { Conferma } from "../sezioni/comuni.tsx";
 import { useOracoloInterno } from "./contesto.tsx";
 
 export function ContenitoreOracolo({ handle }: { handle: string }) {
@@ -112,7 +119,40 @@ function Dialogo({ handle }: { handle: string }) {
   return (
     <dialog id="oracolo" ref={ref} className="mf-oracolo" aria-label="L'Oracolo in scrittura" data-modo={o.modo} onKeyDown={onKeyDown} onClick={onClick}>
       <ChatScrittura handle={handle} />
+      <GuardiaSchede />
     </dialog>
+  );
+}
+
+const elenco = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs[xs.length - 1]}`);
+
+/**
+ * La guardia delle schede modificate a mano e non salvate: solo uscendo da
+ * /modifica (o chiudendo la scheda del browser), come le impostazioni. La
+ * conferma è un portale (Modale), sopra anche al foglio dell'Oracolo.
+ */
+function GuardiaSchede() {
+  const blocco = useBlocker({
+    shouldBlockFn: ({ current, next }) => haModificate() && current.pathname !== next.pathname,
+    enableBeforeUnload: haModificate,
+    withResolver: true,
+  });
+  if (blocco.status !== "blocked") return null;
+  const titoli = titoliModificate().map(t => `«${t}»`);
+  return (
+    <Conferma
+      titolo="Modifiche non salvate"
+      etichetta="Esci senza salvare"
+      annulla="Continua a modificare"
+      onConferma={() => blocco.proceed()}
+      onChiudi={() => blocco.reset()}
+    >
+      <p>
+        {titoli.length > 1
+          ? `Le schede di ${elenco(titoli)} nell'Oracolo non sono salvate: se esci adesso le perdi.`
+          : `La scheda di ${titoli[0] ?? "un concerto"} nell'Oracolo non è salvata: se esci adesso la perdi.`}
+      </p>
+    </Conferma>
   );
 }
 

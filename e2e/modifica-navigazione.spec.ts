@@ -16,7 +16,8 @@
      «indietro» chiude, il pannello a tutto schermo, niente scroll
      orizzontale a 360 px;
    - le notifiche: «Persona aggiunta.» con «Annulla», che toglie la
-     persona e in «Attività» la voce risulta annullata; `/` porta alla
+     persona (il focus va al titolo della vista e «Annullato.» se ne va
+     da sola) e in «Attività» la voce risulta annullata; `/` porta alla
      ricerca; il menu ⋯ della testata con la tastiera, e «Chiedi
      all'Oracolo» che precompila la casella senza mandare niente; il
      numero dei concerti da completare sulla navigazione;
@@ -339,8 +340,13 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     await expect(page.getByRole("region", { name: "Notifiche" }).getByRole("status")).toHaveCount(1);
     await expect(persone.getByRole("list", { name: "Persone" })).toContainText("Canarino N.");
     await notifica.getByRole("button", { name: "Annulla", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Annullato." })).toBeVisible();
+    const annullato = page.getByRole("status").filter({ hasText: "Annullato." });
+    await expect(annullato).toBeVisible();
     await expect(persone.getByText("Canarino N.")).toHaveCount(0);
+    // «Annulla» è sparito col focus (Chrome non manda blur): il focus va al titolo della vista, e «Annullato.» se ne va da sola (6 s)
+    await expect(page.locator("#persone-titolo")).toBeFocused();
+    await page.mouse.move(0, 0);
+    await expect(annullato).toHaveCount(0, { timeout: 12_000 });
     // in «Attività» l'aggiunta risulta annullata (e c'è la voce dell'annullamento)
     await vaiA(page, "attivita");
     const registro = page.locator("section#attivita").getByRole("list", { name: "Registro delle attività" });

@@ -7,7 +7,10 @@
      lo è ogni notifica, così `getByRole("status").filter({ hasText })`
      ne trova una sola. Al massimo tre; restano 6 s, 10 s se hanno
      un'azione, ferme finché il puntatore o il focus ci sono sopra. Non
-     prendono mai il focus.
+     prendono mai il focus. Un aggiornamento che toglie il pulsante col
+     focus («Annulla» → «Annullato.») non manda blur: il tempo riparte lo
+     stesso, e il focus va al titolo della vista invece di restare sul
+     <body>.
    - `useScrittura()` sostituisce useOperazione per le scritture: gli
      errori restano nella sezione (in linea, mai qui); a buon fine la
      notifica, e con `annullabile` la voce del registro da annullare
@@ -177,6 +180,18 @@ function VoceToast({ t, onChiudi }: { t: Toast; onChiudi: () => void }) {
 
   const chiudiRef = useRef(onChiudi);
   chiudiRef.current = onChiudi;
+  const ref = useRef<HTMLDivElement>(null);
+  const conFocus = useRef(false);
+  conFocus.current = ferma.focus;
+  // finita un'azione, il pulsante col focus può essere sparito («Annulla» → «Annullato.») o spento senza blur (Chrome non lo manda):
+  // il tempo riparte, e il focus non resta sul <body> ma va al titolo della vista, come quando si chiude un pannello
+  useEffect(() => {
+    if (inCorso || !conFocus.current) return;
+    const att = document.activeElement;
+    if (ref.current?.contains(att)) return;
+    setFerma(f => ({ ...f, focus: false }));
+    if (!att || att === document.body) document.querySelector<HTMLElement>("section.mf-vista:not([hidden]) h1")?.focus({ preventScroll: true });
+  }, [t.versione, inCorso]);
   const durata = t.azioni?.length ? DURATA_CON_AZIONE : DURATA;
   // il tempo che resta: si ferma col puntatore o il focus sopra, riparte da capo a ogni aggiornamento
   const resta = useRef(durata);
@@ -204,6 +219,7 @@ function VoceToast({ t, onChiudi }: { t: Toast; onChiudi: () => void }) {
 
   return (
     <div
+      ref={ref}
       className="mf-toast"
       role="status"
       onMouseEnter={() => setFerma(f => ({ ...f, sopra: true }))}
