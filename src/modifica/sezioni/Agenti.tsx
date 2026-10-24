@@ -10,16 +10,29 @@
    - L'import da CSV/JSON (src/import/ImportUpload.tsx).
    Tutto solo dopo l'idratazione e con la sessione: un token agente non
    vede né crea chiavi (agents.* sono dashboardOnly).
+
+   Schede una sotto l'altra (spec ux-modifica §6.9), senza un'azione
+   primaria in testata: la primaria è «Copia» dell'indirizzo, nella
+   prima scheda; «Come collegarlo» è un <details> per client.
+   `#agenti?parte=import` (il ⋯ di #concerti) porta alla scheda
+   dell'import e mette il focus sul file, poi l'hash torna #agenti.
+   Testi, testid ed etichette sono quelli che usano gli e2e (mcp-apikey,
+   mcp-oauth, import): «Nome» è la sola etichetta con quella parola, e
+   nessun role=status in più (l'import ha il suo).
    ────────────────────────────────────────────────────────────── */
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useHydrated } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
 import { agentPrompt } from "../../../shared/agentPrompt.ts";
 import { ImportUpload } from "../../import/ImportUpload.tsx";
 import { Copia, Errore, erroreDi, useConvexProprietario, useDatiProprietario, useOrigine, type ErroreUi } from "../../import/comuni.tsx";
+import { IntestazioneVista } from "../shell/IntestazioneVista.tsx";
+import { LinkVista } from "../shell/LinkVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
+import { TestaImpostazione } from "../ui/campi.tsx";
+import { useVista } from "../useVista.ts";
 
 type Elenco = FunctionReturnType<typeof api.agents.list>;
 type Chiave = Elenco["chiavi"][number];
@@ -38,67 +51,132 @@ export function SezioneAgenti({ handle }: SezioneProps) {
   const idratata = useHydrated();
   return (
     <div className="ag-sezione">
+      <IntestazioneVista
+        id="agenti"
+        titolo="Agenti"
+        meta={idratata && <MetaAgenti />}
+        descrizione={
+          <>
+            Un agente AI (Claude, ChatGPT, Claude Code…) può leggere le email dei biglietti e il calendario e scrivere i concerti qui, con gli
+            stessi strumenti della dashboard. Non vede mai gli indirizzi delle partenze e non può esportare né eliminare l'account. Quello
+            che scrive compare in «<LinkVista id="attivita" className="mf-link-testo">Attività</LinkVista>» e si annulla da lì.
+          </>
+        }
+      />
       {idratata ? <Contenuto handle={handle} /> : <p className="ag-attesa" aria-busy="true">Carico…</p>}
     </div>
+  );
+}
+
+/** «2 API key attive · 1 app collegata». */
+function MetaAgenti() {
+  const q = useDatiProprietario(api.agents.list);
+  if (!q.data) return null;
+  const chiavi = q.data.chiavi.filter(k => k.attiva).length;
+  const app = q.data.client.length;
+  return (
+    <>
+      {chiavi === 1 ? "1 API key attiva" : `${chiavi} API key attive`} · {app === 1 ? "1 app collegata" : `${app} app collegate`}
+    </>
   );
 }
 
 function Contenuto({ handle }: { handle: string }) {
   const origine = useOrigine();
   const mcp = `${origine}/mcp`;
+  const importa = useParteImport();
   return (
     <>
-      <p className="ag-hint">
-        Un agente AI (Claude, ChatGPT, Claude Code…) può leggere le email dei biglietti e il calendario e scrivere i concerti
-        qui, con gli stessi strumenti della dashboard. Non vede mai gli indirizzi delle partenze e non può esportare né
-        eliminare l'account. Quello che scrive compare in #attivita e si annulla da lì.
-      </p>
-
-      <div className="ag-blocco">
-        <p className="ag-etichetta">Indirizzo del server MCP</p>
+      <section className="ag-blocco mf-agenti-collega" aria-labelledby="agenti-collega">
+        <TestaImpostazione id="agenti-collega" titolo="Collega un agente" />
+        <p className="ag-hint">L'indirizzo del server MCP: lo incolli nel tuo agente, poi entri con questo account e consenti l'accesso.</p>
         <div className="ag-riga">
           <code className="ag-codice" data-testid="mcp-url">{mcp}</code>
           <Copia testo={mcp} nome="indirizzo del server MCP" />
         </div>
-      </div>
-
-      <div className="ag-blocco">
-        <p className="ag-etichetta">Come collegarlo</p>
-        <ul className="ag-istruzioni">
-          <li>
-            <b>Claude</b> (sito e app): Impostazioni → Connettori → Aggiungi connettore personalizzato, incolla l'indirizzo e
-            premi Connetti. Si apre questo sito: entra e consenti l'accesso.
-          </li>
-          <li>
-            <b>ChatGPT</b>: Impostazioni → App e connettori → Avanzate, attiva la modalità sviluppatore, poi crea un connettore
-            con l'indirizzo e autenticazione OAuth (serve un piano che lo permetta).
-          </li>
-          <li>
-            <b>Claude Code</b>: <code className="ag-codice">claude mcp add --transport http concerti {mcp}</code>, poi{" "}
-            <code className="ag-codice">/mcp</code> dentro Claude Code per entrare e consentire l'accesso.
-          </li>
-          <li>
-            <b>Con una API key</b> (script e client senza OAuth): creala qui sotto e mandala nell'header{" "}
-            <code className="ag-codice">x-api-key</code>, per esempio{" "}
-            <code className="ag-codice">claude mcp add --transport http concerti {mcp} --header "x-api-key: cgk_…"</code>.
-          </li>
-        </ul>
-      </div>
+        <h3 className="mf-agenti-come">Come collegarlo</h3>
+        <div className="mf-agenti-client">
+          <details className="mf-dettaglio" open>
+            <summary>
+              <b>Claude</b> <span>sito e app</span>
+            </summary>
+            <p>
+              Impostazioni → Connettori → Aggiungi connettore personalizzato, incolla l'indirizzo e premi Connetti. Si apre questo sito:
+              entra e consenti l'accesso.
+            </p>
+          </details>
+          <details className="mf-dettaglio">
+            <summary>
+              <b>ChatGPT</b>
+            </summary>
+            <p>
+              Impostazioni → App e connettori → Avanzate, attiva la modalità sviluppatore, poi crea un connettore con l'indirizzo e
+              autenticazione OAuth (serve un piano che lo permetta).
+            </p>
+          </details>
+          <details className="mf-dettaglio">
+            <summary>
+              <b>Claude Code</b>
+            </summary>
+            <p>
+              <code className="ag-codice">claude mcp add --transport http concerti {mcp}</code>, poi <code className="ag-codice">/mcp</code>{" "}
+              dentro Claude Code per entrare e consentire l'accesso.
+            </p>
+          </details>
+          <details className="mf-dettaglio">
+            <summary>
+              <b>Con una API key</b> <span>script e client senza OAuth</span>
+            </summary>
+            <p>
+              Creala qui sotto e mandala nell'header <code className="ag-codice">x-api-key</code>, per esempio{" "}
+              <code className="ag-codice">claude mcp add --transport http concerti {mcp} --header "x-api-key: cgk_…"</code>.
+            </p>
+          </details>
+        </div>
+      </section>
 
       <Prompt handle={handle} origine={origine} />
       <ChiaviApi />
       <AppCollegate />
 
-      <div className="ag-blocco">
-        <p className="ag-etichetta">Importa da un file</p>
+      <section ref={importa.ref} id="agenti-import" className="ag-blocco mf-agenti-import" aria-labelledby="agenti-import-titolo" data-lampo={importa.lampo ? "" : undefined}>
+        <TestaImpostazione id="agenti-import-titolo" titolo="Importa da un file" />
         <p className="ag-hint">
           Senza MCP, lo stesso prompt fa preparare all'agente un CSV (o un JSON): caricalo qui. Prima vedi l'anteprima, poi
           confermi; l'import si annulla in blocco.
         </p>
         <ImportUpload contesto="agenti" />
-      </div>
+      </section>
     </>
   );
+}
+
+/**
+ * `#agenti?parte=import` (dal ⋯ di #concerti): appena le schede sopra
+ * hanno la loro altezza, porta alla scheda dell'import, mette il focus sul
+ * file e la fa lampeggiare; poi l'hash torna #agenti, come ?filtro= in
+ * #concerti (si apre una volta, non a ogni ritorno).
+ */
+function useParteImport() {
+  const { parametri, vai } = useVista();
+  const elenco = useDatiProprietario(api.agents.list);
+  const pronte = !!(elenco.data || elenco.error);
+  const ref = useRef<HTMLElement>(null);
+  const [lampo, setLampo] = useState(false);
+  useEffect(() => {
+    if (parametri.parte !== "import" || !pronte || !ref.current) return;
+    const piano = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ref.current.scrollIntoView({ block: "start", behavior: piano ? "auto" : "smooth" });
+    ref.current.querySelector<HTMLInputElement>('input[type="file"]')?.focus({ preventScroll: true });
+    setLampo(true);
+    void vai("agenti", {}, { sostituisci: true, tieniStato: true });
+  }, [parametri.parte, pronte, vai]);
+  useEffect(() => {
+    if (!lampo) return;
+    const t = setTimeout(() => setLampo(false), 1200);
+    return () => clearTimeout(t);
+  }, [lampo]);
+  return { ref, lampo };
 }
 
 function Prompt({ handle, origine }: { handle: string; origine: string }) {
@@ -115,17 +193,17 @@ function Prompt({ handle, origine }: { handle: string; origine: string }) {
       })
     : "";
   return (
-    <div className="ag-blocco">
-      <div className="ag-riga ag-riga-spazio">
-        <p className="ag-etichetta">Il prompt da dare all'agente</p>
+    <section className="ag-blocco" aria-labelledby="agenti-prompt">
+      <TestaImpostazione id="agenti-prompt" titolo="Il prompt da dare all'agente">
         <Copia testo={prompt} etichetta="Copia il prompt" />
-      </div>
+      </TestaImpostazione>
+      <p className="ag-hint">Con i tuoi dati di adesso (nome, forma, partenze): incollalo all'inizio della conversazione con l'agente.</p>
       {profilo.error ? (
         <Errore errore={erroreDi(profilo.error)} />
       ) : (
         <textarea className="ag-prompt" readOnly rows={10} value={prompt || "Carico…"} aria-label="Prompt per l'agente" />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -156,8 +234,9 @@ function ChiaviApi() {
   }
 
   return (
-    <div className="ag-blocco" role="group" aria-label="API key">
-      <p className="ag-etichetta">API key</p>
+    <section className="ag-blocco" aria-labelledby="agenti-chiavi">
+      <TestaImpostazione id="agenti-chiavi" titolo="API key" />
+      <p className="ag-hint">Per script e client senza OAuth. La chiave si vede una volta sola, appena creata; poi resta qui, revocabile.</p>
       {nuova ? (
         <div className="ag-nuova" role="status">
           <p>
@@ -204,7 +283,7 @@ function ChiaviApi() {
           {q.data.chiavi.map(k => <RigaChiave key={k.id} k={k} />)}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -273,8 +352,8 @@ function RigaChiave({ k }: { k: Chiave }) {
 function AppCollegate() {
   const q = useDatiProprietario(api.agents.list);
   return (
-    <div className="ag-blocco" role="group" aria-label="App collegate">
-      <p className="ag-etichetta">App collegate</p>
+    <section className="ag-blocco" aria-labelledby="agenti-app">
+      <TestaImpostazione id="agenti-app" titolo="App collegate" />
       <p className="ag-hint">
         Le app a cui hai dato l'accesso con "Consenti" (Claude, ChatGPT, Claude Code…). L'accesso si rinnova da solo; se
         un'app resta ferma per 30 giorni va ricollegata. Scollegarla lo toglie subito.
@@ -290,7 +369,7 @@ function AppCollegate() {
           {q.data.client.map(c => <RigaClient key={c.clientId} c={c} />)}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 

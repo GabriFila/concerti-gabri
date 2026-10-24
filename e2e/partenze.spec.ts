@@ -18,6 +18,7 @@ import { nuovoProprietario } from "./helpers/auth.ts";
 import { CANARINO } from "./helpers/canarino.ts";
 import { convexRun } from "./helpers/convex.ts";
 import { fughe } from "./helpers/fughe.ts";
+import { vaiA } from "./helpers/modifica.ts";
 import { stubNominatim } from "./helpers/nominatim.ts";
 import { expect, test } from "./helpers/test.ts";
 
@@ -101,6 +102,7 @@ test.describe("il proprietario", { tag: "@sessione" }, () => {
     await visitatore.goto(`/${handle}/dati`);
 
     // un concerto da quella partenza: km calcolato subito (l'indirizzo c'è)
+    await vaiA(page, "concerti");
     await page.locator("section#concerti").getByRole("button", { name: "Aggiungi un concerto" }).click();
     const modale = page.getByRole("dialog", { name: "Nuovo concerto" });
     await modale.locator('input[name="artist"]').fill(ARTISTA);
@@ -108,7 +110,7 @@ test.describe("il proprietario", { tag: "@sessione" }, () => {
     await modale.getByLabel("Cerca una venue").fill("Fabrique");
     await modale.getByRole("list", { name: "Venue del catalogo" }).getByRole("button", { name: /^Fabrique/ }).first().click();
     await modale.locator('select[name="from"]').selectOption(PARTENZA);
-    await modale.getByRole("button", { name: "Salva" }).click();
+    await modale.getByRole("button", { name: "Salva", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Concerto aggiunto" })).toBeVisible();
     await expect(page.locator("section#concerti").getByRole("list", { name: "Concerti e festival" }).getByRole("listitem").filter({ hasText: ARTISTA })).toContainText(/da Casa canarino · \d+ km/);
 
@@ -118,6 +120,7 @@ test.describe("il proprietario", { tag: "@sessione" }, () => {
     expect(fughe(frames.join("\n"))).toEqual([]);
 
     // correzione: l'avviso del nuovo scarto; una al giorno (la seconda è bloccata)
+    await vaiA(page, "partenze");
     await riga.getByRole("button", { name: `Correggi l'indirizzo di ${PARTENZA}` }).click();
     const correzione = page.getByRole("dialog", { name: `Correggi l'indirizzo di ${PARTENZA}` });
     await expect(correzione).toContainText("nuovo scarto casuale");

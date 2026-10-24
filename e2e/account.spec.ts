@@ -18,6 +18,7 @@ import { fileEsportato } from "../shared/schema/dashboard.ts";
 import { accediConOtp, nuovoProprietario } from "./helpers/auth.ts";
 import { convexRun } from "./helpers/convex.ts";
 import { http } from "./helpers/http.ts";
+import { vaiA } from "./helpers/modifica.ts";
 import { expect, test } from "./helpers/test.ts";
 
 test.describe("account", { tag: "@sessione" }, () => {
@@ -30,10 +31,12 @@ test.describe("account", { tag: "@sessione" }, () => {
     await page.locator("section#persone").getByLabel("Nuova persona").fill("Lu");
     await page.locator("section#persone").getByRole("button", { name: "Aggiungi" }).click();
     await expect(page.locator("section#persone").getByRole("list", { name: "Persone" })).toContainText("Lu");
+    await vaiA(page, "partenze");
     await page.locator("section#partenze").getByLabel("Nuova partenza").fill("Casa");
     await page.locator("section#partenze").getByRole("button", { name: "Aggiungi" }).click();
     await page.getByRole("dialog", { name: "Imposta l'indirizzo di Casa" }).getByRole("button", { name: "Chiudi" }).click();
 
+    await vaiA(page, "account");
     const download = page.waitForEvent("download");
     await page.locator("section#account").getByRole("button", { name: "Scarica i miei dati" }).click();
     const file = await download;

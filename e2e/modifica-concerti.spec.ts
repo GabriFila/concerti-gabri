@@ -12,6 +12,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { accediComeGabrifila } from "./helpers/auth.ts";
 import { convexRun } from "./helpers/convex.ts";
+import { menuRiga, vaiA } from "./helpers/modifica.ts";
 import { expect, test } from "./helpers/test.ts";
 
 const ARTISTA = "Canarino in dashboard";
@@ -42,7 +43,7 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
   /** L'elenco dei concerti (non il riquadro "da completare", che sta nella stessa sezione). */
   const elenco = (page: Page) => concerti(page).getByRole("list", { name: "Concerti e festival" });
   const attivita = (page: Page) => page.locator("section#attivita");
-  const salva = async (dialogo: Locator) => await dialogo.getByRole("button", { name: "Salva" }).click();
+  const salva = async (dialogo: Locator) => await dialogo.getByRole("button", { name: "Salva", exact: true }).click();
   const avviso = (page: Page, testo: string) => expect(page.getByRole("status").filter({ hasText: testo })).toBeVisible();
 
   /** La venue dal catalogo, scritta e scelta. */
@@ -97,6 +98,7 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
     await expect(palco.getByText(RINVIATO)).toBeVisible();
 
     // annulla la modifica, poi l'aggiunta, da «Attività» (l'autore è la dashboard)
+    await vaiA(page, "attivita");
     const nomeAnnulla = { name: `Annulla: modificato: ${ARTISTA} (25/10/2026)`, exact: true };
     const annullaModifica = attivita(page).getByRole("button", nomeAnnulla);
     await expect(attivita(page).getByRole("listitem").filter({ has: page.getByRole("button", nomeAnnulla) })).toContainText("Dashboard");
@@ -109,6 +111,8 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
     await expect(card.locator(".num")).toHaveText("11", { timeout: 20_000 });
     await expect(card.locator(".hint")).toHaveText("prossimo 18/11/2026");
     await expect(palco.getByText("11 concerti programmati")).toBeVisible();
+    await vaiA(page, "concerti");
+    await expect(elenco(page)).toBeVisible();
     await expect(elenco(page).getByRole("button", { name: `Modifica ${ARTISTA} del 25/10/2026` })).toHaveCount(0);
 
     // i visitatori non hanno mai ricaricato
@@ -131,7 +135,8 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
     await f.locator('input[name="concerts[0].artist"]').fill("Primo set");
     await f.locator('input[name="concerts[1].artist"]').fill("Secondo set");
     await f.locator('input[name="concerts[1].date"]').fill("2025-09-13");
-    await f.locator('select[name="concerts[0].voto"]').selectOption("4");
+    // voto, posizione e canzoni note sono pastiglie: radio veri con i nomi dei campi
+    await f.locator('input[name="concerts[0].voto"][value="4"]').check();
     await salva(f);
     await avviso(page, "Festival aggiunto");
     // l'elenco mostra i più recenti: la ricerca lo trova
@@ -139,20 +144,22 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
     const riga = elenco(page).getByRole("listitem").filter({ hasText: FESTIVAL });
     await expect(riga).toContainText("festival · 2 concerti");
 
-    // cancella: chiede conferma
-    await riga.getByRole("button", { name: /^Cancella/ }).click();
+    // cancella dal menu ⋯ della riga: chiede conferma
+    await menuRiga(page, riga, "Cancella…");
     const conferma = page.getByRole("dialog", { name: "Cancellare il festival?" });
     await conferma.getByRole("button", { name: "Cancella" }).click();
     await avviso(page, "Cancellato");
     await expect(riga).toHaveCount(0);
 
     // Annulla lo rimette, con la sua lineup
+    await vaiA(page, "attivita");
     await attivita(page).getByRole("button", { name: `Annulla: cancellato: ${FESTIVAL} (12–13/09/2025)` }).click();
+    await vaiA(page, "concerti");
     await expect(riga).toContainText("festival · 2 concerti", { timeout: 20_000 });
     await riga.getByRole("button", { name: /^Modifica/ }).click();
     const di = page.getByRole("dialog", { name: "Modifica festival" });
     await expect(di.locator('input[name="concerts[1].artist"]')).toHaveValue("Secondo set");
-    await expect(di.locator('select[name="concerts[0].voto"]')).toHaveValue("4");
+    await expect(di.locator('input[name="concerts[0].voto"][value="4"]')).toBeChecked();
     await di.getByRole("button", { name: "Annulla" }).click();
   });
 
@@ -173,9 +180,10 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
     await expect(voce).toContainText("manca: voto, posizione, canzoni note, partenza");
     await voce.getByRole("button", { name: /^Completa/ }).click();
     const m = page.getByRole("dialog", { name: "Modifica concerto" });
-    await m.locator('select[name="voto"]').selectOption("5");
-    await m.locator('select[name="vicinanza"]').selectOption("6");
-    await m.locator('select[name="canzoniNote"]').selectOption("na");
+    await m.locator('input[name="voto"][value="5"]').check();
+    await m.locator('input[name="vicinanza"][value="6"]').check();
+    await m.locator('input[name="canzoniNote"][value="na"]').check();
+    await expect(m.locator('input[name="vicinanza"][value="6"]')).toBeChecked();
     await m.locator('select[name="from"]').selectOption("Milano");
     await salva(m);
     await avviso(page, "Concerto modificato");

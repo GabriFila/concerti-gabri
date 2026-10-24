@@ -9,11 +9,18 @@
      partenze col testo dell'indirizzo, "regalato da", wishlist, profilo e
      conversazioni (`account.esporta`, solo dashboard). Mai coordinate.
    - Elimina: si conferma riscrivendo l'handle; serve una sessione
-     recente, altrimenti si rientra e si torna qui (`#account?elimina=1`).
+     recente, altrimenti si rientra e si torna qui (`#account?elimina=1`,
+     letto da useVista; chiudendo la finestra l'hash torna #account).
+
+   Schede una sotto l'altra (spec ux-modifica §6.11). «La tua pagina» si
+   salva dalla sua barra in fondo (SalvaBarra, attiva solo con modifiche);
+   con modifiche non salvate lasciare /modifica chiede conferma, cambiare
+   vista no. Un handle nuovo ricarica la pagina sul nuovo indirizzo: prima
+   la guardia si toglie, o il browser chiederebbe se uscire.
    ────────────────────────────────────────────────────────────── */
 
-import { useEffect, useState, type ReactNode } from "react";
-import { useForm } from "@tanstack/react-form";
+import { useEffect, useState } from "react";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { convexQuery } from "@convex-dev/react-query";
 import type { FunctionReturnType } from "convex/server";
@@ -21,8 +28,12 @@ import { api } from "../../../convex/_generated/api";
 import { eliminaAccountInput } from "../../../shared/schema/dashboard.ts";
 import { aggiornaProfiloInput } from "../../../shared/schema/profile.ts";
 import { esci } from "../../lib/auth-client.ts";
+import { IntestazioneVista } from "../shell/IntestazioneVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
-import { CampoTesto, Caricamento, CorniceSezione, Errore, Modale, erroreDi, frase, useAvviso, useConvex, useDati, useOperazione, type ErroreUi } from "./comuni.tsx";
+import { SalvaBarra, TestaImpostazione, useGuardiaImpostazioni } from "../ui/campi.tsx";
+import { useScrittura } from "../ui/Toast.tsx";
+import { useVista } from "../useVista.ts";
+import { CampoTesto, Caricamento, CorniceSezione, Errore, Modale, erroreDi, frase, useConvex, useDati, useOperazione, type ErroreUi } from "./comuni.tsx";
 import { erroriSchema } from "./forme.ts";
 
 type Profilo = FunctionReturnType<typeof api.profiles.get>;
@@ -39,18 +50,18 @@ const HANDLE_RE = /^[a-z0-9](?:[a-z0-9-]{1,28}[a-z0-9])$/;
 export function SezioneAccount({ handle }: SezioneProps) {
   const p = useDati(api.profiles.get);
   const d = useDati(api.account.dettagli);
-  // qui e non nel form, che si rimonta appena arriva il profilo salvato
-  const [avviso, setAvviso] = useAvviso();
   return (
     <CorniceSezione>
-      <Caricamento q={p}>{profilo => <DatiPagina key={`${profilo.handle}|${profilo.displayName}|${profilo.forma}`} p={profilo} alias={d.data?.alias ?? []} avviso={avviso} onSalvato={setAvviso} />}</Caricamento>
-      <div className="mod-gruppo">
-        <h3>Accesso</h3>
+      <IntestazioneVista id="account" titolo="Account" descrizione="L'indirizzo e il nome della tua pagina, l'accesso, i tuoi dati." />
+      {/* la notifica del salvataggio vive fuori dal form, che si rimonta appena arriva il profilo salvato */}
+      <Caricamento q={p}>{profilo => <DatiPagina key={`${profilo.handle}|${profilo.displayName}|${profilo.forma}`} p={profilo} alias={d.data?.alias ?? []} />}</Caricamento>
+      <section className="mod-gruppo mf-impostazione" aria-labelledby="account-accesso">
+        <TestaImpostazione id="account-accesso" titolo="Accesso" />
         <p>
           {d.data?.email ? <>Sei entrato come <b>{d.data.email}</b>.</> : "Sei entrato."} L'email non compare mai sulla tua pagina.
         </p>
         <Esci />
-      </div>
+      </section>
       <Esporta handle={handle} />
       <Elimina handle={handle} />
     </CorniceSezione>
@@ -80,9 +91,9 @@ function DisponibilitaHandle({ handle, attuale }: { handle: string; attuale: str
   );
 }
 
-function DatiPagina({ p, alias, avviso, onSalvato }: { p: Profilo; alias: string[]; avviso: ReactNode; onSalvato: (m: string) => void }) {
+function DatiPagina({ p, alias }: { p: Profilo; alias: string[] }) {
   const convex = useConvex();
-  const op = useOperazione();
+  const op = useScrittura();
   const attuale = p.handle ?? "";
   const form = useForm({
     defaultValues: { handle: attuale, displayName: p.displayName ?? "", forma: (p.forma ?? "n") as Forma },
@@ -94,52 +105,58 @@ function DatiPagina({ p, alias, avviso, onSalvato }: { p: Profilo; alias: string
         ...(value.forma !== p.forma ? { forma: value.forma } : {}),
       };
       if (!Object.keys(patch).length) return;
-      if (!(await op.esegui(() => convex.mutation(api.profiles.update, patch)))) return;
-      // l'indirizzo di questa pagina è cambiato: si ricarica su quello nuovo
-      if (patch.handle) window.location.assign(`/${patch.handle}/modifica#account`);
-      else onSalvato("Salvato.");
+      // l'handle cambia l'indirizzo di questa pagina: si ricarica su quello nuovo, senza notifica (e senza «Annulla»)
+      const r = await op.esegui(() => convex.mutation(api.profiles.update, patch), patch.handle ? {} : { successo: "Salvato.", annullabile: true, tabelle: ["profiles"] });
+      if (r && patch.handle) {
+        lascia();
+        window.location.assign(`/${patch.handle}/modifica#account`);
+      }
     },
   });
+  const sporco = useStore(form.store, s => !s.isDefaultValue);
+  const [conferma, lascia] = useGuardiaImpostazioni(sporco, "Account");
   return (
-    <form className="mod-form mod-gruppo" noValidate onSubmit={e => { e.preventDefault(); void form.handleSubmit(); }}>
-      <h3>La tua pagina</h3>
-      <div className="mod-griglia">
-        <form.Field name="handle">
+    <>
+      <form className="mod-form mod-gruppo mf-impostazione" aria-labelledby="account-pagina" noValidate onSubmit={e => { e.preventDefault(); void form.handleSubmit(); }}>
+        <TestaImpostazione id="account-pagina" titolo="La tua pagina" />
+        <div className="mod-griglia">
+          <form.Field name="handle">
+            {f => (
+              <CampoTesto
+                f={f}
+                etichetta="Indirizzo"
+                autoComplete="off"
+                maxLength={30}
+                aiuto={
+                  <>
+                    {window.location.host}/<b>{f.state.value || "…"}</b> · minuscole, numeri e «-». Il vecchio indirizzo continua a portare qui.{" "}
+                    <DisponibilitaHandle handle={f.state.value} attuale={attuale} />
+                  </>
+                }
+              />
+            )}
+          </form.Field>
+          <form.Field name="displayName">{f => <CampoTesto f={f} etichetta="Nome sulla pagina" maxLength={40} autoComplete="nickname" />}</form.Field>
+        </div>
+        {alias.length > 0 && <p className="mod-hint">Indirizzi di prima, che portano qui: {alias.map(a => `/${a}`).join(", ")}.</p>}
+        <form.Field name="forma">
           {f => (
-            <CampoTesto
-              f={f}
-              etichetta="Indirizzo"
-              autoComplete="off"
-              maxLength={30}
-              aiuto={
-                <>
-                  {window.location.host}/<b>{f.state.value || "…"}</b> · minuscole, numeri e «-». Il vecchio indirizzo continua a portare qui.{" "}
-                  <DisponibilitaHandle handle={f.state.value} attuale={attuale} />
-                </>
-              }
-            />
+            <fieldset className="mod-campo mod-forme">
+              <legend className="mod-etichetta">Come parla di te la pagina</legend>
+              {FORME.map(x => (
+                <label key={x.valore} className="mod-spunta">
+                  <input type="radio" name="forma" value={x.valore} checked={f.state.value === x.valore} onChange={() => f.handleChange(x.valore)} />
+                  {x.nome} <span className="mod-hint">{x.esempio}</span>
+                </label>
+              ))}
+            </fieldset>
           )}
         </form.Field>
-        <form.Field name="displayName">{f => <CampoTesto f={f} etichetta="Nome sulla pagina" maxLength={40} autoComplete="nickname" />}</form.Field>
-      </div>
-      {alias.length > 0 && <p className="mod-hint">Indirizzi di prima, che portano qui: {alias.map(a => `/${a}`).join(", ")}.</p>}
-      <form.Field name="forma">
-        {f => (
-          <fieldset className="mod-campo mod-forme">
-            <legend className="mod-etichetta">Come parla di te la pagina</legend>
-            {FORME.map(x => (
-              <label key={x.valore} className="mod-spunta">
-                <input type="radio" name="forma" value={x.valore} checked={f.state.value === x.valore} onChange={() => f.handleChange(x.valore)} />
-                {x.nome} <span className="mod-hint">{x.esempio}</span>
-              </label>
-            ))}
-          </fieldset>
-        )}
-      </form.Field>
-      <button type="submit" className="mod-btn mod-primario" disabled={op.inCorso}>Salva</button>
-      {avviso}
-      <Errore errore={op.errore} />
-    </form>
+        <Errore errore={op.errore} />
+        <SalvaBarra sporco={sporco} inCorso={op.inCorso} onAnnulla={() => form.reset()} />
+      </form>
+      {conferma}
+    </>
   );
 }
 
@@ -169,15 +186,15 @@ function Esporta({ handle }: { handle: string }) {
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
   };
   return (
-    <div className="mod-gruppo">
-      <h3>Esporta i tuoi dati</h3>
+    <section className="mod-gruppo mf-impostazione" aria-labelledby="account-esporta">
+      <TestaImpostazione id="account-esporta" titolo="Esporta i tuoi dati" />
       <p className="mod-hint">
         Un file JSON con tutto: i concerti (nel campo «concerti», nello stesso formato dell'import JSON), persone, partenze con il
         testo degli indirizzi, «regalato da», wishlist, stile e conversazioni con l'Oracolo. Contiene i tuoi indirizzi: tienilo al sicuro.
       </p>
       <button type="button" className="mod-btn" disabled={op.inCorso} onClick={() => void scarica()}>{op.inCorso ? "Preparo…" : "Scarica i miei dati"}</button>
       <Errore errore={op.errore} />
-    </div>
+    </section>
   );
 }
 
@@ -186,16 +203,24 @@ const chiedeEliminazione = () => typeof window !== "undefined" && /^#account\?(.
 
 function Elimina({ handle }: { handle: string }) {
   const [aperto, setAperto] = useState(false);
+  // anche quando l'hash cambia a sezione già montata (la vista resta viva)
+  const { parametri, vai } = useVista();
+  const daHash = parametri.elimina === "1" || chiedeEliminazione();
   useEffect(() => {
-    if (chiedeEliminazione()) setAperto(true);
-  }, []);
+    if (daHash) setAperto(true);
+  }, [daHash]);
+  const chiudi = () => {
+    setAperto(false);
+    // la finestra aperta dall'hash: chiusa, l'hash torna #account (un ricaricamento non la riapre)
+    if (daHash) void vai("account", {}, { sostituisci: true });
+  };
   return (
-    <div className="mod-gruppo mod-zona-pericolo">
-      <h3>Elimina l'account</h3>
+    <section className="mod-gruppo mf-impostazione mod-zona-pericolo" aria-labelledby="account-elimina">
+      <TestaImpostazione id="account-elimina" titolo="Elimina l'account" />
       <p className="mod-hint">Cancella la tua pagina e tutti i suoi dati, per sempre. Le venue che hai aggiunto restano nel catalogo comune.</p>
       <button type="button" className="mod-btn mod-pericolo" onClick={() => setAperto(true)}>Elimina l'account…</button>
-      {aperto && <EliminaModale handle={handle} onChiudi={() => setAperto(false)} />}
-    </div>
+      {aperto && <EliminaModale handle={handle} onChiudi={chiudi} />}
+    </section>
   );
 }
 

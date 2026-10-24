@@ -159,7 +159,8 @@ export function Shell(){
             className={"ms-btn"+(isModifica?" on":"")}>Modifica</a>
         )}
       </div>
-      <div className="ambient" aria-hidden="true">
+      {/* /modifica è una superficie di lavoro: niente luci ambientali (meno strati da comporre) */}
+      {!isModifica&&<div className="ambient" aria-hidden="true">
         <span className="abeam a1"></span>
         <span className="abeam a2"></span>
         <span className="abeam a3"></span>
@@ -182,7 +183,7 @@ export function Shell(){
         <span className="abeam a20"></span>
         <span className="abeam a21"></span>
         <span className="abeam a22"></span>
-      </div>
+      </div>}
       <Outlet/>
       <ChatWidget ctx={chatCtx} apiRef={chatApi} corner/>
       {isDati&&(

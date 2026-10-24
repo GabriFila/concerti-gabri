@@ -1,8 +1,11 @@
 /* ──────────────────────────────────────────────────────────────
    L'Oracolo in scrittura (PIANO §1.27, traguardo 6), dentro
-   /<handle>/modifica: lo scheletro della rotta (corsia 3) lo rende una
-   volta sola. Sta nell'angolo dove sulle pagine pubbliche c'è l'Oracolo
-   dei visitatori, che qui si fa da parte (src/chat/ChatWidget.tsx).
+   /<handle>/modifica: il corpo della chat. La cornice (il <dialog
+   id="oracolo"> agganciato a destra o a tutto schermo, i pulsanti per
+   aprirlo, Esc e il focus) è di oracolo/Contenitore.tsx, che la rende
+   una volta sola e non la smonta mai: chiusa resta viva, col suo flusso
+   e le approvazioni in sospeso. L'Oracolo dei visitatori qui si fa da
+   parte (src/chat/ChatWidget.tsx).
 
    - Parla con POST /api/chat/scrittura (src/server/oracolo/scrittura.ts):
      sessione e handle del proprietario li controlla il server, l'Origin è
@@ -30,6 +33,8 @@ import { fetchServerSentEvents, useChat } from "@tanstack/ai-react";
 import { api } from "../../convex/_generated/api";
 import { logMessagesToUIMessages } from "../chat/chatlog.ts";
 import { Message, Puntini, fmtWhen, randomId } from "../chat/parti.tsx";
+import { TestaOracolo } from "./oracolo/Contenitore.tsx";
+import { useOracolo, useRichiestaOracolo } from "./oracolo/contesto.tsx";
 import { useConvex, useDati } from "./sezioni/comuni.tsx";
 
 /** Gli errori della route in italiano (il client vede solo lo stato HTTP). */
@@ -201,7 +206,7 @@ function Strumento({ part }: { part: any }) {
   );
 }
 
-/* ── il pannello ─────────────────────────────────────────────── */
+/* ── il corpo della chat ─────────────────────────────────────── */
 
 export function ChatScrittura({ handle }: { handle: string }) {
   // dati del proprietario e bottoni solo nel browser (come le sezioni)
@@ -209,7 +214,8 @@ export function ChatScrittura({ handle }: { handle: string }) {
 }
 
 function Pannello({ handle }: { handle: string }) {
-  const [open, setOpen] = useState(false);
+  const { aperto, segnalaRisposta } = useOracolo();
+  const { richiesta, consumata } = useRichiestaOracolo();
   const [view, setView] = useState<"chat" | "storico">("chat");
   const [input, setInput] = useState("");
   const [thread, setThread] = useState(randomId);
@@ -260,22 +266,34 @@ function Pannello({ handle }: { handle: string }) {
     }
   };
 
-  // l'ultimo messaggio in vista
+  // l'ultimo messaggio in vista (anche quando il pannello si riapre)
   useEffect(() => {
     const el = bodyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, isLoading, open, view]);
+  }, [messages, isLoading, aperto, view]);
 
+  // tornando dallo storico alla chat, il focus nella casella
+  const vistaPrima = useRef(view);
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
+    if (view === "chat" && vistaPrima.current !== "chat" && aperto) inputRef.current?.focus();
+    vistaPrima.current = view;
+  }, [view, aperto]);
 
+  // un testo chiesto da un'altra parte di /modifica (useOracolo().apri({ testo })): nella casella, mai inviato
   useEffect(() => {
-    if (open && view === "chat") inputRef.current?.focus();
-  }, [open, view]);
+    if (!richiesta) return;
+    setView("chat");
+    setInput(richiesta.testo);
+    consumata(richiesta.nonce);
+    inputRef.current?.focus();
+  }, [richiesta, consumata]);
+
+  // una risposta finita mentre l'Oracolo è chiuso: il puntino sui pulsanti
+  const caricavaPrima = useRef(isLoading);
+  useEffect(() => {
+    if (caricavaPrima.current && !isLoading) segnalaRisposta();
+    caricavaPrima.current = isLoading;
+  }, [isLoading, segnalaRisposta]);
 
   // la casella cresce col testo (fino al max-height del CSS)
   useEffect(() => {
@@ -283,82 +301,66 @@ function Pannello({ handle }: { handle: string }) {
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
-  }, [input, view, open]);
+  }, [input, view, aperto]);
 
   return (
-    <div className="chatdock chatdock--corner">
-      {open && (
-        <div className="chatmodal" onMouseDown={e => { if (e.target === e.currentTarget) setOpen(false); }}>
-          <div className="chatpop" role="dialog" aria-modal="true" aria-label="L'Oracolo in scrittura">
-            <div className="fp-head">
-              <span className="fp-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-                L'Oracolo · scrittura
-              </span>
-              <div className="fp-headactions">
-                <button type="button" className={"fp-clear" + (messages.length ? "" : " dis")} disabled={!messages.length} onClick={nuova}>Nuova chat</button>
-                <button type="button" className={"fp-close" + (view === "storico" ? " on" : "")}
-                  onClick={() => { setErroreStorico(null); setView(v => (v === "storico" ? "chat" : "storico")); }}
-                  aria-label="Le tue chat private" aria-pressed={view === "storico"} title="Le tue chat private">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
-                </button>
-                <button type="button" className="fp-close" onClick={() => setOpen(false)} aria-label="Chiudi">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                </button>
-              </div>
-            </div>
-            {view === "storico" ? (
-              <div className="chat-body" ref={bodyRef}>
-                {erroreStorico && <div className="chat-error">{erroreStorico}</div>}
-                <Storico corrente={thread} caricando={caricando} occupato={isLoading} apri={id => void riprendi(id)} />
-                <div className="chat-note">Le tue conversazioni con l'Oracolo in scrittura: private, le vedi solo tu, qui. Restano per 90 giorni.</div>
-              </div>
-            ) : (
-              <>
-                <div className="chat-body" ref={bodyRef}>
-                  {messages.length === 0 && (
-                    <div className="chat-empty">
-                      <p>Sono L'Oracolo, in modalità scrittura: dimmi cosa aggiungere o cambiare (concerti, persone, wishlist, stile…) e lo faccio io. Ogni modifica compare subito nella pagina e in Attività, da dove si annulla; cancellazioni e annullamenti te li faccio confermare.</p>
-                      <div className="chat-sugg">
-                        {SUGGERIMENTI.map(s => (
-                          <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <Interruzioni.Provider value={interrupts}>
-                    {messages.map((m: any) => <Message key={m.id} message={m} Strumento={Strumento} />)}
-                  </Interruzioni.Provider>
-                  {isLoading && <Puntini />}
-                  {uiError && <div className="chat-error">{uiError}</div>}
-                </div>
-                <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
-                  <textarea
-                    ref={inputRef}
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    placeholder="Cosa aggiungo o cambio?"
-                    maxLength={1500}
-                    rows={1}
-                    aria-label="Messaggio per l'Oracolo"
-                  />
-                  <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
-                  </button>
-                </form>
-                <div className="chat-note">Chat privata: la vedi solo tu. Gli indirizzi delle partenze si impostano solo in Partenze. Risposte generate dall'AI: controlla le modifiche in Attività.</div>
-              </>
-            )}
+    <>
+      <TestaOracolo azioni={
+        <>
+          <button type="button" className={"fp-clear" + (messages.length ? "" : " dis")} disabled={!messages.length} onClick={nuova}>Nuova chat</button>
+          <button type="button" className={"fp-close" + (view === "storico" ? " on" : "")}
+            onClick={() => { setErroreStorico(null); setView(v => (v === "storico" ? "chat" : "storico")); }}
+            aria-label="Le tue chat private" aria-pressed={view === "storico"} title="Le tue chat private">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></svg>
+          </button>
+        </>
+      } />
+      <div className="mf-oracolo-corpo">
+        {view === "storico" ? (
+          <div className="chat-body" ref={bodyRef}>
+            {erroreStorico && <div className="chat-error">{erroreStorico}</div>}
+            <Storico corrente={thread} caricando={caricando} occupato={isLoading} apri={id => void riprendi(id)} />
+            <div className="chat-note">Le tue conversazioni con l'Oracolo in scrittura: private, le vedi solo tu, qui. Restano per 90 giorni.</div>
           </div>
-        </div>
-      )}
-      <button type="button" className={"chatbtn" + (open ? " open" : "")}
-        onClick={() => { if (!open) setView("chat"); setOpen(!open); }}
-        aria-label="Apri L'Oracolo in scrittura" aria-expanded={open} title="L'Oracolo in scrittura">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
-        <span className="filterbtn-lbl">L'Oracolo</span>
-      </button>
-    </div>
+        ) : (
+          <>
+            <div className="chat-body" ref={bodyRef}>
+              {messages.length === 0 && (
+                <div className="chat-empty">
+                  <p>Sono L'Oracolo, in modalità scrittura: dimmi cosa aggiungere o cambiare (concerti, persone, wishlist, stile…) e lo faccio io. Ogni modifica compare subito nella pagina e in Attività, da dove si annulla; cancellazioni e annullamenti te li faccio confermare.</p>
+                  <div className="chat-sugg">
+                    {SUGGERIMENTI.map(s => (
+                      <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <Interruzioni.Provider value={interrupts}>
+                {messages.map((m: any) => <Message key={m.id} message={m} Strumento={Strumento} />)}
+              </Interruzioni.Provider>
+              {isLoading && <Puntini />}
+              {uiError && <div className="chat-error">{uiError}</div>}
+            </div>
+            <form className="chat-inputrow" onSubmit={e => { e.preventDefault(); send(input); }}>
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                placeholder="Cosa aggiungo o cambio?"
+                maxLength={1500}
+                rows={1}
+                aria-label="Messaggio per l'Oracolo"
+                data-autofocus
+              />
+              <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7Z"/></svg>
+              </button>
+            </form>
+            <div className="chat-note">Chat privata: la vedi solo tu. Gli indirizzi delle partenze si impostano solo in Partenze. Risposte generate dall'AI: controlla le modifiche in Attività.</div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

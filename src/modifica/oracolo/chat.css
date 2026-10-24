@@ -1,0 +1,8 @@
+/* ──────────────────────────────────────────────────────────────
+   L'interno della chat dell'Oracolo in scrittura (corsia ux-agente):
+   messaggi, schede degli strumenti, composer. Collegato nel <head> di
+   ogni pagina (src/routes/__root.tsx), come modifica.css; le regole
+   stanno sotto .mf-oracolo (le classi .chat-* di styles.css sono anche
+   dell'Oracolo pubblico). La cornice (.mf-oracolo, .mf-oracolo-testa,
+   .mf-oracolo-corpo) è di modifica.css.
+   ────────────────────────────────────────────────────────────── */

@@ -23,6 +23,7 @@ import type { Page } from "@playwright/test";
 import { nuovoProprietario, unico } from "./helpers/auth.ts";
 import { convexRun } from "./helpers/convex.ts";
 import { http } from "./helpers/http.ts";
+import { vaiA } from "./helpers/modifica.ts";
 import { expect, test } from "./helpers/test.ts";
 
 const chat = (page: Page) => page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
@@ -80,7 +81,12 @@ test.describe("Oracolo in scrittura", { tag: "@sessione" }, () => {
     await expect(chat(page).getByText("Concerto aggiunto", { exact: true })).toBeVisible();
     await expect(concerti.getByText(artista)).toBeVisible();
     await expect(pubblica.getByText(artista).first()).toBeVisible();
+    // Attività è un'altra vista: l'Oracolo agganciato resta aperto, con la stessa chat
+    await vaiA(page, "attivita");
     await expect(attivita.locator(".mod-voce").filter({ hasText: `aggiunto: ${artista}` }).locator(".mod-autore")).toHaveText("Oracolo");
+    await expect(chat(page)).toBeVisible();
+    await expect(chat(page).getByText("Fatto: concerto aggiunto.")).toBeVisible();
+    await vaiA(page, "concerti");
     const threadId = richieste[0].threadId!;
 
     // 2. cancellazione: la chat chiede, con il nome del concerto; "Rifiuta" non tocca niente
@@ -97,6 +103,7 @@ test.describe("Oracolo in scrittura", { tag: "@sessione" }, () => {
     await expect(chat(page).getByText("Fatto: concerto cancellato.")).toBeVisible();
     await expect(concerti.getByText(artista)).toHaveCount(0);
     await expect(pubblica.getByText(artista)).toHaveCount(0);
+    await vaiA(page, "attivita");
     await expect(attivita.locator(".mod-voce").filter({ hasText: `cancellato: ${artista}` }).locator(".mod-autore")).toHaveText("Oracolo");
     await ospite.close();
 

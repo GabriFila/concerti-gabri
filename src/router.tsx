@@ -52,7 +52,9 @@ export function getRouter() {
   const router = createRouter({
     routeTree,
     context,
-    scrollRestoration: true,
+    // su /<handle>/modifica lo scroll è dello Scheletro (uno per vista, e
+    // l'hash è la vista: niente scrollIntoView né ripristino del router)
+    scrollRestoration: ({ location }) => !/\/modifica\/?$/.test(location.pathname),
   });
   setupRouterSsrQueryIntegration({ router, queryClient });
   return router;

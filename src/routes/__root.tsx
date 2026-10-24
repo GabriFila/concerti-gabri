@@ -25,6 +25,7 @@ import wishlistCss from "../wishlist.css?url";
 import accessoCss from "../accesso/accesso.css?url";
 import agentiCss from "../import/agenti.css?url";
 import modificaCss from "../modifica/sezioni/modifica.css?url";
+import oracoloCss from "../modifica/oracolo/chat.css?url";
 import { authDellaRichiesta } from "../lib/auth-sessione.ts";
 import { RootError } from "../root/errors.tsx";
 import { RootProviders } from "../root/providers.tsx";
@@ -62,6 +63,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "stylesheet", href: agentiCss },
       // le sezioni di /modifica (traguardo 5), per lo stesso motivo
       { rel: "stylesheet", href: modificaCss },
+      // l'interno della chat dell'Oracolo in scrittura (corsia ux-agente)
+      { rel: "stylesheet", href: oracoloCss },
     ],
   }),
   shellComponent: RootDocument,

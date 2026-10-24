@@ -2,8 +2,9 @@
    Il guard di /<handle>/modifica (PIANO §6, traguardo 3): il visitatore
    anonimo e un altro utente tornano a /<handle>; il proprietario vede le
    9 sezioni con le loro ancore, nell'ordine del contratto
-   (src/modifica/sezioni.ts). Il guard è solo UX: le scritture le
-   controlla requireOwner (convex/isolation.test.ts).
+   (src/modifica/sezioni.ts), una vista alla volta: senza hash Concerti.
+   Il guard è solo UX: le scritture le controlla requireOwner
+   (convex/isolation.test.ts).
    ────────────────────────────────────────────────────────────── */
 
 import { accediComeGabrifila, nuovoProprietario } from "./helpers/auth.ts";
@@ -38,12 +39,16 @@ test("un altro utente torna alla pagina, il proprietario vede le 9 ancore", { ta
   await expect(page).toHaveURL(/\/gabrifila$/);
   await expect(page.locator("section#account")).toHaveCount(0);
 
-  // B sulla sua: le 9 sezioni, in ordine, con l'indice
+  // B sulla sua: le 9 sezioni, in ordine, con l'indice; senza hash si vede solo Concerti
   await page.goto(`/${b.handle}/modifica`);
   await expect(page).toHaveURL(new RegExp(`/${b.handle}/modifica$`));
   await expect(page.locator("section.modifica-sezione")).toHaveCount(9);
   expect(await page.locator("section.modifica-sezione").evaluateAll(s => s.map(x => x.id))).toEqual(ANCORE);
-  for (const id of ANCORE) await expect(page.locator(`nav.modifica-indice a[href="#${id}"]`)).toHaveCount(1);
+  for (const id of ANCORE) await expect(page.locator(`nav.modifica-indice a[href$="#${id}"]`)).toHaveCount(1);
+  await expect(page.locator("section#concerti")).toBeVisible();
+  for (const id of ANCORE.slice(1)) await expect(page.locator(`section#${id}`)).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/${b.handle}/modifica$`));
+  await page.goto(`/${b.handle}/modifica#account`);
   await expect(page.locator("section#account").getByRole("button", { name: "Esci" })).toBeVisible();
 });
 

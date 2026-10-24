@@ -101,9 +101,9 @@ test("i 5 passi, la pagina subito pubblica, la ripresa e il redirect finale", { 
   await expect(page.getByRole("heading", { name: "La tua pagina è pronta" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Vai alla tua pagina" })).toHaveAttribute("href", `/${handle}`);
 
-  // a onboarding finito /benvenuto porta a Modifica
+  // a onboarding finito /benvenuto porta a Modifica, sulla vista Concerti
   await page.goto("/benvenuto");
   await expect(page).toHaveURL(new RegExp(`/${handle}/modifica$`));
-  await expect(page.locator("section#partenze")).toBeVisible();
+  await expect(page.locator("section#concerti")).toBeVisible();
   expect(errori.hydration()).toEqual([]);
 });

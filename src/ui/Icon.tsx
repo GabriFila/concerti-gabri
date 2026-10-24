@@ -26,7 +26,30 @@ const PATHS: Record<string, React.ReactNode> = {
   wallet:<><path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2"/><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H5a2 2 0 0 1-2-2Z"/><circle cx="17" cy="14" r="1"/></>,
   chevron:<><path d="M6 9l6 6 6-6"/></>,
   pen:<><path d="M4 20h4L19.6 8.4a2.55 2.55 0 0 0-3.6-3.6L4 16.4V20Z"/><path d="m14.6 6.2 3.2 3.2"/></>,
+  // /<handle>/modifica: navigazione e azioni
+  heart:<><path d="M12 20s-7.5-4.4-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.6 12 20 12 20Z"/></>,
+  palette:<><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.7 1.8-1.7H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></>,
+  plug:<><path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0V8Z"/><path d="M12 17v4"/></>,
+  history:<><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3.5 2"/></>,
+  plus:<><path d="M12 5v14M5 12h14"/></>,
+  search:<><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></>,
+  more:<><circle cx="5.5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18.5" cy="12" r="1.2"/></>,
+  close:<><path d="M18 6 6 18M6 6l12 12"/></>,
+  external:<><path d="M14 4h6v6M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></>,
+  spark:<><path d="M12 3c.6 4.4 2.6 6.4 7 7-4.4.6-6.4 2.6-7 7-.6-4.4-2.6-6.4-7-7 4.4-.6 6.4-2.6 7-7Z"/><path d="M19 15c.2 1.5.8 2.1 2.3 2.3-1.5.2-2.1.8-2.3 2.3-.2-1.5-.8-2.1-2.3-2.3 1.5-.2 2.1-.8 2.3-2.3Z"/></>,
+  check:<><path d="m5 12.5 4.5 4.5L19 7.5"/></>,
+  alert:<><path d="M12 3.5 2.8 19.5h18.4L12 3.5Z"/><path d="M12 10v4.5M12 17.2h.01"/></>,
+  arrowUp:<><path d="M12 19V5M6 11l6-6 6 6"/></>,
+  arrowDown:<><path d="M12 5v14M6 13l6 6 6-6"/></>,
+  sidebar:<><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></>,
+  menu:<><path d="M4 7h16M4 12h16M4 17h16"/></>,
+  copy:<><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
+  trash:<><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/><path d="M10 11v5.5M14 11v5.5"/></>,
+  lock:<><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></>,
 };
+
+/** I nomi dei glifi disponibili (src/modifica/sezioni.test.ts li controlla). */
+export const NOMI_ICONE: readonly string[] = Object.keys(PATHS);
 
 export function Icon({name,size=16,stroke=1.5,className,style}: any){
   return <svg className={className} style={style} width={size} height={size} viewBox="0 0 24 24" fill="none"

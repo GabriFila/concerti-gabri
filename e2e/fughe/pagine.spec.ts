@@ -31,6 +31,7 @@ import { CANARINO } from "../helpers/canarino.ts";
 import { convexRun, whoami } from "../helpers/convex.ts";
 import { fughe, logsConvex } from "../helpers/fughe.ts";
 import { http } from "../helpers/http.ts";
+import { vaiA } from "../helpers/modifica.ts";
 import { stubNominatim } from "../helpers/nominatim.ts";
 import { expect, test } from "../helpers/test.ts";
 
@@ -188,6 +189,7 @@ test.describe("con la sessione del proprietario", { tag: "@sessione" }, () => {
 
     // cercato come venue: lo stub dà la casa (scartata, non è un POI) e poi la
     // città; niente venue col canarino, e la cache lo tiene solo come hash
+    await vaiA(page, "concerti");
     await page.locator("section#concerti").getByRole("button", { name: "Aggiungi un concerto" }).click();
     const modale = page.getByRole("dialog", { name: "Nuovo concerto" });
     await modale.getByLabel("Cerca una venue").fill(CANARINO.indirizzo);
