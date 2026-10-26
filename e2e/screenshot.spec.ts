@@ -19,7 +19,10 @@
    telefono) e il foglio «Altro»; sul desktop anche a 1024 e 1600 px. Poi
    gli elenchi coi loro pannelli: una persona, i menu ⋯ di Persone e
    Wishlist, la finestra dell'indirizzo e il pannello di un "regalato da"
-   (solo aperti e chiusi: gabrifila non cambia). Infine le impostazioni:
+   (solo aperti e chiusi: gabrifila non cambia); la barra in alto col
+   tema e lo switch al centro (barra-*), e Persone e Wishlist scorse in
+   fondo con l'aggiunta rapida ferma in alto (*-scorsa-*; sul desktop a
+   1280×720 e a 1440 con l'Oracolo agganciato). Infine le impostazioni:
    Stile, Agenti e Account a pagina intera, Stile e Account con una
    modifica in sospeso (la barra di salvataggio, la guardia uscendo; poi
    «Annulla le modifiche»: niente si salva) e Attività filtrata.
@@ -316,6 +319,52 @@ test("ux: gli elenchi di /modifica (persone, wishlist, partenze, regalato da) co
     await scatta("regalo", tema);
     await pannello.getByRole("button", { name: "Chiudi" }).click();
     await expect(pannello).toHaveCount(0);
+
+    // la barra in alto: il tema e lo switch al suo centro
+    const barra = page.locator(".mf-barra-app");
+    const alCentro = async () => {
+      const [b, t, s] = await Promise.all([barra.boundingBox(), page.locator(".theme-toggle").boundingBox(), page.locator(".modeswitch").boundingBox()]);
+      const centro = b!.y + b!.height / 2;
+      expect(Math.abs(t!.y + t!.height / 2 - centro)).toBeLessThan(2);
+      expect(Math.abs(s!.y + s!.height / 2 - centro)).toBeLessThan(2);
+    };
+    const scattaBarra = async (nome: string) => {
+      await alCentro();
+      await page.screenshot({ path: join(UX, `${nome}-${tema}-${info.project.name}.png`), animations: "disabled", clip: { x: 0, y: 0, width: page.viewportSize()!.width, height: 96 } });
+    };
+    await scattaBarra("barra");
+
+    // #persone (aggiunta e barra degli strumenti) e #wishlist scorse in fondo: l'aggiunta rapida resta ferma sotto la barra
+    const scorse = async (suffisso: string) => {
+      for (const v of ["persone", "wishlist"]) {
+        await vaiA(page, v);
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        const blocco = page.locator(`section#${v} .mf-strumenti`);
+        await expect(blocco).toHaveAttribute("data-ferma", "");
+        await expect(blocco.getByRole("button", { name: "Aggiungi" })).toBeInViewport();
+        const [b, f] = await Promise.all([barra.boundingBox(), blocco.boundingBox()]);
+        expect(Math.abs(f!.y - (b!.y + b!.height))).toBeLessThan(2);
+        await scatta(`${v}-scorsa${suffisso}`, tema);
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+    };
+    if (info.project.name === "mobile") {
+      await scorse("");
+    } else {
+      // un portatile basso: anche la wishlist di gabrifila scorre
+      await page.setViewportSize({ width: 1280, height: 720 });
+      await scorse("");
+      // 1440 con l'Oracolo agganciato: il blocco fermo resta nella colonna, sotto l'Oracolo
+      await page.setViewportSize({ width: 1440, height: 800 });
+      await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+      const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+      await expect(oracolo).toBeVisible();
+      await scorse("-oracolo-1440");
+      await scattaBarra("barra-oracolo-1440");
+      await page.getByRole("button", { name: "Chiudi L'Oracolo in scrittura" }).click();
+      await expect(oracolo).toBeHidden();
+      await page.setViewportSize({ width: 1280, height: 1000 });
+    }
   }
 });
 

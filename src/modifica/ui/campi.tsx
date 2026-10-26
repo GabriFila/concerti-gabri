@@ -1,9 +1,9 @@
 /* ──────────────────────────────────────────────────────────────
    I pezzi piccoli delle viste di /<handle>/modifica (spec ux-modifica
-   §5.5): la barra degli strumenti di un elenco (cerca, filtri, ordine,
-   conteggio), lo stato vuoto, le scelte a segmenti dei form, la testa
-   delle schede di impostazioni, la loro barra di salvataggio e la guardia
-   che le protegge.
+   §5.5): il blocco fermo in cima a un elenco e la sua barra degli
+   strumenti (cerca, filtri, ordine, conteggio), lo stato vuoto, le
+   scelte a segmenti dei form, la testa delle schede di impostazioni, la
+   loro barra di salvataggio e la guardia che le protegge.
    Caricamento, RigheSegnaposto ed ErroreVista stanno in comuni.tsx.
    ────────────────────────────────────────────────────────────── */
 
@@ -23,29 +23,20 @@ export interface Opzione {
 }
 
 /**
- * La barra sopra un elenco, ferma sotto la barra in alto mentre si scorre:
- * la ricerca (che `/` raggiunge da ovunque nella vista), i filtri a
- * pastiglie (radio veri), l'ordine e quanti sono («84 eventi», «12 di 84»).
+ * Il blocco fermo in cima a un elenco, sotto la barra in alto mentre si
+ * scorre: la barra degli strumenti, l'aggiunta rapida (#wishlist,
+ * #partenze, #regali) o le due insieme (#persone). Stesso fondo e stessi
+ * margini a tutta larghezza; il bordo sotto compare solo quando è fermo.
  * La sua altezza va in `--mf-strumenti-h` sul contenitore: i separatori
  * fermi dell'elenco (gli anni di #concerti) si fermano subito sotto.
+ * `soloLargo`: sul telefono resta nel flusso (un modulo alto, #regali).
  */
-export function BarraStrumenti({ cerca, filtri, ordina, conta, children }: {
-  /** `breve`: il segnaposto quando quello intero non ci sta (una colonna stretta), invece di tagliarlo a metà parola. */
-  cerca?: { etichetta: string; segnaposto?: string; breve?: string; valore: string; onCambia: (v: string) => void };
-  filtri?: { etichetta: string; valore: string; opzioni: Opzione[]; onCambia: (v: string) => void };
-  ordina?: { valore: string; opzioni: Opzione[]; onCambia: (v: string) => void };
-  conta?: string;
-  /** Altri filtri (un anno, «Con X ×»), dopo le pastiglie. */
-  children?: ReactNode;
-}) {
-  const nome = useId();
-  const barra = useRef<HTMLDivElement>(null);
+export function TestaFerma({ soloLargo, children }: { soloLargo?: boolean; children: ReactNode }) {
+  const blocco = useRef<HTMLDivElement>(null);
   const [ferma, setFerma] = useState(false);
-  const campo = useRef<HTMLInputElement>(null);
-  const corto = useSegnapostoCorto(campo, cerca?.segnaposto, cerca?.breve);
-  // il bordo sotto compare solo quando la barra è ferma in alto (il suo bordo superiore esce dalla zona sotto la barra dell'app)
+  // il bordo sotto compare solo quando il blocco è fermo in alto (il suo bordo superiore esce dalla zona sotto la barra dell'app)
   useEffect(() => {
-    const b = barra.current;
+    const b = blocco.current;
     if (!b) return;
     const alto = parseFloat(getComputedStyle(b).getPropertyValue("--mf-barra-h")) || 64;
     const io = new IntersectionObserver(([e]) => setFerma(e.intersectionRatio < 1 && e.boundingClientRect.top <= alto + 1), {
@@ -62,7 +53,33 @@ export function BarraStrumenti({ cerca, filtri, ordina, conta, children }: {
     };
   }, []);
   return (
-    <div ref={barra} className="mf-strumenti" data-ferma={ferma ? "" : undefined}>
+    <div ref={blocco} className="mf-strumenti" data-ferma={ferma ? "" : undefined} data-solo-largo={soloLargo ? "" : undefined}>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * La barra sopra un elenco, in una `TestaFerma`: la ricerca (che `/`
+ * raggiunge da ovunque nella vista), i filtri a pastiglie (radio veri),
+ * l'ordine e quanti sono («84 eventi», «12 di 84»). `incassata`: dentro
+ * una `TestaFerma` già aperta, sotto l'aggiunta rapida (#persone).
+ */
+export function BarraStrumenti({ cerca, filtri, ordina, conta, incassata, children }: {
+  /** `breve`: il segnaposto quando quello intero non ci sta (una colonna stretta), invece di tagliarlo a metà parola. */
+  cerca?: { etichetta: string; segnaposto?: string; breve?: string; valore: string; onCambia: (v: string) => void };
+  filtri?: { etichetta: string; valore: string; opzioni: Opzione[]; onCambia: (v: string) => void };
+  ordina?: { valore: string; opzioni: Opzione[]; onCambia: (v: string) => void };
+  conta?: string;
+  incassata?: boolean;
+  /** Altri filtri (un anno, «Con X ×»), dopo le pastiglie. */
+  children?: ReactNode;
+}) {
+  const nome = useId();
+  const campo = useRef<HTMLInputElement>(null);
+  const corto = useSegnapostoCorto(campo, cerca?.segnaposto, cerca?.breve);
+  const corpo = (
+    <>
       <div className="mf-strumenti-riga">
         {cerca && (
           <label className="mf-cerca">
@@ -104,8 +121,9 @@ export function BarraStrumenti({ cerca, filtri, ordina, conta, children }: {
           {children}
         </div>
       )}
-    </div>
+    </>
   );
+  return incassata ? corpo : <TestaFerma>{corpo}</TestaFerma>;
 }
 
 /** Il segnaposto intero non entra nel campo (misurato col suo font): meglio quello breve. */

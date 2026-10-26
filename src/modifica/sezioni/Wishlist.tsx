@@ -2,9 +2,10 @@
    #wishlist (T5, spec ux-modifica §6.4): gli artisti che si vogliono
    vedere, in ordine.
 
-   - In cima l'aggiunta rapida (l'azione principale della vista): un nome
-     già nella lista si segnala mentre si scrive; dopo l'aggiunta il campo
-     si svuota e tiene il focus, per scriverne un altro.
+   - In cima l'aggiunta rapida (l'azione principale della vista), ferma
+     sotto la barra in alto mentre la lista scorre: un nome già nella lista
+     si segnala mentre si scrive; dopo l'aggiunta il campo si svuota e
+     tiene il focus, per scriverne un altro.
    - Ogni riga: ↑ ↓ e il menu ⋯ («Sposta in cima», «Sposta in fondo»,
      «L'ho visto: aggiungi il concerto», «Togli…»). Dopo uno spostamento il
      focus resta sulla riga spostata.
@@ -26,7 +27,7 @@ import { Icon } from "../../ui/Icon.tsx";
 import { useEditorConcerti } from "../editor.tsx";
 import { IntestazioneVista } from "../shell/IntestazioneVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
-import { Vuoto } from "../ui/campi.tsx";
+import { TestaFerma, Vuoto } from "../ui/campi.tsx";
 import { Menu } from "../ui/Menu.tsx";
 import { useScrittura } from "../ui/Toast.tsx";
 import { CampoTesto, Caricamento, Conferma, CorniceSezione, Errore, useConvex, useDati } from "./comuni.tsx";
@@ -82,7 +83,9 @@ function Lista({ artisti }: { artisti: string[] }) {
 
   return (
     <>
-      <AggiuntaArtista artisti={artisti} />
+      <TestaFerma>
+        <AggiuntaArtista artisti={artisti} />
+      </TestaFerma>
       {artisti.length === 0 ? (
         <Vuoto icona="heart" titolo="La lista è vuota." testo="Sulla tua pagina la wishlist non compare finché non ci aggiungi un artista." />
       ) : (

@@ -507,10 +507,18 @@ dialog.mf-foglio[open]{display:block;animation:mf-sale .2s ease}
 }
 @keyframes mf-toast-entra{from{transform:translateY(12px);opacity:0}}
 
-/* ── barra degli strumenti di un elenco (ui/campi.tsx): ferma sotto la barra in alto ── */
+/* ── il blocco fermo in cima a un elenco (TestaFerma, ui/campi.tsx): barra degli strumenti e/o aggiunta rapida,
+   ferma sotto la barra in alto; sotto le notifiche, l'Oracolo agganciato e i pannelli (z-index 20) ── */
 .mf-strumenti{position:sticky;top:var(--mf-barra-h);z-index:20;display:flex;flex-direction:column;gap:10px;margin:0 calc(-1 * clamp(16px,3vw,32px));
   padding:10px clamp(16px,3vw,32px);background:var(--bg);border-bottom:1px solid transparent}
 .mf-strumenti[data-ferma]{border-bottom-color:var(--line)}
+/* sul telefono un modulo alto (#regali) resta nel flusso */
+@media (max-width:767px){ .mf-strumenti[data-solo-largo]{position:static;border-bottom-color:transparent} }
+/* una colonna stretta (il telefono): nel blocco fermo l'aggiunta rapida perde il riquadro, così il blocco resta basso; l'aiuto dei soprannomi resta */
+@container contenuto (max-width:639px){
+  .mf-strumenti > .mod-form.mf-aggiungi{gap:6px;padding:0;border:none;border-radius:0;background:none}
+  .mf-strumenti > .mod-form.mf-aggiungi .mod-hint{font-size:.76rem;line-height:1.35}
+}
 .mf-strumenti-riga{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .mf-cerca{position:relative;display:flex;align-items:center;flex:1 1 260px;min-width:0}
 .mf-cerca > svg{position:absolute;left:12px;color:var(--muted);pointer-events:none}
@@ -923,4 +931,11 @@ dialog.mf-pannello[data-subito]{animation:none}
   :is(dialog.mf-pannello,dialog.mf-oracolo,dialog.mf-foglio,dialog.mod-modale)[open],.mf-menu[data-foglio],.mf-toast,.mf-riga[data-lampo],.mf-agenti-import[data-lampo]{animation:none}
   .mf-segnaposto-riga span{animation:none}
   .mf-main,.mf-nav-voce,.mf-oracolo-pulsante,.mf-set-apri > svg,.mf-interruttore input,.mf-interruttore input::before,.mf-dettaglio > summary::before{transition:none}
+}
+/* tema e switch dello Shell centrati sulla barra in alto (erano messi per la pagina pubblica) */
+html:has(.mf-app) .theme-toggle{top:calc((var(--mf-barra-h-shell,64px) - 42px) / 2)}
+html:has(.mf-app) .modeswitch{top:calc((var(--mf-barra-h-shell,64px) - 46px) / 2)}
+@media (max-width:560px){
+  html:has(.mf-app) .theme-toggle{top:calc((60px - 38px) / 2)}
+  html:has(.mf-app) .modeswitch{top:7px}
 }

@@ -3,6 +3,8 @@
    §6.6): da dove si parte per i concerti. Il nome è pubblico; l'indirizzo
    lo vede solo il proprietario, qui e solo nel browser.
 
+   - In cima l'aggiunta rapida, ferma sotto la barra in alto mentre
+     l'elenco scorre (come in #wishlist, #persone e #regali).
    - L'elenco viene da `departures.addresses` (solo dashboard), che dà il
      TESTO dell'indirizzo e mai le coordinate; come ogni dato di queste
      sezioni si chiede dopo l'idratazione, quindi non entra mai nell'HTML
@@ -30,7 +32,7 @@ import { AddressPicker } from "../../ui/AddressPicker.tsx";
 import { Icon } from "../../ui/Icon.tsx";
 import { IntestazioneVista } from "../shell/IntestazioneVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
-import { Vuoto } from "../ui/campi.tsx";
+import { TestaFerma, Vuoto } from "../ui/campi.tsx";
 import { useScrittura, useToast } from "../ui/Toast.tsx";
 import { useVista } from "../useVista.ts";
 import { CampoTesto, Caricamento, Conferma, CorniceSezione, Errore, Modale, useConvex, useDati } from "./comuni.tsx";
@@ -82,13 +84,15 @@ export function SezionePartenze(_props: SezioneProps) {
         titoloAiuto="Hai cambiato casa?"
         aiuto={<p>Aggiungi una nuova partenza: i concerti di prima restano con i loro km.</p>}
       />
-      <NuovaPartenza
-        onCreata={p => {
-          setCreata(p);
-          // subito l'indirizzo: senza, i km dei suoi concerti restano in attesa
-          void apriPannello({ indirizzo: p.id });
-        }}
-      />
+      <TestaFerma>
+        <NuovaPartenza
+          onCreata={p => {
+            setCreata(p);
+            // subito l'indirizzo: senza, i km dei suoi concerti restano in attesa
+            void apriPannello({ indirizzo: p.id });
+          }}
+        />
+      </TestaFerma>
       <Caricamento q={q} righe>
         {({ partenze }) =>
           partenze.length === 0 ? (

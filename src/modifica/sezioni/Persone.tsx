@@ -5,8 +5,10 @@
    - In cima l'aggiunta rapida, l'unico «Aggiungi» della vista (con la
      regola dei soprannomi, §1.42); un nome che c'è già si segnala mentre
      si scrive («Esiste già «Lu».»).
-   - La barra degli strumenti: cerca (`/`), «Tutte» · «Mai in un
-     concerto», ordine per nome o per numero di concerti.
+   - Sotto, la barra degli strumenti: cerca (`/`), «Tutte» · «Mai in un
+     concerto», ordine per nome o per numero di concerti. Aggiunta e barra
+     sono un solo blocco fermo sotto la barra in alto mentre l'elenco
+     scorre (per questo cerca, filtro e ordine stanno nella sezione).
    - Ogni riga apre il pannello della persona (`?apri=<personId>`):
      rinomina, i concerti in cui c'è (ognuno apre il suo pannello), unisci
      a un'altra persona, cancella. Il menu ⋯ della riga: «Rinomina» (il
@@ -17,7 +19,7 @@
      concerto. Ogni scrittura finisce in una notifica con «Annulla».
    ────────────────────────────────────────────────────────────── */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useForm, useStore } from "@tanstack/react-form";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../../convex/_generated/api";
@@ -25,7 +27,7 @@ import { todayKey } from "../../../shared/lib/dates.ts";
 import { aggiungiPersonaInput } from "../../../shared/schema/people.ts";
 import { IntestazioneVista } from "../shell/IntestazioneVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
-import { BarraStrumenti, Vuoto } from "../ui/campi.tsx";
+import { BarraStrumenti, TestaFerma, Vuoto } from "../ui/campi.tsx";
 import { Menu } from "../ui/Menu.tsx";
 import { Pannello } from "../ui/Pannello.tsx";
 import { useScrittura } from "../ui/Toast.tsx";
@@ -38,6 +40,8 @@ import {
 
 type Persona = FunctionReturnType<typeof api.people.list>["people"][number];
 type Azione = { tipo: "unisci" | "cancella"; p: Persona } | null;
+/** Cerca, filtro e ordine dell'elenco. */
+type Cerca = { testo: string; filtro: FiltroPersone; ordine: OrdinePersone };
 /** Il focus sul nome nel pannello («Rinomina»): `n` cambia a ogni richiesta, anche col pannello già aperto. */
 type FuocoNome = { id: string; n: number } | null;
 
@@ -49,6 +53,7 @@ const ORDINI = [
 /** Nel pannello, i primi concerti della persona; gli altri nell'elenco filtrato. */
 const CONCERTI_NEL_PANNELLO = 20;
 const FORM = "mod-form-persona";
+const CERCA_INIZIALE: Cerca = { testo: "", filtro: "tutte", ordine: "nome" };
 
 const quantePersone = (n: number) => (n === 1 ? "1 persona" : `${n} persone`);
 const quantiConcerti = (n: number) => (n === 0 ? "nessun concerto" : n === 1 ? "1 concerto" : `${n} concerti`);
@@ -59,7 +64,11 @@ export function SezionePersone(_props: SezioneProps) {
   const { vista, parametri, apriPannello, chiudiPannello } = useVista();
   const [azione, setAzione] = useState<Azione>(null);
   const [fuoco, setFuoco] = useState<FuocoNome>(null);
-  const n = q.data?.people.length;
+  // qui e non nell'elenco: la barra sta nel blocco fermo con l'aggiunta rapida
+  const [cerca, setCerca] = useState<Cerca>(CERCA_INIZIALE);
+  const persone = q.data?.people;
+  const trovate = useMemo(() => (persone ? elencoPersone(persone, cerca) : []), [persone, cerca]);
+  const n = persone?.length;
   const aperta = vista === "persone" ? (parametri.apri ?? null) : null;
   // "oggi" a Roma: la sezione esiste solo nel browser, dopo l'idratazione
   const oggi = todayKey(Date.now());
@@ -83,13 +92,24 @@ export function SezionePersone(_props: SezioneProps) {
         meta={n !== undefined && quantePersone(n)}
         descrizione="Le persone con cui vai ai concerti. Sulla pagina pubblica compaiono solo i nomi usati nei concerti."
       />
-      <NuovaPersona persone={q.data?.people} />
+      <TestaFerma>
+        <NuovaPersona persone={persone} />
+        {persone && persone.length > 0 && <Strumenti persone={persone} trovate={trovate.length} cerca={cerca} onCerca={setCerca} />}
+      </TestaFerma>
       <Caricamento q={q} righe>
         {({ people }) =>
           people.length === 0 ? (
             <Vuoto icona="users" titolo="Nessuna persona, per ora." testo="Si aggiungono anche dal modulo di un concerto, in «Con chi»." />
           ) : (
-            <Elenco persone={people} ultime={ultime} aperta={aperta} onApri={apri} onAzione={setAzione} />
+            <Elenco
+              persone={people}
+              trovate={trovate}
+              ultime={ultime}
+              aperta={aperta}
+              onAzzera={() => setCerca(c => ({ ...c, testo: "", filtro: "tutte" }))}
+              onApri={apri}
+              onAzione={setAzione}
+            />
           )
         }
       </Caricamento>
@@ -154,72 +174,76 @@ function NuovaPersona({ persone }: { persone: Persona[] | undefined }) {
   );
 }
 
-/* ── l'elenco ─────────────────────────────────────────────────── */
+/* ── la barra e l'elenco ───────────────────────────────────────── */
 
-function Elenco({ persone, ultime, aperta, onApri, onAzione }: {
+/** La barra degli strumenti, sotto l'aggiunta rapida nel blocco fermo. */
+function Strumenti({ persone, trovate, cerca, onCerca }: {
   persone: Persona[];
+  /** Quante passano cerca e filtro. */
+  trovate: number;
+  cerca: Cerca;
+  onCerca: Dispatch<SetStateAction<Cerca>>;
+}) {
+  const mai = persone.filter(p => p.concerti === 0).length;
+  const filtrato = cerca.testo.trim() !== "" || cerca.filtro !== "tutte";
+  return (
+    <BarraStrumenti
+      incassata
+      cerca={{ etichetta: "Cerca una persona", segnaposto: "Cerca una persona", valore: cerca.testo, onCambia: testo => onCerca(c => ({ ...c, testo })) }}
+      filtri={{
+        etichetta: "Filtra le persone",
+        valore: cerca.filtro,
+        opzioni: [
+          { valore: "tutte", testo: "Tutte", conta: persone.length },
+          { valore: "mai", testo: "Mai in un concerto", conta: mai },
+        ],
+        onCambia: v => onCerca(c => ({ ...c, filtro: v as FiltroPersone })),
+      }}
+      ordina={{ valore: cerca.ordine, opzioni: ORDINI, onCambia: v => onCerca(c => ({ ...c, ordine: v as OrdinePersone })) }}
+      conta={filtrato ? `${trovate} di ${persone.length}` : quantePersone(persone.length)}
+    />
+  );
+}
+
+function Elenco({ persone, trovate, ultime, aperta, onAzzera, onApri, onAzione }: {
+  persone: Persona[];
+  /** Quelle che passano cerca e filtro, in ordine. */
+  trovate: Persona[];
   ultime: Map<string, string>;
   /** La persona col pannello aperto. */
   aperta: string | null;
+  onAzzera: () => void;
   onApri: (p: Persona, rinomina?: boolean) => void;
   onAzione: (a: Azione) => void;
 }) {
   const { vai } = useVista();
-  const [testo, setTesto] = useState("");
-  const [filtro, setFiltro] = useState<FiltroPersone>("tutte");
-  const [ordine, setOrdine] = useState<OrdinePersone>("nome");
-  const trovate = useMemo(() => elencoPersone(persone, { testo, filtro, ordine }), [persone, testo, filtro, ordine]);
-  const mai = persone.filter(p => p.concerti === 0).length;
-  const filtrato = testo.trim() !== "" || filtro !== "tutte";
-  const azzera = () => {
-    setTesto("");
-    setFiltro("tutte");
-  };
-  return (
-    <>
-      <BarraStrumenti
-        cerca={{ etichetta: "Cerca una persona", segnaposto: "Cerca una persona", valore: testo, onCambia: setTesto }}
-        filtri={{
-          etichetta: "Filtra le persone",
-          valore: filtro,
-          opzioni: [
-            { valore: "tutte", testo: "Tutte", conta: persone.length },
-            { valore: "mai", testo: "Mai in un concerto", conta: mai },
-          ],
-          onCambia: v => setFiltro(v as FiltroPersone),
-        }}
-        ordina={{ valore: ordine, opzioni: ORDINI, onCambia: v => setOrdine(v as OrdinePersone) }}
-        conta={filtrato ? `${trovate.length} di ${persone.length}` : quantePersone(persone.length)}
-      />
-      {trovate.length === 0 ? (
-        <Vuoto icona="search" titolo="Nessuna persona con questi filtri." azioni={<button type="button" className="mod-btn" onClick={azzera}>Azzera i filtri</button>} />
-      ) : (
-        <ul className="mod-lista mf-righe mf-righe-persone" aria-label="Persone">
-          {trovate.map(p => (
-            <li key={p.id} className="mf-riga mf-riga-persona" aria-current={p.id === aperta ? "true" : undefined}>
-              <span className="mf-riga-titolo">
-                <button type="button" className="mf-riga-apri" aria-label={`Apri ${p.name}`} onClick={() => onApri(p)}>
-                  {p.name}
-                </button>
-              </span>
-              <span className="mf-riga-conta" data-zero={p.concerti === 0 ? "" : undefined}>{quantiConcerti(p.concerti)}</span>
-              <span className="mf-riga-ultima">{ultime.has(chiaveNome(p.name)) ? `ultima volta ${ultime.get(chiaveNome(p.name))}` : ""}</span>
-              <span className="mf-riga-menu">
-                <Menu
-                  etichetta={`Altre azioni per ${p.name}`}
-                  voci={[
-                    { etichetta: "Rinomina", icona: "pen", onClick: () => onApri(p, true) },
-                    { etichetta: "Unisci…", icona: "users", disabilitata: persone.length < 2, onClick: () => onAzione({ tipo: "unisci", p }) },
-                    { etichetta: "Vedi i concerti", icona: "ticket", disabilitata: p.concerti === 0, onClick: () => void vai("concerti", { con: p.id }) },
-                    { etichetta: "Cancella…", icona: "trash", pericolo: true, onClick: () => onAzione({ tipo: "cancella", p }) },
-                  ]}
-                />
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
+  return trovate.length === 0 ? (
+    <Vuoto icona="search" titolo="Nessuna persona con questi filtri." azioni={<button type="button" className="mod-btn" onClick={onAzzera}>Azzera i filtri</button>} />
+  ) : (
+    <ul className="mod-lista mf-righe mf-righe-persone" aria-label="Persone">
+      {trovate.map(p => (
+        <li key={p.id} className="mf-riga mf-riga-persona" aria-current={p.id === aperta ? "true" : undefined}>
+          <span className="mf-riga-titolo">
+            <button type="button" className="mf-riga-apri" aria-label={`Apri ${p.name}`} onClick={() => onApri(p)}>
+              {p.name}
+            </button>
+          </span>
+          <span className="mf-riga-conta" data-zero={p.concerti === 0 ? "" : undefined}>{quantiConcerti(p.concerti)}</span>
+          <span className="mf-riga-ultima">{ultime.has(chiaveNome(p.name)) ? `ultima volta ${ultime.get(chiaveNome(p.name))}` : ""}</span>
+          <span className="mf-riga-menu">
+            <Menu
+              etichetta={`Altre azioni per ${p.name}`}
+              voci={[
+                { etichetta: "Rinomina", icona: "pen", onClick: () => onApri(p, true) },
+                { etichetta: "Unisci…", icona: "users", disabilitata: persone.length < 2, onClick: () => onAzione({ tipo: "unisci", p }) },
+                { etichetta: "Vedi i concerti", icona: "ticket", disabilitata: p.concerti === 0, onClick: () => void vai("concerti", { con: p.id }) },
+                { etichetta: "Cancella…", icona: "trash", pericolo: true, onClick: () => onAzione({ tipo: "cancella", p }) },
+              ]}
+            />
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

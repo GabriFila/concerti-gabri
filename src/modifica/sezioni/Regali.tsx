@@ -4,7 +4,9 @@
    persona vale la regola dei soprannomi (§1.42).
 
    - In cima l'aggiunta rapida; la sua notifica offre «Carica il logo», che
-     apre il pannello del nuovo arrivato.
+     apre il pannello del nuovo arrivato. Resta ferma sotto la barra in
+     alto mentre l'elenco scorre, ma non sul telefono: due campi coi loro
+     aiuti e il pulsante prenderebbero troppo schermo, e i nomi sono pochi.
    - Le schede hanno «Modifica» e «Cancella» sempre in vista (sono pochi).
      «Modifica» apre il pannello (`?apri=<gifterId>`): nome, sito, il logo
      (caricarlo, cambiarlo, toglierlo) e in quanti concerti è usato.
@@ -28,7 +30,7 @@ import { soloHttps } from "../../../shared/lib/url.ts";
 import { convexUrl } from "../../lib/convexUrl.ts";
 import { IntestazioneVista } from "../shell/IntestazioneVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
-import { Vuoto } from "../ui/campi.tsx";
+import { TestaFerma, Vuoto } from "../ui/campi.tsx";
 import { Pannello } from "../ui/Pannello.tsx";
 import { useScrittura, useToast } from "../ui/Toast.tsx";
 import { useVista } from "../useVista.ts";
@@ -98,7 +100,9 @@ export function SezioneRegali(_props: SezioneProps) {
         meta={q.data && (q.data.gifters.length === 1 ? "1 nome" : `${q.data.gifters.length} nomi`)}
         descrizione="Chi ti regala i biglietti: un amico, un'azienda, una radio. Il logo compare accanto ai concerti regalati."
       />
-      <NuovoRegalo onCaricaLogo={id => apri(id, true)} />
+      <TestaFerma soloLargo>
+        <NuovoRegalo onCaricaLogo={id => apri(id, true)} />
+      </TestaFerma>
       <Caricamento q={q} righe>
         {({ gifters }) =>
           gifters.length === 0 ? (
