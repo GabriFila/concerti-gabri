@@ -33,7 +33,7 @@ export interface Creati {
   partenza?: string;
 }
 
-/** Crea nel lotto i nomi sconosciuti a `refs` (e li aggiunge a `refs`). `suffisso`: «dall'import», «dall'Oracolo». */
+/** Crea nel lotto i nomi sconosciuti a `refs` (e li aggiunge a `refs`). `suffisso`: «dall'import», «dal Tour manager». */
 export async function creaMancanti(ctx: MutationCtx, owner: AutoreLotto, refs: Refs, nomi: NomiDaCreare, batchId: string, suffisso: string): Promise<Creati> {
   const profileId = owner.profile._id;
   const creati: Creati = { persone: [] };

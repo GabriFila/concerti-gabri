@@ -227,7 +227,7 @@ test.describe("impostazioni e registro di /modifica", { tag: "@sessione" }, () =
     await attivita.getByRole("radio", { name: /^Dashboard/ }).check();
     await expect(registro.getByRole("listitem")).toHaveCount(1);
     await expect(lu).toHaveCount(1);
-    await attivita.getByRole("radio", { name: /^Oracolo/ }).check();
+    await attivita.getByRole("radio", { name: /^Tour manager/ }).check();
     await expect(attivita.getByText("Nessuna modifica con questi filtri.")).toBeVisible();
     await attivita.getByRole("button", { name: "Azzera i filtri" }).click();
     await expect(registro.getByRole("listitem")).toHaveCount(2);

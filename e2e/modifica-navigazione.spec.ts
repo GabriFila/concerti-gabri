@@ -219,17 +219,17 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     test.skip(info.project.name !== "desktop", "l'aggancio c'è solo da 1024 px");
     test.setTimeout(180_000);
     const handle = await proprietaria(page);
-    const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+    const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
     await page.goto(`/${handle}/modifica`);
     await idratata(page);
 
     // a 1280 px parte chiuso (alla prima visita è aperto solo da 1440)
     await expect(oracolo).toBeHidden();
-    await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+    await page.getByRole("button", { name: "Apri il Tour manager" }).click();
     await expect(oracolo).toBeVisible();
-    await expect(oracolo.getByRole("textbox", { name: "Messaggio per l'Oracolo" })).toBeFocused();
+    await expect(oracolo.getByRole("textbox", { name: "Messaggio per il Tour manager" })).toBeFocused();
     expect(await oracolo.evaluate(d => d.id === "oracolo" && !d.matches(":modal"))).toBe(true);
-    await expect(page.getByRole("button", { name: "Chiudi L'Oracolo in scrittura" })).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByRole("button", { name: "Chiudi il Tour manager" })).toHaveAttribute("aria-expanded", "true");
 
     // l'elenco resta cliccabile, e il pannello si apre accanto all'Oracolo
     await page.locator("section#concerti").getByRole("button", { name: `Modifica ${ARTISTA} del 10/05/2025` }).click();
@@ -249,7 +249,7 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     await expect(page.locator("section#attivita")).toBeVisible();
 
     // chiuso resta chiuso
-    await page.getByRole("button", { name: "Chiudi L'Oracolo in scrittura" }).click();
+    await page.getByRole("button", { name: "Chiudi il Tour manager" }).click();
     await expect(oracolo).toBeHidden();
     await page.reload();
     await idratata(page);
@@ -266,7 +266,7 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
 
     const schede = page.getByRole("navigation", { name: "Sezioni principali" });
     for (const nome of ["Concerti", "Wishlist", "Attività"]) await expect(schede.getByRole("link", { name: nome })).toBeVisible();
-    await expect(schede.getByRole("button", { name: "Apri L'Oracolo in scrittura" })).toBeVisible();
+    await expect(schede.getByRole("button", { name: "Apri il Tour manager" })).toBeVisible();
     await expect(schede.getByRole("button", { name: "Altro", exact: true })).toBeVisible();
     await expect(page.locator("nav.modifica-indice")).toBeHidden();
 
@@ -296,9 +296,9 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     await inVista(page, "persone");
 
     // l'Oracolo: a tutto schermo; «indietro» lo chiude e il focus torna al pulsante
-    const pulsante = schede.getByRole("button", { name: "Apri L'Oracolo in scrittura" });
+    const pulsante = schede.getByRole("button", { name: "Apri il Tour manager" });
     await pulsante.click();
-    const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+    const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
     await expect(oracolo).toBeVisible();
     const box = await oracolo.boundingBox();
     const vp = page.viewportSize()!;
@@ -306,7 +306,7 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     await page.goBack();
     await expect(oracolo).toBeHidden();
     await inVista(page, "persone");
-    await expect(schede.getByRole("button", { name: "Apri L'Oracolo in scrittura" })).toBeFocused();
+    await expect(schede.getByRole("button", { name: "Apri il Tour manager" })).toBeFocused();
 
     // niente scroll orizzontale a 360 px, in nessuna vista
     await page.setViewportSize({ width: 360, height: 780 });
@@ -370,7 +370,7 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     const menu = page.getByRole("menu", { name: "Altre azioni" });
     await expect(menu).toBeVisible();
     // sul telefono le azioni secondarie della testata stanno qui, prima delle altre
-    const voci = telefono ? ["Aggiungi un festival", "Importa da un file", "Chiedi all'Oracolo", "Chiudi"] : ["Importa da un file", "Chiedi all'Oracolo"];
+    const voci = telefono ? ["Aggiungi un festival", "Importa da un file", "Chiedi al Tour manager", "Chiudi"] : ["Importa da un file", "Chiedi al Tour manager"];
     await expect(menu.getByRole("menuitem")).toHaveText(voci);
     await expect(menu.getByRole("menuitem", { name: voci[0] })).toBeFocused();
     await page.keyboard.press("ArrowDown");
@@ -381,12 +381,12 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     await expect(menu).toBeHidden();
     await expect(altre).toBeFocused();
 
-    // «Chiedi all'Oracolo»: si apre con la casella precompilata, e non manda niente
+    // «Chiedi al Tour manager»: si apre con la casella precompilata, e non manda niente
     await altre.click();
-    await menu.getByRole("menuitem", { name: "Chiedi all'Oracolo" }).click();
-    const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+    await menu.getByRole("menuitem", { name: "Chiedi al Tour manager" }).click();
+    const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
     await expect(oracolo).toBeVisible();
-    await expect(oracolo.getByRole("textbox", { name: "Messaggio per l'Oracolo" })).toHaveValue("Aggiungi un concerto: ");
+    await expect(oracolo.getByRole("textbox", { name: "Messaggio per il Tour manager" })).toHaveValue("Aggiungi un concerto: ");
     await expect(oracolo.locator(".chat-row")).toHaveCount(0);
 
     expect(errori.hydration()).toEqual([]);

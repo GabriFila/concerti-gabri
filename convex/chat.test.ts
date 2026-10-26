@@ -201,7 +201,7 @@ describe("limiti d'uso (PIANO §5.8)", () => {
     });
     const finito = await turno(t, { handle: "pagina-a", threadId: "privato-0001", visibility: "proprietario" });
     expect(finito.status).toBe(429);
-    expect(finito.corpo.messaggio).toMatch(/in scrittura/);
+    expect(finito.corpo.messaggio).toMatch(/Tour manager/);
     // i visitatori della stessa pagina non ne risentono
     expect((await turno(t, { handle: "pagina-a", threadId: "pubblico-001", ipHmac: IP_B })).status).toBe(200);
     expect((await turno(t, { handle: "gabrifila", threadId: "privato-0002", visibility: "proprietario", ipHmac: IP_B })).status).toBe(200);

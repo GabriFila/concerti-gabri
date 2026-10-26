@@ -419,9 +419,9 @@ function ModuloEvento(p: PropsModulo) {
   const tipoParola = festival ? "festival" : "concerto";
   const titolo = scheda ? `Scheda: ${base ? "modifica" : "nuovo"} ${tipoParola}` : `${base ? "Modifica" : "Nuovo"} ${tipoParola}`;
   const sottotitolo = scheda
-    ? "Dalla scheda dell'Oracolo: «Usa nella scheda» la aggiorna, senza salvare."
+    ? "Dalla scheda del Tour manager: «Usa nella scheda» la aggiorna, senza salvare."
     : origine === "oracolo"
-      ? "Proposta dell'Oracolo: controlla e salva."
+      ? "Proposta del Tour manager: controlla e salva."
       : coda
         ? `Da completare · ${coda.posizione} di ${coda.totale}`
         : base
@@ -447,7 +447,7 @@ function ModuloEvento(p: PropsModulo) {
       )}
       {conflitto && (
         <div className="mod-attenzione mf-avviso-pannello" role="status">
-          <p>Nel frattempo questo {tipoParola} è cambiato (Oracolo, un agente o un'altra scheda).</p>
+          <p>Nel frattempo questo {tipoParola} è cambiato (Tour manager, un agente o un'altra scheda).</p>
           <div className="mf-avviso-azioni">
             <button type="button" className="mod-btn" onClick={p.onRicarica}>Usa i dati nuovi</button>
             <button type="button" className="mod-btn mf-btn-fantasma" onClick={() => setIgnorata(jsonLive)}>Tieni le mie modifiche</button>

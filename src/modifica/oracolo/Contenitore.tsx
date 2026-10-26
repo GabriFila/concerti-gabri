@@ -117,7 +117,7 @@ function Dialogo({ handle }: { handle: string }) {
   };
 
   return (
-    <dialog id="oracolo" ref={ref} className="mf-oracolo" aria-label="L'Oracolo in scrittura" data-modo={o.modo} onKeyDown={onKeyDown} onClick={onClick}>
+    <dialog id="oracolo" ref={ref} className="mf-oracolo" aria-label="Il Tour manager" data-modo={o.modo} onKeyDown={onKeyDown} onClick={onClick}>
       <ChatScrittura handle={handle} />
       <GuardiaSchede />
     </dialog>
@@ -149,8 +149,8 @@ function GuardiaSchede() {
     >
       <p>
         {titoli.length > 1
-          ? `Le schede di ${elenco(titoli)} nell'Oracolo non sono salvate: se esci adesso le perdi.`
-          : `La scheda di ${titoli[0] ?? "un concerto"} nell'Oracolo non è salvata: se esci adesso la perdi.`}
+          ? `Le schede di ${elenco(titoli)} nel Tour manager non sono salvate: se esci adesso le perdi.`
+          : `La scheda di ${titoli[0] ?? "un concerto"} nel Tour manager non è salvata: se esci adesso la perdi.`}
       </p>
     </Conferma>
   );
@@ -167,11 +167,11 @@ export function TestaOracolo({ azioni }: { azioni?: ReactNode }) {
     <div className="mf-oracolo-testa">
       <span className="mf-oracolo-titolo">
         <Icon name="pen" size={17} stroke={1.8} />
-        L'Oracolo · scrittura
+        Il Tour manager
       </span>
       <div className="mf-oracolo-azioni">
         {azioni}
-        <button type="button" className="fp-close" onClick={o.chiudi} aria-label="Chiudi L'Oracolo" title="Chiudi L'Oracolo">
+        <button type="button" className="fp-close" onClick={o.chiudi} aria-label="Chiudi" title="Chiudi il Tour manager">
           <Icon name="close" size={18} stroke={2} />
         </button>
       </div>
@@ -184,7 +184,7 @@ export function InterruttoreOracolo({ variante }: { variante: "barra" | "scheda"
   const o = useOracoloInterno();
   // nell'HTML del server c'è già, ma l'Oracolo arriva con l'idratazione: prima non risponderebbe
   const pronto = useHydrated();
-  const nome = `${o.aperto ? "Chiudi" : "Apri"} L'Oracolo in scrittura${o.nonLetta ? " (nuova risposta)" : ""}`;
+  const nome = `${o.aperto ? "Chiudi" : "Apri"} il Tour manager${o.nonLetta ? " (nuova risposta)" : ""}`;
   return (
     <button
       type="button"
@@ -193,7 +193,7 @@ export function InterruttoreOracolo({ variante }: { variante: "barra" | "scheda"
       aria-label={nome}
       aria-expanded={o.aperto}
       aria-controls="oracolo"
-      title={o.aperto ? "Chiudi L'Oracolo" : "L'Oracolo in scrittura"}
+      title={o.aperto ? "Chiudi il Tour manager" : "Apri il Tour manager"}
       disabled={!pronto}
       onClick={o.alterna}
     >
@@ -201,7 +201,7 @@ export function InterruttoreOracolo({ variante }: { variante: "barra" | "scheda"
         <Icon name="spark" size={variante === "barra" ? 17 : 22} stroke={1.7} />
         {o.nonLetta && <span className="mf-punto mf-punto-ambra" />}
       </span>
-      <span className="mf-oracolo-etichetta">Oracolo</span>
+      <span className="mf-oracolo-etichetta">Tour manager</span>
     </button>
   );
 }

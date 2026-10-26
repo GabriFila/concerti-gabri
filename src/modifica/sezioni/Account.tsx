@@ -190,7 +190,7 @@ function Esporta({ handle }: { handle: string }) {
       <TestaImpostazione id="account-esporta" titolo="Esporta i tuoi dati" />
       <p className="mod-hint">
         Un file JSON con tutto: i concerti (nel campo «concerti», nello stesso formato dell'import JSON), persone, partenze con il
-        testo degli indirizzi, «regalato da», wishlist, stile e conversazioni con l'Oracolo. Contiene i tuoi indirizzi: tienilo al sicuro.
+        testo degli indirizzi, «regalato da», wishlist, stile e conversazioni con l'Oracolo e con il Tour manager. Contiene i tuoi indirizzi: tienilo al sicuro.
       </p>
       <button type="button" className="mod-btn" disabled={op.inCorso} onClick={() => void scarica()}>{op.inCorso ? "Preparo…" : "Scarica i miei dati"}</button>
       <Errore errore={op.errore} />
@@ -261,7 +261,7 @@ function EliminaModale({ handle, onChiudi }: { handle: string; onChiudi: () => v
       <form id="mod-form-elimina" className="mod-form" noValidate onSubmit={e => { e.preventDefault(); void form.handleSubmit(); }}>
         <p>
           Spariscono la pagina <b>/{handle}</b>, i concerti, le persone, le partenze con i loro indirizzi, i «regalato da» con i loghi, la
-          wishlist, il registro e le conversazioni con l'Oracolo. Non si può annullare: se vuoi una copia, prima esporta i tuoi dati.
+          wishlist, il registro e le conversazioni con l'Oracolo e con il Tour manager. Non si può annullare: se vuoi una copia, prima esporta i tuoi dati.
         </p>
         <form.Field name="conferma">
           {f => <CampoTesto f={f} etichetta="Conferma" aiuto={<>Scrivi <b>{handle}</b>, l'handle della tua pagina.</>} autoComplete="off" maxLength={30} />}

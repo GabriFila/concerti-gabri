@@ -140,14 +140,14 @@ test.describe("accessibilità di /modifica", { tag: "@sessione" }, () => {
         await expect(page.getByRole("dialog", { name: "Tutte le sezioni" })).toBeVisible();
         await scansiona(`${tema} foglio Altro`);
         await page.goBack();
-        await schede.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+        await schede.getByRole("button", { name: "Apri il Tour manager" }).click();
       } else {
-        await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+        await page.getByRole("button", { name: "Apri il Tour manager" }).click();
       }
-      const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+      const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
       await expect(oracolo).toBeVisible();
       await scansiona(`${tema} Oracolo`);
-      await oracolo.getByRole("button", { name: "Chiudi L'Oracolo", exact: true }).click();
+      await oracolo.getByRole("button", { name: "Chiudi", exact: true }).click();
       await expect(oracolo).toBeHidden();
     }
     expect([...fuori.values()], [...fuori.values()].join("\n")).toEqual([]);
@@ -209,11 +209,11 @@ test.describe("accessibilità di /modifica", { tag: "@sessione" }, () => {
     const handle = await proprietaria(page);
     await page.goto(`/${handle}/modifica`);
     await idratata(page);
-    const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
-    const composer = oracolo.getByRole("textbox", { name: "Messaggio per l'Oracolo" });
+    const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
+    const composer = oracolo.getByRole("textbox", { name: "Messaggio per il Tour manager" });
 
     // l'Oracolo dal suo pulsante, con la tastiera: il focus nella casella
-    const toggle = page.getByRole("button", { name: "Apri L'Oracolo in scrittura" });
+    const toggle = page.getByRole("button", { name: "Apri il Tour manager" });
     await toggle.focus();
     await page.keyboard.press("Enter");
     await expect(composer).toBeFocused();
@@ -240,7 +240,7 @@ test.describe("accessibilità di /modifica", { tag: "@sessione" }, () => {
     await page.keyboard.press("Escape");
     await expect(oracolo).toBeHidden();
     await expect(pannello).toBeVisible();
-    await expect(page.getByRole("button", { name: "Apri L'Oracolo in scrittura" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Apri il Tour manager" })).toBeFocused();
 
     // riaperto, Esc nel pannello chiude solo il pannello; il focus torna alla riga
     await page.keyboard.press("Enter");

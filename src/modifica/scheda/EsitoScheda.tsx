@@ -254,7 +254,7 @@ export function SchedaChiusa({ part, stato, titolo, tono, testo, children }: {
               {vista && <> <VaiA vista={vista}>Vai a sistemarlo</VaiA>.</>}
             </p>
           </div>
-          <p className="scheda-muto">L'Oracolo te la ripropone.</p>
+          <p className="scheda-muto">Il Tour manager te la ripropone.</p>
         </div>
       );
     }
@@ -280,7 +280,7 @@ export function SchedaChiusa({ part, stato, titolo, tono, testo, children }: {
     case "chiusa":
       return (
         <div className="scheda scheda-chiusa scheda-riga-muta" data-scheda={part.id} tabIndex={-1}>
-          <p>{out?.error === "non eseguito" ? "Scheda non salvata: la conversazione è andata avanti." : "Proposta non valida: l'Oracolo la rifà."}</p>
+          <p>{out?.error === "non eseguito" ? "Scheda non salvata: la conversazione è andata avanti." : "Proposta non valida: il Tour manager la rifà."}</p>
         </div>
       );
     default:

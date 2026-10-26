@@ -12,7 +12,7 @@
    - La cancellazione chiede l'approvazione nella chat, con il nome del
      concerto letto da Convex: "Rifiuta" non cancella niente, "Conferma"
      cancella.
-   - In #attivita l'autore di aggiunta e cancellazione è "Oracolo".
+   - In #attivita l'autore di aggiunta e cancellazione è "Tour manager" (via `oracolo`).
    - La chat è privata: sta tra le chat della proprietaria, non nello
      storico pubblico.
    - Senza Origin, su una pagina altrui o senza sessione la route rifiuta.
@@ -37,9 +37,9 @@ import { vaiA } from "./helpers/modifica.ts";
 import { E2E_NOW } from "./helpers/now.ts";
 import { expect, onPreview, test } from "./helpers/test.ts";
 
-const chat = (page: Page) => page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+const chat = (page: Page) => page.getByRole("dialog", { name: "Il Tour manager" });
 async function scrivi(page: Page, testo: string) {
-  await chat(page).getByRole("textbox", { name: "Messaggio per l'Oracolo" }).fill(testo);
+  await chat(page).getByRole("textbox", { name: "Messaggio per il Tour manager" }).fill(testo);
   await chat(page).getByRole("button", { name: "Invia" }).click();
 }
 
@@ -84,7 +84,7 @@ test.describe("Oracolo in scrittura", { tag: "@sessione" }, () => {
     await expect(concerti.getByText("Canarino di partenza")).toBeVisible();
     // qui l'Oracolo è quello in scrittura: quello dei visitatori si fa da parte
     await expect(page.getByRole("button", { name: "Apri L'Oracolo, la chat AI" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+    await page.getByRole("button", { name: "Apri il Tour manager" }).click();
 
     // 1. aggiunta: la scheda aspetta il Salva (niente scritto prima), poi dal vivo nella dashboard e sulla pagina pubblica
     await scrivi(page, `Aggiungi il concerto di ${artista}`);
@@ -98,7 +98,7 @@ test.describe("Oracolo in scrittura", { tag: "@sessione" }, () => {
     await expect(pubblica.getByText(artista).first()).toBeVisible();
     // Attività è un'altra vista: l'Oracolo agganciato resta aperto, con la stessa chat
     await vaiA(page, "attivita");
-    await expect(attivita.locator(".mod-voce").filter({ hasText: `aggiunto: ${artista}` }).locator(".mod-autore")).toHaveText("Oracolo");
+    await expect(attivita.locator(".mod-voce").filter({ hasText: `aggiunto: ${artista}` }).locator(".mod-autore")).toHaveText("Tour manager");
     await expect(chat(page)).toBeVisible();
     await expect(chat(page).getByText("Fatto: concerto aggiunto.")).toBeVisible();
     await vaiA(page, "concerti");
@@ -119,7 +119,7 @@ test.describe("Oracolo in scrittura", { tag: "@sessione" }, () => {
     await expect(concerti.getByText(artista)).toHaveCount(0);
     await expect(pubblica.getByText(artista)).toHaveCount(0);
     await vaiA(page, "attivita");
-    await expect(attivita.locator(".mod-voce").filter({ hasText: `cancellato: ${artista}` }).locator(".mod-autore")).toHaveText("Oracolo");
+    await expect(attivita.locator(".mod-voce").filter({ hasText: `cancellato: ${artista}` }).locator(".mod-autore")).toHaveText("Tour manager");
     await ospite.close();
 
     // 3. tutto nello stesso thread, privato: tra le chat della proprietaria, mai nello storico pubblico

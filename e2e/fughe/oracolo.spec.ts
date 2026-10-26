@@ -100,9 +100,9 @@ test("@sessione il canarino scritto in modalità scrittura resta privato", async
   // la proprietaria lo scrive nella chat in scrittura di /modifica (sessione e Origin della pagina)
   await page.goto(`/${handle}/modifica`);
   const server = logServerStart();
-  await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
-  const chat = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
-  await chat.getByRole("textbox", { name: "Messaggio per l'Oracolo" }).fill(`Ricordati che parto sempre da ${CANARINO.indirizzo} (${CANARINO.lat}, ${CANARINO.lng}).`);
+  await page.getByRole("button", { name: "Apri il Tour manager" }).click();
+  const chat = page.getByRole("dialog", { name: "Il Tour manager" });
+  await chat.getByRole("textbox", { name: "Messaggio per il Tour manager" }).fill(`Ricordati che parto sempre da ${CANARINO.indirizzo} (${CANARINO.lat}, ${CANARINO.lng}).`);
   await chat.getByRole("button", { name: "Invia" }).click();
   // la risposta arriva (Gemini o il copione finto) e il giro finisce, senza errori
   await expect(chat.locator(".chat-row.ai").last()).toBeVisible({ timeout: 150_000 });
@@ -173,9 +173,9 @@ test("@sessione la scheda salvata dalla partenza col canarino: km subito, e il c
   const server = logServerStart();
 
   await page.goto(`/${handle}/modifica`);
-  await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
-  const chat = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
-  await chat.getByRole("textbox", { name: "Messaggio per l'Oracolo" }).fill(`Ho visto ${artista} al Fabrique partita da ${PARTENZA}, voto 4`);
+  await page.getByRole("button", { name: "Apri il Tour manager" }).click();
+  const chat = page.getByRole("dialog", { name: "Il Tour manager" });
+  await chat.getByRole("textbox", { name: "Messaggio per il Tour manager" }).fill(`Ho visto ${artista} al Fabrique partita da ${PARTENZA}, voto 4`);
   await chat.getByRole("button", { name: "Invia" }).click();
   // la scheda: la partenza c'è, con l'indirizzo impostato (solo lo stato, mai l'indirizzo)
   const scheda = chat.getByRole("group", { name: `Scheda: nuovo concerto ${artista}` });

@@ -64,8 +64,8 @@ import { expect, test } from "./helpers/test.ts";
 
 interface Richiesta { threadId?: string; resume?: { interruptId: string; status: string; payload?: unknown }[]; messages?: { role: string; content?: unknown }[] }
 
-const chat = (page: Page) => page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
-const casella = (page: Page) => chat(page).getByRole("textbox", { name: "Messaggio per l'Oracolo" });
+const chat = (page: Page) => page.getByRole("dialog", { name: "Il Tour manager" });
+const casella = (page: Page) => chat(page).getByRole("textbox", { name: "Messaggio per il Tour manager" });
 async function scrivi(page: Page, testo: string) {
   await casella(page).fill(testo);
   await chat(page).getByRole("button", { name: "Invia" }).click();
@@ -97,8 +97,8 @@ function tuttiDi(handle: string, titolo: string): Record<string, unknown>[] {
 async function apriOracolo(page: Page) {
   const telefono = !(await page.locator("nav.modifica-indice").isVisible());
   const pulsante = telefono
-    ? page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri L'Oracolo in scrittura" })
-    : page.getByRole("button", { name: "Apri L'Oracolo in scrittura" });
+    ? page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri il Tour manager" })
+    : page.getByRole("button", { name: "Apri il Tour manager" });
   await pulsante.click();
   await expect(chat(page)).toBeVisible();
 }
@@ -164,8 +164,8 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
       const voci = page.locator("section#attivita .mod-voce");
       const aggiunto = voci.filter({ hasText: `aggiunto: ${artista}` });
       const persona = voci.filter({ hasText: "Marco R." });
-      await expect(aggiunto.locator(".mod-autore")).toHaveText("Oracolo");
-      await expect(persona.locator(".mod-autore")).toHaveText("Oracolo");
+      await expect(aggiunto.locator(".mod-autore")).toHaveText("Tour manager");
+      await expect(persona.locator(".mod-autore")).toHaveText("Tour manager");
       await expect(aggiunto).toContainText("in blocco");
       await expect(persona).toContainText("in blocco");
       // l'Oracolo agganciato resta aperto, con la stessa chat
@@ -381,7 +381,7 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
       const domanda = page.getByRole("dialog", { name: "Modifiche non salvate" });
       await expect(domanda).toHaveCount(0);
       await page.getByRole("tab", { name: "Sul palco" }).click();
-      await expect(domanda).toContainText(`La scheda di «${artista}» nell'Oracolo non è salvata: se esci adesso la perdi.`);
+      await expect(domanda).toContainText(`La scheda di «${artista}» nel Tour manager non è salvata: se esci adesso la perdi.`);
       await domanda.getByRole("button", { name: "Continua a modificare" }).click();
       await expect(domanda).toHaveCount(0);
       await expect(page).toHaveURL(new RegExp(`/${handle}/modifica`));

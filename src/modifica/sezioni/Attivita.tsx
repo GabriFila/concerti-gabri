@@ -56,12 +56,12 @@ export function SezioneAttivita(_props: SezioneProps) {
         id="attivita"
         titolo="Attività"
         meta={n !== undefined && n > 0 && <>{n === 1 ? "L'ultima modifica" : `Ultime ${n} modifiche`} · si conservano per 180 giorni</>}
-        descrizione="Ogni modifica alla tua pagina, da qualunque parte arrivi: dashboard, Oracolo, agenti o sistema."
+        descrizione="Ogni modifica alla tua pagina, da qualunque parte arrivi: dashboard, Tour manager, agenti o sistema."
       />
       <Caricamento q={q} righe>
         {({ voci }) =>
           voci.length === 0 ? (
-            <Vuoto icona="history" titolo="Ancora niente." testo="Qui compare ogni modifica, dalla dashboard, dall'Oracolo o da un agente." />
+            <Vuoto icona="history" titolo="Ancora niente." testo="Qui compare ogni modifica, dalla dashboard, dal Tour manager o da un agente." />
           ) : (
             <Registro
               voci={voci}

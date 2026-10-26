@@ -126,7 +126,7 @@ test("ux: le viste di /modifica in chiaro e in scuro", { tag: "@sessione" }, asy
     await page.screenshot({ path: join(UX, `${vista}-${tema}-${info.project.name}.png`), animations: "disabled" });
   };
   const concerti = page.locator("section#concerti");
-  const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+  const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
 
   await page.goto("/");
   await accediComeGabrifila(page);
@@ -208,13 +208,13 @@ test("ux: le viste di /modifica in chiaro e in scuro", { tag: "@sessione" }, asy
         await scatta("altro", tema);
         await page.goBack();
         await expect(page.getByRole("dialog", { name: "Tutte le sezioni" })).toHaveCount(0);
-        await page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+        await page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri il Tour manager" }).click();
         await expect(oracolo).toBeVisible();
         await scatta("oracolo", tema);
         await page.goBack();
         await expect(oracolo).toBeHidden();
       } else {
-        await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+        await page.getByRole("button", { name: "Apri il Tour manager" }).click();
         await expect(oracolo).toBeVisible();
         await scatta("oracolo", tema);
         await concerti.getByRole("list", { name: "Concerti e festival" }).getByRole("button", { name: /^Modifica / }).first().click();
@@ -231,7 +231,7 @@ test("ux: le viste di /modifica in chiaro e in scuro", { tag: "@sessione" }, asy
         // il cambio di modo arriva dopo il resize (useMisura): si aspetta, non si legge subito
         await expect.poll(() => oracolo.evaluate(d => d.matches(":modal"))).toBe(true);
         await scatta("oracolo-820", tema);
-        await oracolo.getByRole("button", { name: "Chiudi L'Oracolo", exact: true }).click();
+        await oracolo.getByRole("button", { name: "Chiudi", exact: true }).click();
         await expect(oracolo).toBeHidden();
         await scatta("concerti-820", tema);
         await concerti.getByRole("button", { name: "Aggiungi un concerto" }).click();
@@ -240,9 +240,9 @@ test("ux: le viste di /modifica in chiaro e in scuro", { tag: "@sessione" }, asy
         await page.getByRole("dialog", { name: "Nuovo concerto" }).getByRole("button", { name: "Chiudi" }).click();
         await expect(page.getByRole("dialog", { name: "Nuovo concerto" })).toHaveCount(0);
         await page.setViewportSize({ width: 1280, height: 1000 });
-        await page.getByRole("button", { name: "Apri L'Oracolo in scrittura" }).click();
+        await page.getByRole("button", { name: "Apri il Tour manager" }).click();
         await expect(oracolo).toBeVisible();
-        await page.getByRole("button", { name: "Chiudi L'Oracolo in scrittura" }).click();
+        await page.getByRole("button", { name: "Chiudi il Tour manager" }).click();
         await expect(oracolo).toBeHidden();
         for (const larghezza of [1024, 1600]) {
           await page.setViewportSize({ width: larghezza, height: 900 });
@@ -483,9 +483,9 @@ test.describe("ux: su una proprietaria di prova", { tag: "@sessione" }, () => {
       if (telefono) continue;
 
       await page.setViewportSize({ width: 1440, height: 900 });
-      const apri = page.getByRole("button", { name: /^Apri L'Oracolo in scrittura/ });
+      const apri = page.getByRole("button", { name: /^Apri il Tour manager/ });
       if (await apri.isVisible()) await apri.click();
-      await expect(page.getByRole("dialog", { name: "L'Oracolo in scrittura" })).toBeVisible();
+      await expect(page.getByRole("dialog", { name: "Il Tour manager" })).toBeVisible();
       await box.getByRole("button", { name: "Completa in sequenza" }).click();
       await m.getByRole("button", { name: "Salva e vai al prossimo" }).click();
       await expect(page.getByRole("status").filter({ hasText: "Concerto modificato" }).first()).toBeVisible();
@@ -511,7 +511,7 @@ test("ux: la scheda dell'Oracolo in chiaro e in scuro", { tag: "@sessione" }, as
   convexRun("chat:azzeraLimitiPerTest");
   const spegni = await stubNominatim();
   const telefono = info.project.name === "mobile";
-  const oracolo = page.getByRole("dialog", { name: "L'Oracolo in scrittura" });
+  const oracolo = page.getByRole("dialog", { name: "Il Tour manager" });
   const scatta = async (nome: string, tema: string, scheda?: ReturnType<Page["locator"]>) => {
     await page.evaluate(() => document.fonts.ready);
     await page.waitForTimeout(300);
@@ -523,7 +523,7 @@ test("ux: la scheda dell'Oracolo in chiaro e in scuro", { tag: "@sessione" }, as
   const scrivi = async (testo: string) => {
     // tanti turni in pochi secondi: il limite al minuto si azzera prima di ognuno
     convexRun("chat:azzeraLimitiPerTest");
-    await oracolo.getByRole("textbox", { name: "Messaggio per l'Oracolo" }).fill(testo);
+    await oracolo.getByRole("textbox", { name: "Messaggio per il Tour manager" }).fill(testo);
     await oracolo.getByRole("button", { name: "Invia" }).click();
   };
   const aperta = () => oracolo.locator("article.scheda[data-stato=bozza]").last();
@@ -551,8 +551,8 @@ test("ux: la scheda dell'Oracolo in chiaro e in scuro", { tag: "@sessione" }, as
       await page.goto(`/${handle}/modifica`);
       await idratata(page);
       const apri = telefono
-        ? page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri L'Oracolo in scrittura" })
-        : page.getByRole("button", { name: "Apri L'Oracolo in scrittura" });
+        ? page.getByRole("navigation", { name: "Sezioni principali" }).getByRole("button", { name: "Apri il Tour manager" })
+        : page.getByRole("button", { name: "Apri il Tour manager" });
       if (!(await oracolo.isVisible())) await apri.click();
       await expect(oracolo).toBeVisible();
       if (await oracolo.getByRole("button", { name: "Nuova chat" }).isEnabled()) await oracolo.getByRole("button", { name: "Nuova chat" }).click();

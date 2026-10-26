@@ -55,7 +55,7 @@ describe("requireOwner e getOwned", () => {
     expect(await codice(a.as.mutation(api.departures.confirmAddress, { agentToken: "cgk_finto", input: { departureId: id, indice: 0 } }))).toBe("unauthorized");
     await a.as.mutation(api.people.add, { as: "oracolo", input: { name: "Lu" } });
     const voci = await a.as.query(api.activity.list, {});
-    expect(voci.voci[0].autore).toBe("Oracolo");
+    expect(voci.voci[0].autore).toBe("Tour manager");
   });
 
   it("oracoloOnly (la scheda dell'Oracolo): solo con as: \"oracolo\"; la dashboard e gli agenti → solo_oracolo", async () => {
@@ -76,7 +76,7 @@ describe("requireOwner e getOwned", () => {
     expect((await a.as.query(api.entries.list, {})).concerts).toEqual([]);
     // l'Oracolo sì, e nel registro firma "Oracolo"
     expect(await codice(a.as.mutation(api.entries.salvaScheda, { as: "oracolo", input }))).toBe("ok");
-    expect((await a.as.query(api.activity.list, {})).voci[0]).toMatchObject({ autore: "Oracolo", riassunto: "aggiunto: X (01/01/2026)" });
+    expect((await a.as.query(api.activity.list, {})).voci[0]).toMatchObject({ autore: "Tour manager", riassunto: "aggiunto: X (01/01/2026)" });
   });
 
   it("un input non valido non viene ripetuto nell'errore", async () => {

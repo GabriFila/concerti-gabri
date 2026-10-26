@@ -86,7 +86,7 @@ export function SezioneConcerti(_props: SezioneProps) {
         secondarie={[{ etichetta: "Aggiungi un festival", icona: "plus", onClick: () => void apriPannello({ nuovo: "festival" }) }]}
         altro={[
           { etichetta: "Importa da un file", icona: "arrowUp", onClick: importa },
-          { etichetta: "Chiedi all'Oracolo", icona: "spark", onClick: chiediOracolo },
+          { etichetta: "Chiedi al Tour manager", icona: "spark", onClick: chiediOracolo },
         ]}
         fab={vuota ? undefined : <Fab etichetta="Aggiungi un concerto" testo="Concerto" onClick={nuovo} />}
       />
@@ -104,11 +104,11 @@ export function SezioneConcerti(_props: SezioneProps) {
               <Vuoto
                 icona="ticket"
                 titolo="Nessun concerto, per ora."
-                testo={<>Aggiungilo a mano, importa un file o chiedilo all'Oracolo: «ho visto i Verdena al Fabrique il 3 marzo con Cami».</>}
+                testo={<>Aggiungilo a mano, importa un file o chiedilo al Tour manager: «ho visto i Verdena al Fabrique il 3 marzo con Cami».</>}
                 azioni={
                   <>
                     <button type="button" className="mod-btn mod-primario" onClick={nuovo}>Aggiungi il primo concerto</button>
-                    <button type="button" className="mod-btn" onClick={chiediOracolo}>Chiedi all'Oracolo</button>
+                    <button type="button" className="mod-btn" onClick={chiediOracolo}>Chiedi al Tour manager</button>
                     <button type="button" className="mod-link" onClick={importa}>Importa da un file</button>
                   </>
                 }

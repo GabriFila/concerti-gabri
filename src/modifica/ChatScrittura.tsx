@@ -65,7 +65,7 @@ function erroreScrittura(err: Error | undefined): string | null {
   if (!err) return null;
   const m = err.message || "";
   if (/401/.test(m)) return "La sessione è scaduta: entra di nuovo per continuare.";
-  if (/403/.test(m)) return "L'Oracolo in scrittura funziona solo sulla tua pagina.";
+  if (/403/.test(m)) return "Il Tour manager funziona solo sulla tua pagina.";
   if (/429|Troppi|[Ll]imite/.test(m)) return "Hai raggiunto il limite di messaggi. Riprova più tardi.";
   // la route risponde 413 (l'errore HTTP di TanStack non porta il corpo)
   if (/413|troppo lung/i.test(m)) return TROPPO_LUNGA;
@@ -526,14 +526,14 @@ function Pannello({ handle }: { handle: string }) {
           <div className="chat-body" ref={bodyRef}>
             {erroreStorico && <div className="chat-error">{erroreStorico}</div>}
             <Storico corrente={thread} caricando={caricando} occupato={isLoading} apri={id => void riprendi(id)} />
-            <div className="chat-note">Le tue conversazioni con l'Oracolo in scrittura: private, le vedi solo tu, qui. Restano per 90 giorni.</div>
+            <div className="chat-note">Le tue conversazioni con il Tour manager: private, le vedi solo tu, qui. Restano per 90 giorni.</div>
           </div>
         ) : (
           <>
             <div className="chat-body" ref={bodyRef}>
               {messages.length === 0 && (
                 <div className="chat-empty">
-                  <p>Sono L'Oracolo, in modalità scrittura. Raccontami un concerto come lo diresti a un amico («Verdena all'Alcatraz sabato con Marco, voto 5») o incolla il testo del biglietto: preparo una scheda, tu la controlli e la salvi. Posso anche completare i concerti passati e sistemare persone, wishlist e stile; cancellazioni e annullamenti te li faccio confermare.</p>
+                  <p>Sono il Tour manager. Raccontami un concerto come lo diresti a un amico («Verdena all'Alcatraz sabato con Marco, voto 5») o incolla il testo del biglietto: preparo una scheda, tu la controlli e la salvi. Posso anche completare i concerti passati e sistemare persone, wishlist e stile; cancellazioni e annullamenti te li faccio confermare.</p>
                   <div className="chat-sugg">
                     {SUGGERIMENTI.map(s => (
                       <button key={s} type="button" className="fchip" onClick={() => send(s)}>{s}</button>
@@ -566,7 +566,7 @@ function Pannello({ handle }: { handle: string }) {
                 placeholder={schedeAperte.length ? "Correggi a parole (es. «era venerdì», «c'era anche Luca»)…" : "Raccontami un concerto, o incolla il biglietto…"}
                 maxLength={4000}
                 rows={1}
-                aria-label="Messaggio per l'Oracolo"
+                aria-label="Messaggio per il Tour manager"
                 data-autofocus
               />
               <button type="submit" className="chat-send" disabled={!input.trim() || isLoading} aria-label="Invia">

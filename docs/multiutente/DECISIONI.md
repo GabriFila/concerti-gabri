@@ -720,6 +720,13 @@ Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):
 
 ## Scheda dell'Oracolo (corsia ux-agente, 2026-10-24)
 
+- **Si chiama «Tour manager»** (decisione di Gabri, 2026-10-26): nei testi di
+  `/<handle>/modifica` l'Oracolo in scrittura è «il Tour manager» (pulsante,
+  finestra, schede, messaggi, prompt di sistema, autore in Attività: anche le
+  voci di prima, che hanno «Oracolo» salvato, si mostrano col nome nuovo).
+  L'Oracolo dei visitatori resta «L'Oracolo». Nel codice e nei dati non
+  cambia niente: `as: "oracolo"`, `oracoloOnly`, `solo_oracolo`, la `via`
+  `oracolo`, cartelle, classi CSS, chiavi, limiti e `/api/chat/scrittura`.
 - **Concerti solo dalla scheda.** Nell'Oracolo in scrittura concerti e
   festival passano solo da `propose_concert`
   (`src/server/oracolo/proposta.ts`), strumento solo dell'Oracolo, fuori dal

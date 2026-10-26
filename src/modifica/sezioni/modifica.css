@@ -396,6 +396,8 @@ dialog.mf-oracolo[data-modo="foglio"]{position:fixed;inset:0;width:100vw;height:
   border-radius:999px;border:2px solid var(--panel);font-size:.64rem;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
 .mf-scheda[aria-current="page"] svg{color:var(--lamp)}
 .mf-scheda-oracolo{color:var(--text)}
+/* «Tour manager» su una riga: a 360 px riempie la colonna, e le etichette accanto sono corte */
+.mf-scheda-oracolo .mf-oracolo-etichetta{white-space:nowrap}
 .mf-scheda-oracolo .mf-oracolo-icona{align-items:center;justify-content:center;width:52px;height:52px;margin-top:-22px;border-radius:50%;background:var(--lamp);color:#171106;
   box-shadow:0 6px 22px var(--lamp-soft),0 0 0 4px var(--panel)}
 .mf-scheda-oracolo[data-aperto] .mf-oracolo-icona{filter:brightness(.92)}

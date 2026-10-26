@@ -182,8 +182,8 @@ function Segno({ campo }: { campo: string }) {
   const m = useModulo();
   if (!m.evidenzia.has(campo)) return null;
   return (
-    <span className="mf-proposto" title="Proposto dall'Oracolo">
-      <span className="mf-sr"> (proposto dall'Oracolo)</span>
+    <span className="mf-proposto" title="Proposto dal Tour manager">
+      <span className="mf-sr"> (proposto dal Tour manager)</span>
     </span>
   );
 }

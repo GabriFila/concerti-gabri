@@ -46,7 +46,7 @@ import { convexUrl } from "../../lib/convexUrl.ts";
 import { tipoFunzione } from "../mcp/funzioni.ts";
 import { serverNow } from "../now.ts";
 import {
-  conversazioneDelServer, json, methodNotAllowed, NON_DISPONIBILE, rispostaTurno, runDelWidget, salvaTrascrizione, scegliAdapter, segretoServer,
+  conversazioneDelServer, json, methodNotAllowed, rispostaTurno, runDelWidget, salvaTrascrizione, scegliAdapter, segretoServer,
   type DipendenzeChat, type Env,
 } from "./handler.ts";
 import { erroreLeggibile } from "./errori.ts";
@@ -59,6 +59,8 @@ import { serverTools } from "./tools.ts";
 import { MAX_MESSAGGI_STORICO, TROPPO_LUNGA, validate } from "./validate.ts";
 
 export { erroreLeggibile } from "./errori.ts";
+
+const NON_DISPONIBILE_SCRITTURA = "Il Tour manager non è disponibile, riprova più tardi.";
 
 /** Le operazioni del catalogo che nell'Oracolo passano dalla scheda (propose_concert). */
 export const SOSTITUITE_DALLA_SCHEDA = ["add_concert", "update_concert"] as const;
@@ -91,10 +93,10 @@ export function promptScrittura(ds: Dataset, today: number, profilo: ProfiloOrac
   const nome = profilo.displayName;
   const pagina = `/${profilo.handle}`;
   const oggi = keyToISO(today);
-  return `You are the editing assistant of "${nome} ai concerti" (page ${pagina}). You talk WITH ${nome}, the page owner, who is logged in on ${pagina}/modifica: address ${nome} as "tu". ${regolaForma(nome, profilo.forma)} ${calendarioAttorno(today)}
+  return `You are "il Tour manager", the editing assistant of "${nome} ai concerti" (page ${pagina}); if ${nome} asks who you are, you are il Tour manager (masculine). You are not "l'Oracolo": that is the public chat for visitors. You talk WITH ${nome}, the page owner, who is logged in on ${pagina}/modifica: address ${nome} as "tu". ${regolaForma(nome, profilo.forma)} ${calendarioAttorno(today)}
 
 WHAT YOU DO:
-- Read and change this page's data with the tools: concerts and festivals, people, departures (names only), "regalato da", wishlist, profile, theme and layout, imports, and undo. Concerts and festivals go through an editable card that ${nome} saves (below); every other write applies at once. Every write shows up live on the page, goes to the activity log (${pagina}/modifica#attivita) with author "Oracolo" and can be undone with undo.
+- Read and change this page's data with the tools: concerts and festivals, people, departures (names only), "regalato da", wishlist, profile, theme and layout, imports, and undo. Concerts and festivals go through an editable card that ${nome} saves (below); every other write applies at once. Every write shows up live on the page, goes to the activity log (${pagina}/modifica#attivita) with author "Tour manager" and can be undone with undo.
 - For statistics on the public page data use query_concerts. There is NO web search here.
 - At the start, when useful, call list_concerts with da_completare: true and offer to fill in voto, vicinanza, canzoni note and a comment for past concerts. Completions go through change cards (propose_concert with the id), several in the same turn.
 
@@ -203,7 +205,7 @@ export async function handleChatScrittura(req: Request, { ip, env = process.env,
   const scelto = await scegliAdapter(env, dip, { scrittura: true });
   if (!scelto) return json(500, { error: "GEMINI_API_KEY non configurata." });
   const secret = segretoServer(env);
-  if (!secret) return json(503, { error: NON_DISPONIBILE });
+  if (!secret) return json(503, { error: NON_DISPONIBILE_SCRITTURA });
 
   const parsed = validate(await req.text(), LIMITI_SCRITTURA);
   if ("error" in parsed) return json(statoRifiuto(parsed.error), { error: parsed.error });
@@ -221,7 +223,7 @@ export async function handleChatScrittura(req: Request, { ip, env = process.env,
   try {
     const me = await client.query(api.me.profile, {});
     if (!me || me.status !== "active" || me.handle !== parsed.handle) {
-      return json(403, { error: "L'Oracolo in scrittura funziona solo sulla tua pagina." });
+      return json(403, { error: "Il Tour manager funziona solo sulla tua pagina." });
     }
     pagina = await (dip.pagina ?? (h => paginaDaConvex(h, client)))(parsed.handle);
   } catch {
@@ -237,7 +239,7 @@ export async function handleChatScrittura(req: Request, { ip, env = process.env,
     turno = await storico.turno(chiave);
   } catch {
     console.error("chat scrittura: Convex non raggiungibile per il turno");
-    return json(503, { error: NON_DISPONIBILE });
+    return json(503, { error: NON_DISPONIBILE_SCRITTURA });
   }
   if (!turno.ok) return rispostaTurno(turno);
   // come in lettura: lo storico salvato più la domanda nuova, mai la cronologia del browser

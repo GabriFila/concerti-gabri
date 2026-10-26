@@ -384,7 +384,7 @@ test.describe("#concerti: elenco e modulo", { tag: "@sessione" }, () => {
     const m = page.getByRole("dialog", { name: "Modifica concerto" });
     const box = page.getByRole("region", { name: "Da completare" });
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.getByRole("button", { name: /^Apri L'Oracolo in scrittura/ }).click();
+    await page.getByRole("button", { name: /^Apri il Tour manager/ }).click();
     await expect(page.locator("dialog#oracolo")).toBeVisible();
     await expect(app).toHaveAttribute("data-nav", "barra");
     await box.getByRole("button", { name: "Completa in sequenza" }).click();

@@ -217,7 +217,7 @@ export const salvaScheda = ownerMutation({
       const [x] = n.errori;
       throw errore("input_non_valido", `scheda non valida — ${x.campo}: ${x.messaggio}`, { campo: x.campo });
     }
-    const creati = await creaMancanti(ctx, owner, refs, nomiDa(n), batchId, "dall'Oracolo");
+    const creati = await creaMancanti(ctx, owner, refs, nomiDa(n), batchId, "dal Tour manager");
     let id: Doc<"entries">["_id"];
     let activityId: string;
     if (n.azione === "aggiungi") {

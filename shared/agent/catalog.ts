@@ -73,7 +73,7 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
   op({ name: "list_activity", tipo: "lettura", traguardo: 2, funzione: "activity:list",
     input: elencaAttivitaInput,
     output: z.object({ voci: z.array(z.any()) }),
-    descrizione: "Il registro delle attività, dalla più recente, con autore (dashboard, Oracolo, MCP, API key, sistema). Ogni voce si annulla con undo." }),
+    descrizione: "Il registro delle attività, dalla più recente, con autore (dashboard, Tour manager, MCP, API key, sistema). Ogni voce si annulla con undo." }),
 
   /* ── scrittura ── */
   op({ name: "add_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:add", input: entryInput, output: conId,

@@ -37,7 +37,7 @@ export interface Owner {
 
 export const ETICHETTE_ATTORE: Record<Via, string> = {
   dashboard: "Dashboard",
-  oracolo: "Oracolo",
+  oracolo: "Tour manager",
   mcp: "MCP",
   apikey: "API key",
   sistema: "Sistema",
@@ -108,7 +108,7 @@ function checkProfile(profile: Doc<"profiles"> | null, actor: Actor, opts: Owner
     throw errore("solo_dashboard", "questa operazione si fa solo dalla dashboard");
   }
   if (opts.oracoloOnly && actor.via !== "oracolo") {
-    throw errore("solo_oracolo", "questa operazione la fa solo l'Oracolo in scrittura, dopo il tuo Salva nella chat");
+    throw errore("solo_oracolo", "questa operazione la fa solo il Tour manager, dopo il tuo Salva nella chat");
   }
   if (!profile) throw errore("no_profile", "nessun profilo per questo account", { fix: "/benvenuto" });
   if (profile.status === "onboarding" && !opts.allowOnboarding) {

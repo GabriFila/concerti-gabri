@@ -186,7 +186,7 @@ describe("logo da URL (set_gifter_logo, agenti)", () => {
     const [file] = await t.run(async ctx => await ctx.db.system.query("_storage").collect());
     expect(file.contentType).toBe("image/png");
     const [voce] = (await a.as.query(api.activity.list, {})).voci;
-    expect(voce).toMatchObject({ op: "logo", autore: "Oracolo", annullabile: false });
+    expect(voce).toMatchObject({ op: "logo", autore: "Tour manager", annullabile: false });
     // null toglie il logo e cancella il file
     await a.as.action(api.gifters.setLogoFromUrl, { input: { id, url: null } });
     expect(await esiste(t, file._id)).toBe(false);

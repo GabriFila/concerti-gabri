@@ -65,12 +65,12 @@ describe("entries.salvaScheda", () => {
     expect(voci).toHaveLength(4);
     expect(new Set(voci.map(v => v.lotto)).size).toBe(1);
     expect(voci[0].lotto).toBeTruthy();
-    expect(voci.every(v => v.autore === "Oracolo" && v.via === "oracolo")).toBe(true);
+    expect(voci.every(v => v.autore === "Tour manager" && v.via === "oracolo")).toBe(true);
     expect(voci.map(v => v.riassunto).sort()).toEqual([
-      "\"regalato da\" aggiunto dall'Oracolo: Mamma",
+      "\"regalato da\" aggiunto dal Tour manager: Mamma",
       "aggiunto: Verdena (18/10/2025)",
-      "partenza aggiunta dall'Oracolo: Ufficio",
-      "persona aggiunta dall'Oracolo: Marco R.",
+      "partenza aggiunta dal Tour manager: Ufficio",
+      "persona aggiunta dal Tour manager: Marco R.",
     ]);
     expect(voci.find(v => v.id === r.activityId)?.riassunto).toBe("aggiunto: Verdena (18/10/2025)");
     // la partenza nuova non ha indirizzo
@@ -113,9 +113,9 @@ describe("entries.salvaScheda", () => {
     const r = await salva(a.as, { id, voto: 4, with: ["Lu"], remove: ["voto", "canzoniNote"] });
     expect(r).toMatchObject({ azione: "modificato", id, prima: { voto: 5, with: [] }, dopo: { voto: 4, with: ["Lu"] }, creati: { persone: ["Lu"] } });
     const voci = (await a.as.query(api.activity.list, {})).voci.filter(v => v.lotto);
-    expect(voci.map(v => v.riassunto).sort()).toEqual(["modificato: Verdena (18/10/2025)", "persona aggiunta dall'Oracolo: Lu"]);
+    expect(voci.map(v => v.riassunto).sort()).toEqual(["modificato: Verdena (18/10/2025)", "persona aggiunta dal Tour manager: Lu"]);
     expect(new Set(voci.map(v => v.lotto)).size).toBe(1);
-    expect(voci.every(v => v.autore === "Oracolo")).toBe(true);
+    expect(voci.every(v => v.autore === "Tour manager")).toBe(true);
 
     await a.as.mutation(api.activity.undo, { input: { activityId: r.activityId } });
     expect(await a.as.query(api.entries.get, { input: { id } })).toMatchObject({ voto: 5, with: [] });

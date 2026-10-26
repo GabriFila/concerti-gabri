@@ -25,7 +25,7 @@ export type Chi = "tutte" | "dashboard" | "oracolo" | "agenti" | "sistema";
 export const CHI: readonly { valore: Chi; testo: string }[] = [
   { valore: "tutte", testo: "Tutte" },
   { valore: "dashboard", testo: "Dashboard" },
-  { valore: "oracolo", testo: "Oracolo" },
+  { valore: "oracolo", testo: "Tour manager" },
   { valore: "agenti", testo: "Agenti" },
   { valore: "sistema", testo: "Sistema" },
 ];

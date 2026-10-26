@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { annullaInput, elencaAttivitaInput } from "../shared/schema/activity.ts";
 import { OP_LOGO } from "./gifters.ts";
 import { annulla, annullabile } from "./lib/activity.ts";
+import { ETICHETTE_ATTORE } from "./lib/owner.ts";
 import { errore } from "./lib/errors.ts";
 import { internalMutation, ownerMutation, ownerQuery } from "./lib/builders.ts";
 
@@ -28,7 +29,8 @@ export const list = ownerQuery({
       voci: voci.map(a => ({
         id: a._id as string,
         at: a.at,
-        autore: a.actor.label,
+        // le voci di prima del cambio di nome hanno ancora «Oracolo» salvato: l'etichetta si mostra sempre quella di oggi
+        autore: a.actor.via === "oracolo" ? ETICHETTE_ATTORE.oracolo : a.actor.label,
         via: a.actor.via,
         op: a.op,
         tabella: a.table,

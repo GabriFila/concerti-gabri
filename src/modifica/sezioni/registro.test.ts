@@ -8,7 +8,7 @@ const voce = (x: Partial<VoceRegistro> & { id: string }): VoceRegistro =>
 
 const VOCI = [
   voce({ id: "1", via: "dashboard", riassunto: "aggiunto: Verdena (25/10/2026)" }),
-  voce({ id: "2", via: "oracolo", autore: "Oracolo", riassunto: "persona aggiunta: Lu" }),
+  voce({ id: "2", via: "oracolo", autore: "Tour manager", riassunto: "persona aggiunta: Lu" }),
   voce({ id: "3", via: "mcp", autore: "Claude", riassunto: "aggiunto: Città di Notte" }),
   voce({ id: "4", via: "apikey", autore: "Script", riassunto: "modificato: Verdena", annullata: true }),
   voce({ id: "5", via: "sistema", autore: "Sistema", riassunto: "km ricalcolati", annullabile: false }),

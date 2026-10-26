@@ -79,7 +79,7 @@ const MESSAGGI_LIMITE = {
   chatOtherPagesDay: "Limite giornaliero dell'Oracolo di questa pagina raggiunto: riprova domani.",
   chatGlobalDay: "Limite giornaliero della chat raggiunto: riprova domani.",
 } as const;
-const LIMITE_SCRITTURA = "Limite giornaliero dell'Oracolo in scrittura raggiunto: riprova domani.";
+const LIMITE_SCRITTURA = "Limite giornaliero del Tour manager raggiunto: riprova domani.";
 
 function esito(name: keyof typeof MESSAGGI_LIMITE, r: { ok: boolean; retryAfter?: number }, messaggio: string = MESSAGGI_LIMITE[name]) {
   if (!r.ok) throw errore("limite_superato", messaggio, { limite: name, retryAfter: Math.ceil((r.retryAfter ?? 0) / 1000) });
