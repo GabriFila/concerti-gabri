@@ -267,7 +267,7 @@ async function freePort() {
 function siteUrl() {
   const r = spawnSync("portless", ["get", "concerti-gabri"], { cwd: ROOT, encoding: "utf8", env: buildEnv({ parent: process.env }) });
   const url = (r.stdout || "").trim();
-  if (r.status !== 0 || !/^https:\/\/[a-z0-9.-]+\.localhost:\d+$/.test(url)) fail("portless get non ha dato un URL *.localhost");
+  if (r.status !== 0 || !/^https?:\/\/[a-z0-9.-]+\.localhost:\d+$/.test(url)) fail("portless get non ha dato un URL *.localhost");
   return url;
 }
 
