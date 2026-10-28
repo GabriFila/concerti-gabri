@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { chiave } from "../../convex/lib/refs.ts";
 import { chiaveNome as chiaveForme } from "../../src/modifica/sezioni/forme.ts";
-import { chiaveNome, sembraIndirizzo, sembraNomeCompleto, simili, soprannomeSuggerito } from "./nomi.ts";
+import { chiaveNome, sembraIndirizzo, sembraIndirizzoCivico, sembraNomeCompleto, simili, soprannomeSuggerito } from "./nomi.ts";
 
 describe("chiaveNome", () => {
   it("minuscole, niente accenti, spazi compressi: la stessa del server e della dashboard", () => {
@@ -67,6 +67,20 @@ describe("sembraIndirizzo", () => {
   it("i nomi di una partenza no", () => {
     for (const n of ["Casa", "Casa Milano", "Lavoro", "Ufficio", "Casa dei nonni", "Viaggio", "Milano centro", "Vicolino", "Corsica"]) {
       expect(sembraIndirizzo(n), n).toBe(false);
+    }
+  });
+});
+
+describe("sembraIndirizzoCivico (nomi delle venue)", () => {
+  it("via o piazza con un numero civico sì, ovunque sia il numero", () => {
+    for (const n of ["Via Roma 12", "via dei Canarini 7, Genova", "Piazza Duomo 1", "Corso Buenos Aires 33b", "Viale Monza 140, Milano"]) {
+      expect(sembraIndirizzoCivico(n), n).toBe(true);
+    }
+  });
+
+  it("le venue vere no, anche in piazza o con un numero nel nome", () => {
+    for (const n of ["Piazza San Marco", "Piazza Duomo", "Fabrique", "Alcatraz", "Magazzini Generali", "Fabrique 2", "Arena di Verona", "Teatro Verdi (Sestri)", "Via Vai Club"]) {
+      expect(sembraIndirizzoCivico(n), n).toBe(false);
     }
   });
 });

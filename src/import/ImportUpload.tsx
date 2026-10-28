@@ -200,6 +200,11 @@ function RiquadroAnteprima({ stato, onImporta, onNo, onLascia }: {
         <>
           {a.nuovePersone.length > 0 && <p className="ag-hint">Persone nuove ({a.nuovePersone.length}): {a.nuovePersone.join(", ")}.</p>}
           {a.nuoviRegali.length > 0 && <p className="ag-hint">"Regalato da" nuovi ({a.nuoviRegali.length}): {a.nuoviRegali.join(", ")}.</p>}
+          {a.nuoveVenue.length > 0 && (
+            <p className="ag-hint">
+              Venue nuove ({a.nuoveVenue.length}): {a.nuoveVenue.join(", ")}. Si aggiungono al catalogo condiviso; la posizione la cerchiamo su OpenStreetMap.
+            </p>
+          )}
           {conferma ? (
             <div className="ag-conferma" role="group" aria-label="Conferma l'import">
               <p>

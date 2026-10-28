@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "./_generated/api";
-import { USER_AGENT } from "./geo.ts";
+import { api, internal } from "./_generated/api";
+import { stessoNome, USER_AGENT } from "./geo.ts";
 import { codiceDi } from "./lib/errors.ts";
 import { conProfilo, setup, venue } from "./test.setup";
 
@@ -236,5 +236,60 @@ describe("venues.createFromCandidate: solo candidati emessi dal server", () => {
       expect(codiceDi(e)).toBe("conflitto");
       expect((e as { data: { messaggio: string } }).data.messaggio).toContain("catalogo condiviso");
     }
+  });
+});
+
+describe("geo.posizioneVenue (venue scritte per nome, Nominatim simulato)", () => {
+  /** Una venue "utente" in attesa, come la crea lib/venueUtente.ts. */
+  const inAttesa = (t: ReturnType<typeof setup>, name: string, city: string) =>
+    t.run(async ctx => ctx.db.insert("venues", { name, city, nameKey: name.toLowerCase(), cityKey: city.toLowerCase(), source: "utente", posizione: "attesa" }));
+  const leggi = (t: ReturnType<typeof setup>, id: Awaited<ReturnType<typeof inAttesa>>) => t.run(async ctx => await ctx.db.get(id));
+
+  it("il POI della stessa città, con l'id OSM; una seconda volta non cambia niente", async () => {
+    const chiamate = finto([[POI, CASA]]);
+    const t = setup();
+    const id = await inAttesa(t, "Forum", "Assago");
+    await t.action(internal.geo.posizioneVenue, { venueId: id, tentativo: 0 });
+    expect(chiamate[0].url.searchParams.get("q")).toBe("Forum, Assago");
+    expect(await leggi(t, id)).toMatchObject({ name: "Forum", lng: 9.1422, lat: 45.4014, osm: "W26626007", posizione: "poi" });
+    await t.action(internal.geo.posizioneVenue, { venueId: id, tentativo: 0 });
+    expect(chiamate.length).toBe(1);
+  });
+
+  it("un POI con un altro nome non vale: il centro della città", async () => {
+    finto([[{ ...POI, name: "Togheter Bar" }], [CITTA]]);
+    const t = setup();
+    const id = await inAttesa(t, "Bar del Ghetto", "Assago");
+    await t.action(internal.geo.posizioneVenue, { venueId: id, tentativo: 0 });
+    expect(await leggi(t, id)).toMatchObject({ lng: 9.131, lat: 45.405, posizione: "citta" });
+  });
+
+  it("stessoNome: le parole dell'uno stanno nell'altro", () => {
+    expect(stessoNome("Forum", "Unipol Forum")).toBe(true);
+    expect(stessoNome("Alcatraz Milano", "Alcatraz")).toBe(true);
+    expect(stessoNome("Hiroshima Mon Amour", "Hiroshima Mon Amour")).toBe(true);
+    expect(stessoNome("Bar del Ghetto", "togheter bar")).toBe(false);
+    expect(stessoNome("Magazzini Generali", "Alcatraz")).toBe(false);
+  });
+
+  it("un POI di un'altra città non vale: il centro della città (mai una via o una casa)", async () => {
+    finto([[{ ...POI, address: { town: "Roma" } }, CASA, STRADA], [CITTA]]);
+    const t = setup();
+    const id = await inAttesa(t, "Forum", "Assago");
+    await t.action(internal.geo.posizioneVenue, { venueId: id, tentativo: 0 });
+    const v = await leggi(t, id);
+    expect(v).toMatchObject({ lng: 9.131, lat: 45.405, posizione: "citta" });
+    expect(v?.osm).toBeUndefined();
+    expect(await t.run(async ctx => (await ctx.db.query("cities").collect()).map(c => c.name))).toEqual(["Assago"]);
+  });
+
+  it("niente di niente: la venue resta senza posizione (non_trovata)", async () => {
+    finto([[], []]);
+    const t = setup();
+    const id = await inAttesa(t, "Locale fantasma", "Nessunposto");
+    await t.action(internal.geo.posizioneVenue, { venueId: id, tentativo: 0 });
+    const v = await leggi(t, id);
+    expect(v).toMatchObject({ posizione: "non_trovata" });
+    expect(v?.lng).toBeUndefined();
   });
 });

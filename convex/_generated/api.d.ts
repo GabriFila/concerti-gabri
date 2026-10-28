@@ -35,6 +35,7 @@ import type * as lib_km from "../lib/km.js";
 import type * as lib_mancanti from "../lib/mancanti.js";
 import type * as lib_owner from "../lib/owner.js";
 import type * as lib_refs from "../lib/refs.js";
+import type * as lib_venueUtente from "../lib/venueUtente.js";
 import type * as lib_zodConvex from "../lib/zodConvex.js";
 import type * as me from "../me.js";
 import type * as migrations from "../migrations.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "lib/mancanti": typeof lib_mancanti;
   "lib/owner": typeof lib_owner;
   "lib/refs": typeof lib_refs;
+  "lib/venueUtente": typeof lib_venueUtente;
   "lib/zodConvex": typeof lib_zodConvex;
   me: typeof me;
   migrations: typeof migrations;

@@ -389,8 +389,9 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
 **MCP e API (corsia 7)**
 - `importer.preview` è `dashboardOnly`, in deroga a PIANO §5.2: il catalogo
   congelato mappa `import_concerts` solo su `importer:apply`. L'import crea
-  nello stesso lotto annullabile le persone e i "regalato da" mancanti; venue
-  e partenze devono già esistere.
+  nello stesso lotto annullabile le persone e i "regalato da" mancanti; le
+  partenze devono già esistere. Le venue mancanti nascono anche loro (dal
+  2026-10-28, «Venue per nome» sotto), fuori dal lotto.
 - L'origine MCP/OAuth deve coincidere con `SITE_URL` di Convex: `issuer` di
   `/.well-known/oauth-authorization-server` = `authorization_servers[0]` di
   `/.well-known/oauth-protected-resource/mcp`.
@@ -546,6 +547,12 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
   coordinate del centro.
 - Gli host dei loghi che si risolvono in IP privati non si controllano: il
   runtime Convex non risolve il DNS prima del fetch.
+- Venue per nome (2026-10-28): chiunque abbia una pagina mette nel catalogo
+  condiviso un nome scelto da lui (un indirizzo con numero civico no). Gli
+  altri lo vedono solo cercando nel catalogo; per l'Oracolo resta un dato,
+  mai un'istruzione. Le sonde sui km sopra non cambiano: anche prima un
+  agente poteva scegliere un POI vicino alla casa ipotizzata, ora lo fa con
+  «nome, città» invece che con `search_venue` → `add_venue`.
 
 ### Aperti
 
@@ -577,22 +584,24 @@ deroga di PIANO §1.44 («OTP di sviluppo sulla preview», sopra).
 - **Chi è entrato non vede la landing (decisione di Gabri).** Su `/` riceve un
   307 verso `/<handle>` se il profilo è `active` con `onboardingStep` `fatto`,
   altrimenti verso `/benvenuto`: anche un profilo `active` a metà dei passi
-  2–4, che lì riprende. Il 308 di `/?chat=` vince comunque. Sta nel
+  2–3, che lì riprende. Il 308 di `/?chat=` vince comunque. Sta nel
   `beforeLoad` di `src/routes/index.tsx` (SSR e navigazioni del browser). Nei
-  passi 2–4 il link «Puoi finire dopo: vai alla tua pagina» porta comunque
+  passi 2–3 il link «Puoi finire dopo: vai alla tua pagina» porta comunque
   alla pagina. Tolti «La tua pagina / Modifica» e «Riprendi la
   configurazione», ora irraggiungibili; anche il marchio «Concerti» che porta
   a `/` (`/accedi`, `/privacy`) rimanda così chi è entrato.
 - Il 307 dipende dalla sessione ma non finisce in nessuna cache: le risposte
   SSR, redirect compresi, escono `private, no-store` (`withNoStore` in
   `src/server.ts`); lo controlla `e2e/landing.spec.ts`.
-- **Landing.** Titolo «Tutti i tuoi concerti, in un solo posto.»; azione
+- **Landing.** Titolo «Tutti i tuoi concerti, / in un solo posto.» (a capo
+  dopo la virgola, senza sottotitolo: Gabri, 2026-10-28); azione
   principale «Crea la tua pagina» (finestra con lo stesso titolo e
   `next=/benvenuto`; senza JavaScript `/accedi?next=%2Fbenvenuto`); per chi
   torna la riga «Hai già un account? Entra» (finestra «Entra», `next=/`), un
   link grigio come «Guarda un esempio»: l'ambra resta solo all'azione
   principale. Il prodotto si chiama «pagina», mai «sito» (decisione di Gabri);
-  la nota della finestra dice «il tuo account nasce adesso».
+  sotto i pulsanti della finestra solo il link Privacy (tolta la nota «il tuo
+  account nasce adesso», 2026-10-28); la «G» è il logo Google a quattro colori.
 - **«Entra con email» solo con un mittente vero.** `authFlags.get` dà anche
   `emailReale` (sender Resend); il pulsante compare solo con `emailReale` o
   nei build e2e (`VITE_E2E=1`, `src/accesso/flags.ts`), su `/accedi` e nella
@@ -608,6 +617,56 @@ deroga di PIANO §1.44 («OTP di sviluppo sulla preview», sopra).
   «Aggiungi» («Salta per ora» secondario), con l'indirizzo aperto sono i
   pulsanti dell'AddressPicker, poi «Avanti» (`avantiSecondario` di
   `Navigazione`, `src/benvenuto/comuni.tsx`).
+- **`/benvenuto` in 4 passi (Gabri, 2026-10-28):** La pagina, Partenze,
+  Agente, Pronta. Tolto il passo «Regalato da» (si gestisce da `#regali`):
+  `onboardingStep` `regali` resta nello schema e chi era rimasto lì riprende
+  dall'agente, il cui Avanti scrive `fatto`. Passo 1: «Come vuoi che la
+  pagina si riferisca a te?» e «Il tuo nome sulla pagina». Passo 2: «Da dove
+  parti solitamente», il testo spiega i km e lo scarto; una partenza nuova
+  («Nome della nuova partenza») si aggiunge solo quando quelle di prima hanno
+  l'indirizzo. Le scelte (forma, candidati dell'indirizzo) sono radio
+  disegnati su righe a pastiglia (`.acc-scelta`/`.acc-candidato`). Passo 3:
+  senza la guida delle colonne del modello (`ModelliImport colonne={false}`;
+  in `#agenti` resta).
+
+## Venue per nome (Gabri, 2026-10-28)
+
+Supera «Venue» qui sopra (traguardo 2 e integrazione) per tutto quello che
+scrive un concerto: l'aggiunta di una venue dev'essere semplice e fidarsi di
+quello che dice il proprietario, al massimo con una conferma.
+
+- **Ovunque per nome e città.** `add_concert`/`update_concert`, la scheda del
+  Tour manager, il modulo e l'import accettano una venue che non è nel
+  catalogo: nasce al salvataggio così come è stata scritta (`source:
+  "utente"`, `convex/lib/venueUtente.ts`), con nome e città dell'utente,
+  senza `search_venue`/`add_venue` (restano, facoltativi).
+- **La posizione la cerca il server** subito dopo (`geo.posizioneVenue`,
+  schedulata con il solo id): Nominatim su «nome, città», il primo POI di
+  quella città il cui nome corrisponde (`stessoNome`: le parole dell'uno
+  stanno nell'altro, «Forum» ↔ «Unipol Forum»), altrimenti il centro della
+  città, mai una via o una casa.
+  Coda piena o servizio giù: fino a 5 tentativi (30 s → 8 min), poi
+  `posizione: "non_trovata"`. Le coordinate si scrivono una volta sola
+  (`venues.impostaPosizione`) e poi sono immutabili come le altre.
+- **Riusare per nome resta sicuro**: le coordinate vengono sempre dalla
+  ricerca di quello stesso «nome, città», mai da un punto scelto da chi
+  scrive, quindi chi scrive lo stesso nome nella stessa città ottiene la
+  stessa venue che avrebbe ottenuto da sé.
+- **Km**: finché la venue non ha posizione i concerti restano `kmPending`;
+  quando arriva, `impostaPosizione` estrae le coppie (la stessa ricetta) e
+  scrive i km con attività `sistema`. Senza posizione la venue non va sulla
+  mappa (`pages.byHandle` omette lng/lat).
+- **Conferma**: nella scheda è un avviso «Venue nuova: … si aggiunge al
+  catalogo quando salvi» (non blocca; con «usa quella» se nel catalogo c'è
+  un nome simile nella stessa città); bloccano solo una venue senza città
+  (o ambigua tra omonime) e un nome che sembra un indirizzo. Nel modulo,
+  sotto le venue del catalogo, «Città» + «Usa questa venue». L'anteprima
+  dell'import elenca le venue nuove.
+- **Il catalogo è pubblico**: un nome con via/piazza e numero civico
+  (`sembraIndirizzoCivico`, `shared/lib/nomi.ts`) è `input_non_valido`
+  ovunque. Limite `venueNuove`: 150 venue nuove all'ora per profilo.
+- La creazione si registra fuori dal lotto della scrittura (il catalogo non
+  si annulla): Annulla su quel concerto lo toglie e lascia la venue.
 
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 

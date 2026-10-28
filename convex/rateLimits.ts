@@ -19,6 +19,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   geocodeProfile: { kind: "fixed window", rate: 30, period: HOUR },
   geocodeActor: { kind: "fixed window", rate: 30, period: HOUR },
   nominatimGlobal: { kind: "token bucket", rate: 1, period: SECOND, capacity: 1, maxReserved: 30 },
+  // venue nuove scritte per nome (profilo): il catalogo è condiviso, un import di tutta la storia ci sta
+  venueNuove: { kind: "fixed window", rate: 150, period: HOUR },
   // correzione dell'indirizzo (partenza)
   addressCorrection: { kind: "fixed window", rate: 1, period: DAY },
   // OTP via email (email / globale)
@@ -38,6 +40,6 @@ export const CHAT_PAGE_DAY_GABRIFILA = 120;
 
 export const NOMI_LIMITI = [
   "chatIpMinute", "chatIpDay", "chatGlobalDay", "chatPageDay", "chatOtherPagesDay",
-  "agentWrites", "geocodeProfile", "geocodeActor", "nominatimGlobal", "addressCorrection",
+  "agentWrites", "geocodeProfile", "geocodeActor", "nominatimGlobal", "venueNuove", "addressCorrection",
   "otpSendEmail", "otpSendGlobal", "dcrGlobal", "themeFromDescription", "themeGlobalDay", "logoUpload",
 ] as const;

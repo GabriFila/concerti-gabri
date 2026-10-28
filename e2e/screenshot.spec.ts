@@ -647,7 +647,7 @@ test("ux: la scheda dell'Oracolo in chiaro e in scuro", { tag: "@sessione" }, as
 
       // venue fuori catalogo, poi una correzione scritta nella chat
       await scrivi(`Ho visto Calcutta al Locale Prova ${unico()} con Lu`);
-      await expect(aperta().getByRole("list", { name: "Venue da OpenStreetMap" })).toBeVisible();
+      await expect(aperta().getByRole("list", { name: "Da controllare" })).toContainText("Venue nuova");
       await scatta("venue", tema, aperta());
       await scrivi("voto 3");
       await expect(oracolo.getByText("Sostituita dalla tua correzione").last()).toBeVisible();

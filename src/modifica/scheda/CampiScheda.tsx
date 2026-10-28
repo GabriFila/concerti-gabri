@@ -332,9 +332,10 @@ function EditorVenue({ id, voce, fuoriCatalogo }: { id: string; voce: VoceScheda
   const v = voce.valori;
   return (
     <VenueScelta
-      // fuori dal catalogo si parte dalla ricerca; altrimenti la scelta attuale con «Cambia»
+      // da sistemare (ambigua, senza città, un indirizzo) si parte da nome e città scritti; altrimenti la scelta attuale con «Cambia»
       venue={fuoriCatalogo ? "" : v.venue}
       city={fuoriCatalogo ? "" : v.city}
+      iniziale={fuoriCatalogo ? { venue: v.venue, city: v.city } : undefined}
       onScegli={(venue, city) => {
         cambia(id, "venue", () => ({ venue, city }));
         apriEditor(id, null);

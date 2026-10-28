@@ -28,8 +28,9 @@ import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
 import { getOwned, type Owner } from "./lib/owner.ts";
 import {
-  caricaRefs, campiDaInput, esterno, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, venueDa, type Refs,
+  caricaRefs, campiDaInput, esterno, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, type Refs,
 } from "./lib/refs.ts";
+import { venueOCrea } from "./lib/venueUtente.ts";
 
 const etichetta = (e: { kind: string; artist?: string; name?: string; date: string }) => `${e.kind === "festival" ? e.name : e.artist} (${e.date})`;
 
@@ -62,7 +63,7 @@ async function modificaEntry(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, 
   if (patch.date !== undefined) Object.assign(next, { date: patch.date, ...tempoDi(patch.date) });
   if (patch.venue !== undefined || patch.city !== undefined) {
     const v = await ctx.db.get(e.venueId);
-    next.venueId = await venueDa(ctx, patch.venue ?? v?.name ?? "", patch.city ?? v?.city ?? "");
+    next.venueId = await venueOCrea(ctx, owner, patch.venue ?? v?.name ?? "", patch.city ?? v?.city ?? "");
   }
   if (e.kind === "concert") {
     if (patch.name !== undefined || patch.concerts !== undefined) throw errore("input_non_valido", "name e concerts valgono solo per i festival", { campo: "patch" });
@@ -148,7 +149,7 @@ export const add = ownerMutation({
   input: entryInput,
   handler: async (ctx, owner, input) => {
     const refs = await caricaRefs(ctx, owner.profile._id);
-    const campi = await campiDaInput(ctx, refs, input);
+    const campi = await campiDaInput(ctx, refs, input, owner);
     const { id, kmPending } = await inserisci(ctx, owner, campi);
     return {
       id: id as string,
@@ -183,8 +184,8 @@ export const remove = ownerMutation({
 /**
  * #concerti: le venue del catalogo condiviso, per scegliere quella del
  * concerto nel modale (nome e città; le coordinate restano alla mappa
- * pubblica). Una venue nuova si aggiunge con geo.searchVenue →
- * venues.createFromCandidate.
+ * pubblica). Una venue nuova nasce al salvataggio col nome scritto
+ * (lib/venueUtente.ts), oppure da geo.searchVenue → venues.createFromCandidate.
  */
 export const venueCatalogo = ownerQuery({
   dashboardOnly: "modale dei concerti: elenco del catalogo venue (gli agenti usano search_venue)",
@@ -200,9 +201,8 @@ export const venueCatalogo = ownerQuery({
  * Il Salva della scheda dell'Oracolo (propose_concert, dopo il sì del
  * proprietario nella chat). Una transazione, un lotto: i nomi nuovi
  * (persone, "regalato da", partenza solo col nome), poi il concerto,
- * aggiunto o modificato, con i km subito. Gli errori non ripetono valori;
- * una venue che non è nel catalogo è `nome_sconosciuto` (campo venue) e non
- * scrive niente. Niente limite `agentWrites`: l'Oracolo non è un agente.
+ * aggiunto o modificato, con i km subito (o in attesa della posizione di
+ * una venue nuova, che nasce qui fuori dal lotto). Gli errori non ripetono valori. Niente limite `agentWrites`: l'Oracolo non è un agente.
  */
 export const salvaScheda = ownerMutation({
   oracoloOnly: "scheda dell'Oracolo in scrittura: concerto e nomi nuovi in un solo lotto, dopo il Salva del proprietario",
@@ -221,7 +221,7 @@ export const salvaScheda = ownerMutation({
     let id: Doc<"entries">["_id"];
     let activityId: string;
     if (n.azione === "aggiungi") {
-      const campi = await campiDaInput(ctx, refs, n.input);
+      const campi = await campiDaInput(ctx, refs, n.input, owner);
       ({ id, activityId } = await inserisci(ctx, owner, campi, batchId));
     } else {
       if (!Object.keys(n.patch).length) throw errore("input_non_valido", "scheda non valida: nessuna modifica rispetto al concerto salvato", { campo: "id" });

@@ -138,7 +138,7 @@ describe("registro delle funzioni", () => {
     expect([...NOMI_LIMITI].sort()).toEqual([
       "addressCorrection", "agentWrites", "chatGlobalDay", "chatIpDay", "chatIpMinute", "chatOtherPagesDay", "chatPageDay",
       "dcrGlobal", "geocodeActor", "geocodeProfile", "logoUpload", "nominatimGlobal", "otpSendEmail", "otpSendGlobal",
-      "themeFromDescription", "themeGlobalDay",
+      "themeFromDescription", "themeGlobalDay", "venueNuove",
     ]);
   });
 });

@@ -74,7 +74,8 @@ export const paginaPubblica = v.object({
   people: v.array(v.object({ _id: v.id("people"), name: v.string() })),
   gifters: v.array(v.object({ _id: v.id("gifters"), label: v.string(), url: v.optional(v.string()), logoUrl: v.optional(v.string()) })),
   departures: v.array(v.object({ _id: v.id("departures"), name: v.string() })),
-  venues: v.array(v.object({ _id: v.id("venues"), name: v.string(), city: v.string(), lng: v.number(), lat: v.number() })),
+  // lng/lat assenti per una venue nata per nome ancora senza posizione (lib/venueUtente.ts)
+  venues: v.array(v.object({ _id: v.id("venues"), name: v.string(), city: v.string(), lng: v.optional(v.number()), lat: v.optional(v.number()) })),
   cities: v.array(v.object({ name: v.string(), lng: v.number(), lat: v.number() })),
   wishlist: v.array(v.string()),
 });
@@ -125,7 +126,7 @@ export const byHandle = publicQuery({
     for (const id of new Set(entries.map(e => e.venueId))) {
       const ven = await ctx.db.get(id);
       if (!ven) continue;
-      venues.push({ _id: ven._id, name: ven.name, city: ven.city, lng: ven.lng, lat: ven.lat });
+      venues.push({ _id: ven._id, name: ven.name, city: ven.city, ...(ven.lng !== undefined && ven.lat !== undefined ? { lng: ven.lng, lat: ven.lat } : {}) });
       cityKeys.add(ven.cityKey);
     }
     const cities = [];

@@ -11,10 +11,11 @@
      Se un lotto fallisce a metà l'import si ferma e risponde "importate N
      di M, annullabili": Annulla per batchId toglie anche un lotto parziale.
    - Persone e "regalato da" sconosciuti nascono nello stesso lotto (e si
-     annullano con lui): all'onboarding l'elenco è ancora vuoto. Venue e
-     partenze invece devono esistere: una venue nasce solo da una ricerca
-     su OpenStreetMap (#concerti o search_venue + add_venue), una partenza
-     dal suo proprietario (#partenze o add_departure).
+     annullano con lui): all'onboarding l'elenco è ancora vuoto. Anche le
+     venue fuori catalogo nascono, col nome scritto (lib/venueUtente.ts,
+     fuori dal lotto: il catalogo non si annulla); l'anteprima le elenca.
+     Le partenze invece devono esistere: le crea il proprietario
+     (#partenze o add_departure).
    - Un agente consuma `agentWrites`: 1 per lotto.
    ────────────────────────────────────────────────────────────── */
 
@@ -31,6 +32,7 @@ import { codiceDi, errore } from "./lib/errors.ts";
 import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
 import { caricaRefs, campiDaInput, chiave, venuePerNome } from "./lib/refs.ts";
+import { sembraIndirizzoCivico } from "../shared/lib/nomi.ts";
 
 /** Voci per mutation: ogni voce legge i riferimenti e scrive concerto e registro. */
 export const LOTTO_IMPORT = 25;
@@ -42,17 +44,20 @@ interface Verifica {
   errori: ErroreRiga[];
   nuovePersone: string[];
   nuoviRegali: string[];
+  /** «Nome (Città)» delle venue che nasceranno. */
+  nuoveVenue: string[];
 }
 
 const nomiDi = (e: EntryInput) => (e.kind === "concert" ? e.with : e.concerts.flatMap(c => c.with));
 
-/** I riferimenti di ogni voce: partenze e venue devono esistere, persone e "regalato da" possono nascere. */
+/** I riferimenti di ogni voce: le partenze devono esistere, persone, "regalato da" e venue possono nascere. */
 async function verificaRiferimenti(ctx: QueryCtx, profileId: Id<"profiles">, voci: VoceImport[]): Promise<Verifica> {
   const refs = await caricaRefs(ctx, profileId);
   const errori: ErroreRiga[] = [];
   const persone = new Map<string, string>();
   const regali = new Map<string, string>();
-  const venueViste = new Map<string, boolean>();
+  const venue = new Map<string, string>();
+  const venueViste = new Set<string>();
   for (const { righe, entry } of voci) {
     for (const n of nomiDi(entry)) if (!refs.people.has(chiave(n))) persone.set(chiave(n), n);
     if (entry.giftFrom && !refs.gifters.has(chiave(entry.giftFrom))) regali.set(chiave(entry.giftFrom), entry.giftFrom);
@@ -63,15 +68,17 @@ async function verificaRiferimenti(ctx: QueryCtx, profileId: Id<"profiles">, voc
       });
     }
     const kv = `${chiave(entry.venue)}\u0000${chiave(entry.city)}`;
-    if (!venueViste.has(kv)) venueViste.set(kv, !!(await venuePerNome(ctx, entry.venue, entry.city)));
-    if (!venueViste.get(kv)) {
-      errori.push({
-        riga: righe[0], campo: "venue",
-        messaggio: "venue non nel catalogo (stesso nome e città): cercala e aggiungila da #concerti, o con search_venue e add_venue, poi ripeti l'import",
-      });
+    if (!venueViste.has(kv)) {
+      venueViste.add(kv);
+      if (!(await venuePerNome(ctx, entry.venue, entry.city))) {
+        // il catalogo è pubblico: un indirizzo non ci entra (lib/venueUtente.ts)
+        if (sembraIndirizzoCivico(entry.venue)) {
+          errori.push({ riga: righe[0], campo: "venue", messaggio: "venue: sembra un indirizzo (via e numero civico); scrivi il nome del locale, il catalogo delle venue è pubblico" });
+        } else venue.set(kv, `${entry.venue.trim()} (${entry.city.trim()})`);
+      }
     }
   }
-  return { errori, nuovePersone: [...persone.values()], nuoviRegali: [...regali.values()] };
+  return { errori, nuovePersone: [...persone.values()], nuoviRegali: [...regali.values()], nuoveVenue: [...venue.values()] };
 }
 
 /** Un errore con le righe sbagliate (al massimo 20), senza valori. */
@@ -101,6 +108,7 @@ export const preview = ownerQuery({
       errori: errori.slice(0, 200),
       nuovePersone: verifica.nuovePersone,
       nuoviRegali: verifica.nuoviRegali,
+      nuoveVenue: verifica.nuoveVenue,
       serveConferma: serveConferma(analisi.righe),
       sogliaConferma: CONFIRM_IMPORT_ROWS,
     };
@@ -131,9 +139,9 @@ export const scriviLotto = internalMutation({
     const refs = await caricaRefs(ctx, profileId);
     let scritte = 0;
     for (const { entry } of voci as VoceImport[]) {
-      // persone e "regalato da" mancanti nascono nel lotto (lib/mancanti.ts); le partenze no: devono esistere
+      // persone e "regalato da" mancanti nascono nel lotto (lib/mancanti.ts), le venue in campiDaInput; le partenze no: devono esistere
       await creaMancanti(ctx, owner, refs, { persone: nomiDi(entry), ...(entry.giftFrom ? { regalo: entry.giftFrom } : {}) }, batchId, "dall'import");
-      const campi = await campiDaInput(ctx, refs, entry);
+      const campi = await campiDaInput(ctx, refs, entry, owner);
       const km = await campiKm(ctx, { profileId, departureId: campi.departureId, venueId: campi.venueId });
       const doc = Object.fromEntries(
         Object.entries({ ...campi, ...km, profileId, updatedAt: Date.now() }).filter(([, x]) => x !== undefined),
@@ -156,6 +164,7 @@ export interface EsitoImport {
   batchId: string;
   personeAggiunte?: number;
   regaliAggiunti?: number;
+  venueAggiunte?: number;
   parziale?: true;
   messaggio?: string;
   errore?: { code: string; messaggio: string };
@@ -199,6 +208,6 @@ export const apply = ownerAction({
         };
       }
     }
-    return { importate, totale: voci.length, batchId, personeAggiunte: controllo.nuovePersone.length, regaliAggiunti: controllo.nuoviRegali.length };
+    return { importate, totale: voci.length, batchId, personeAggiunte: controllo.nuovePersone.length, regaliAggiunti: controllo.nuoviRegali.length, venueAggiunte: controllo.nuoveVenue.length };
   },
 });

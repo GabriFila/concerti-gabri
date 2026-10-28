@@ -48,7 +48,7 @@ export interface PaginaPubblica {
   people: { _id: string; name: string }[];
   gifters: { _id: string; label: string; url?: string; logoUrl?: string }[];
   departures: { _id: string; name: string }[];
-  venues: { _id: string; name: string; city: string; lng: number; lat: number }[];
+  venues: { _id: string; name: string; city: string; lng?: number; lat?: number }[];
   cities: { name: string; lng: number; lat: number }[];
   wishlist: string[];
 }
@@ -88,7 +88,8 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
     // siti e loghi solo https: sono dati degli utenti e finiscono in href/src
     gifters: Object.fromEntries(page.gifters.map(g => [g._id, def({ label: g.label, url: soloHttps(g.url), logo: soloHttps(g.logoUrl) }) as GifterInfo])),
     departures: Object.fromEntries(page.departures.map(d => [d._id, d.name])),
-    venueCoords: Object.fromEntries(page.venues.map(v => [v.name, [v.lng, v.lat] as LngLat])),
+    // una venue senza posizione (ancora da cercare o non trovata) resta fuori dalla mappa
+    venueCoords: Object.fromEntries(page.venues.flatMap(v => (v.lng !== undefined && v.lat !== undefined ? [[v.name, [v.lng, v.lat] as LngLat]] : []))),
     cityCoords: Object.fromEntries(page.cities.map(c => [c.name, [c.lng, c.lat] as LngLat])),
     wishlist: page.wishlist,
   };

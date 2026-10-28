@@ -22,7 +22,6 @@
    della parità). Solo desktop: niente dipende dal viewport.
    ────────────────────────────────────────────────────────────── */
 
-import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { Page } from "@playwright/test";
@@ -187,24 +186,18 @@ test.describe("con la sessione del proprietario", { tag: "@sessione" }, () => {
     expect(fughe((await errore.textContent()) ?? "")).toEqual([]);
     await correzione.getByRole("button", { name: "Chiudi" }).click();
 
-    // cercato come venue: lo stub dà la casa (scartata, non è un POI) e poi la
-    // città; niente venue col canarino, e la cache lo tiene solo come hash
+    // scritto come venue nuova: sembra un indirizzo, quindi «Usa questa venue» resta spento
+    // (e il server lo rifiuta comunque): niente venue col canarino nel catalogo pubblico
     await vaiA(page, "concerti");
     await page.locator("section#concerti").getByRole("button", { name: "Aggiungi un concerto" }).click();
     const modale = page.getByRole("dialog", { name: "Nuovo concerto" });
     await modale.getByLabel("Cerca una venue").fill(CANARINO.indirizzo);
-    await modale.getByRole("button", { name: "Cerca su OpenStreetMap" }).click();
-    const risultati = modale.locator(".mod-osm");
-    // il ripiego sulla città c'è davvero: il controllo non è a vuoto
-    await expect(risultati.getByRole("list", { name: "Risultati di OpenStreetMap" })).toContainText("Genova");
-    expect(fughe((await risultati.textContent()) ?? "")).toEqual([]);
+    await modale.getByLabel("Città della venue").fill("Genova");
+    await expect(modale.getByRole("alert").filter({ hasText: "Sembra un indirizzo" })).toBeVisible();
+    await expect(modale.getByRole("button", { name: "Usa questa venue" })).toBeDisabled();
+    expect(fughe((await modale.locator(".mod-venue").textContent()) ?? "")).toEqual([]);
     await modale.getByRole("button", { name: "Chiudi" }).click();
     expect(fughe(JSON.stringify(convexRun("venues:cercaNelCatalogo", { query: "Canarini" })))).toEqual([]);
-    const chiave = CANARINO.indirizzo.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-    const cache = convexRun<{ results: { name: string }[] } | null>("geo:cacheGet", { keyHash: createHash("sha256").update(chiave).digest("hex") });
-    expect(cache, "la ricerca è nella cache, sotto il suo hash").not.toBeNull();
-    expect(cache!.results.map(r => r.name)).toEqual(["Genova"]);
-    expect(fughe(JSON.stringify(cache))).toEqual([]);
 
     // e la pagina pubblica del proprietario resta pulita
     expect(fughe(await queryPubblica("pages:byHandle", { handle }))).toEqual([]);

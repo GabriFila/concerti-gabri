@@ -3,7 +3,8 @@
    venue e "regalato da" sono id; gli input esterni (MCP, import, Oracolo,
    form) usano i nomi, tradotti qui da un unico `resolveRefs`. Un nome
    sconosciuto dà un errore con l'elenco dei nomi VALIDI (mai il valore
-   ricevuto).
+   ricevuto). Le venue no: con un autore, una venue che non è nel catalogo
+   nasce col nome scritto (lib/venueUtente.ts).
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc, Id } from "../_generated/dataModel";
@@ -12,6 +13,8 @@ import { sortKey } from "../../shared/lib/dates.ts";
 import { chiaveNome } from "../../shared/lib/nomi.ts";
 import type { EntryInput } from "../../shared/schema/entry.ts";
 import { errore } from "./errors.ts";
+import type { AutoreLotto } from "./mancanti.ts";
+import { venueOCrea } from "./venueUtente.ts";
 
 type Ctx = QueryCtx | MutationCtx;
 
@@ -95,9 +98,12 @@ export const tempoDi = (date: string) => {
 let cidSeq = 0;
 export const nuovoCid = () => `c${Date.now().toString(36)}${(cidSeq++ % 1296).toString(36).padStart(2, "0")}`;
 
-/** I campi DB (senza profilo, km e updatedAt) da un input esterno già validato. */
-export async function campiDaInput(ctx: Ctx, refs: Refs, input: EntryInput) {
-  const venueId = await venueDa(ctx, input.venue, input.city);
+/**
+ * I campi DB (senza profilo, km e updatedAt) da un input esterno già validato.
+ * Con `autore` una venue fuori catalogo nasce (venueOCrea); senza, è un errore.
+ */
+export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInput, autore?: AutoreLotto) {
+  const venueId = autore ? await venueOCrea(ctx, autore, input.venue, input.city) : await venueDa(ctx, input.venue, input.city);
   const base = {
     date: input.date,
     ...tempoDi(input.date),

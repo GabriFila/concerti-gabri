@@ -45,7 +45,7 @@ export function agentPrompt(d: DatiPrompt): string {
     `Sono ${nome}. Quando parli di me usa la forma ${FORMA_NEL_PROMPT[d.forma]}.`,
     "",
     "Come scrivere i dati:",
-    `- Se hai gli strumenti MCP del server ${origin}/mcp, usali per leggere e scrivere direttamente: list_concerts, add_concert, update_concert, add_person, add_gifter, search_venue, add_venue, import_concerts, undo. Le scritture valgono subito; per le cancellazioni chiedimi sempre conferma.`,
+    `- Se hai gli strumenti MCP del server ${origin}/mcp, usali per leggere e scrivere direttamente: list_concerts, add_concert, update_concert, add_person, add_gifter, import_concerts, undo. La venue scrivila con nome e città: se non c'è ancora, la aggiunge il server. Le scritture valgono subito; per le cancellazioni chiedimi sempre conferma.`,
     `- Se non li hai, preparami un file CSV con queste colonne, in quest'ordine: ${COLONNE_CSV.join(",")}. Lo carico io da ${modifica}#agenti. Una riga per concerto; un festival sono più righe con tipo=festival e stessi festival, venue e data. Nella colonna "con" separa i nomi con "${SEPARATORE_CON}".`,
     "",
     "Dove cercare: le email dei biglietti (TicketOne, Vivaticket, DICE, Ticketmaster…), il calendario, le foto. Se un dato è incerto chiedimelo invece di inventarlo.",

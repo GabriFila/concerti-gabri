@@ -10,6 +10,10 @@
      POI si ripiega sulla città (`featureType=city`), mai su una via. La
      cache condivisa vale SOLO per le venue: chiave = SHA-256 della ricerca
      normalizzata, mai il testo in chiaro.
+   - Venue scritte per nome (lib/venueUtente.ts): `posizioneVenue` cerca
+     «nome, città» con la stessa cache e prende il primo POI di quella
+     città con quel nome (stessoNome), altrimenti il centro della città; coda piena o servizio giù →
+     riprova più tardi, poi la venue resta senza posizione.
    - Partenze: niente cache, niente log; i candidati vanno nella tabella
      privata via internal.departures.saveDraft e al browser arrivano solo
      indice ed etichetta (solo dashboard). Le coordinate non escono mai.
@@ -21,7 +25,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { geocodificaPartenzaInput } from "../shared/schema/departure.ts";
 import { cercaVenueInput, rifCandidato, type CandidatoProposto, type CandidatoVenue } from "../shared/schema/venue.ts";
-import { internalMutation, internalQuery, ownerAction } from "./lib/builders.ts";
+import { internalAction, internalMutation, internalQuery, ownerAction } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
 import type { Owner } from "./lib/owner.ts";
 import { chiave } from "./lib/refs.ts";
@@ -146,6 +150,57 @@ export const searchVenue = ownerAction({
     await limitiGeocoding(ctx, owner);
     const { id, results } = await cercaVenue(ctx, query);
     return { catalogo, candidati: results.map((c, i) => ({ ...c, ref: rifCandidato(id, i) })), attribuzione: ATTRIBUZIONE };
+  },
+});
+
+/** Tentativi di `posizioneVenue` prima di lasciare la venue senza posizione (attese 30 s, 1, 2, 4, 8 min). */
+export const TENTATIVI_POSIZIONE = 5;
+
+export type PosizioneTrovata = { lng: number; lat: number; osm?: string; tipo: "poi" | "citta" };
+
+const parole = (s: string) => chiave(s).split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 2);
+
+/**
+ * Il nome di un POI è quello scritto? Le parole dell'uno stanno tutte nell'altro
+ * («Forum» e «Unipol Forum» sì; «Bar del Ghetto» e «Togheter Bar» no).
+ */
+export function stessoNome(scritto: string, poi: string): boolean {
+  const a = parole(scritto);
+  const b = parole(poi);
+  if (!a.length || !b.length) return chiave(scritto) === chiave(poi);
+  return a.every(w => b.includes(w)) || b.every(w => a.includes(w));
+}
+
+/** Dove sta «nome, città»: il primo POI di quella città con quel nome, altrimenti il centro della città; null se niente. */
+export async function trovaPosizione(ctx: ActionCtx, name: string, city: string): Promise<PosizioneTrovata | null> {
+  const kc = chiave(city);
+  const { results } = await cercaVenue(ctx, `${name}, ${city}`);
+  const poi = results.find(c => c.featureType === "poi" && chiave(c.city) === kc && stessoNome(name, c.name));
+  if (poi) return { lng: poi.lng, lat: poi.lat, osm: poi.osm, tipo: "poi" };
+  const tra = results.find(c => c.featureType === "city" && chiave(c.city) === kc);
+  const citta = tra ?? (await nominatim(ctx, { q: city, featureType: "city", limit: "3" })).map(candidatoCitta).find((c): c is CandidatoVenue => c !== null);
+  return citta ? { lng: citta.lng, lat: citta.lat, tipo: "citta" } : null;
+}
+
+/** La posizione di una venue nata per nome (lib/venueUtente.ts): una volta sola, poi i km in attesa. */
+export const posizioneVenue = internalAction({
+  args: { venueId: v.id("venues"), tentativo: v.number() },
+  handler: async (ctx, { venueId, tentativo }) => {
+    const ven: { name: string; city: string } | null = await ctx.runQuery(internal.venues.daPosizionare, { venueId });
+    if (!ven) return null;
+    let trovata: PosizioneTrovata | null;
+    try {
+      trovata = await trovaPosizione(ctx, ven.name, ven.city);
+    } catch {
+      // coda piena o Nominatim giù: si riprova, con attese crescenti
+      if (tentativo + 1 < TENTATIVI_POSIZIONE) {
+        await ctx.scheduler.runAfter(30_000 * 2 ** tentativo, internal.geo.posizioneVenue, { venueId, tentativo: tentativo + 1 });
+        return null;
+      }
+      trovata = null;
+    }
+    await ctx.runMutation(internal.venues.impostaPosizione, { venueId, trovata: trovata ?? undefined });
+    return null;
   },
 });
 

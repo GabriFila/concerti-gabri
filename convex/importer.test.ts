@@ -67,10 +67,16 @@ describe("importer", () => {
   it("anteprima: conta righe e voci, elenca errori e nomi nuovi, non scrive", async () => {
     const { t, a } = await profilo();
     const prima = await stato(t, a.profileId);
-    const contenuto = versoCsv([concerto(1, { with: ["Lu", "Cami"], giftFrom: "Amici", gift: true }), concerto(2, { venue: "Nuova venue" })]);
+    const contenuto = versoCsv([
+      concerto(1, { with: ["Lu", "Cami"], giftFrom: "Amici", gift: true }), concerto(2, { venue: "Nuova venue" }), concerto(3, { venue: "Via Roma 12" }),
+    ]);
     const p = await a.as.query(api.importer.preview, { input: { formato: "csv", contenuto } });
-    expect(p).toMatchObject({ righe: 2, voci: 2, concerti: 2, nuovePersone: ["Lu", "Cami"], nuoviRegali: ["Amici"], serveConferma: false, sogliaConferma: 10 });
-    expect(p.errori).toEqual([expect.objectContaining({ riga: 3, campo: "venue" })]);
+    expect(p).toMatchObject({
+      righe: 3, voci: 3, concerti: 3, nuovePersone: ["Lu", "Cami"], nuoviRegali: ["Amici"], nuoveVenue: ["Nuova venue (Milano)"], serveConferma: false, sogliaConferma: 10,
+    });
+    // una venue nuova va bene; una che sembra un indirizzo no
+    expect(p.errori).toEqual([expect.objectContaining({ riga: 4, campo: "venue" })]);
+    expect(JSON.stringify(p.errori)).not.toContain("Roma 12");
     expect(await stato(t, a.profileId)).toEqual(prima);
   });
 

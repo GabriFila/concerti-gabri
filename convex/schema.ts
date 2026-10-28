@@ -95,10 +95,13 @@ export const fields = {
     city: v.string(),
     nameKey: v.string(),
     cityKey: v.string(),
-    lng: v.number(),
-    lat: v.number(),
+    // assenti finché la posizione di una venue "utente" non arriva da OpenStreetMap (o se non si trova)
+    lng: v.optional(v.number()),
+    lat: v.optional(v.number()),
     osm: v.optional(v.string()),
-    source: v.union(v.literal("seed"), v.literal("osm"), v.literal("citta")),
+    // utente: nome e città come li ha scritti il proprietario, posizione cercata dal server (geo.posizioneVenue)
+    source: v.union(v.literal("seed"), v.literal("osm"), v.literal("citta"), v.literal("utente")),
+    posizione: v.optional(v.union(v.literal("attesa"), v.literal("poi"), v.literal("citta"), v.literal("non_trovata"))),
     createdBy: v.optional(v.id("profiles")),
   },
   cities: {
@@ -212,7 +215,8 @@ export default defineSchema({
   entries: defineTable(fields.entries)
     .index("by_profile_sortKey", ["profileId", "sortKey"])
     .index("by_profile_departure", ["profileId", "departureId"])
-    .index("by_profile_venue", ["profileId", "venueId"]),
+    .index("by_profile_venue", ["profileId", "venueId"])
+    .index("by_venue", ["venueId"]),
   activity: defineTable(fields.activity).index("by_profile_at", ["profileId", "at"]).index("by_batch", ["batchId"]),
   chatThreads: defineTable(fields.chatThreads)
     .index("by_threadId", ["threadId"])

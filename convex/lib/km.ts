@@ -71,7 +71,8 @@ export async function kmPerCoppia(
   const casa = await coordinatePartenza(ctx, departureId);
   if (!casa) return { pending: true };
   const venue = await ctx.db.get(venueId);
-  if (!venue) return { pending: true };
+  // una venue nata per nome aspetta la sua posizione (geo.posizioneVenue)
+  if (venue?.lng === undefined || venue.lat === undefined) return { pending: true };
   const km = kmDaDistanza(haversineKm(casa, [venue.lng, venue.lat]), estraiJitter());
   await ctx.db.insert("kmPairs", { profileId, departureId, venueId, km, source: "calcolato", drawnAt: Date.now() });
   return { km, source: "calcolato" };
@@ -117,7 +118,7 @@ export async function estraiPerPartenza(
     const coppie = await ctx.db.query("kmPairs").withIndex("by_departure", q => q.eq("departureId", departureId)).collect();
     for (const c of coppie) {
       const venue = await ctx.db.get(c.venueId);
-      if (!venue) continue;
+      if (venue?.lng === undefined || venue.lat === undefined) continue;
       const km = kmDaDistanza(haversineKm(casa, [venue.lng, venue.lat]), estraiJitter());
       await ctx.db.patch(c._id, { km, source: "calcolato", drawnAt: Date.now() });
       toccate.push(c.venueId);

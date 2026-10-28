@@ -9,9 +9,9 @@
      un lotto, aspetta le altre), in salvataggio, salvata (EsitoScheda),
      scartata, corretta, chiusa, scaduta.
    - I nomi si risolvono dal vivo sui dati del proprietario (persone,
-     partenze, "regalato da", venue del catalogo); una venue che non c'è
-     si cerca UNA volta con geo.searchVenue, e i candidati di
-     OpenStreetMap si aggiungono al catalogo con «Aggiungi e usa».
+     partenze, "regalato da", venue del catalogo); una venue che non c'è,
+     con la città, è nuova: un avviso, e la aggiunge il Salva (il server
+     ne cerca la posizione, lib/venueUtente.ts).
    - Salva: la scheda si valida come la valida il server, poi risolve
      l'approvazione con `{approved: true, editedArgs: proposta}`; Scarta
      con il rifiuto tipizzato `{motivo: "scartata"}`. Le correzioni
@@ -34,7 +34,7 @@
      Ogni scheda le scrive nello store se è pronta.
    ────────────────────────────────────────────────────────────── */
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useHydrated } from "@tanstack/react-router";
 import { convexQuery } from "@convex-dev/react-query";
@@ -45,7 +45,7 @@ import { propostaConcertoInput, type EventoEsterno, type PropostaConcerto } from
 import { useEditorConcerti, type EsitoConcerto } from "../editor.tsx";
 import { Menu, type VoceMenu } from "../ui/Menu.tsx";
 import { useToast } from "../ui/Toast.tsx";
-import { Soprannomi, useConvex, useDati, useOperazione } from "../sezioni/comuni.tsx";
+import { Soprannomi, useDati } from "../sezioni/comuni.tsx";
 import type { ValoriConcerto, ValoriFestival } from "../sezioni/forme.ts";
 import {
   aggiornaQuello, campoDiMancante, conSetInPiu, daModulo, differenzeScheda, distanza, dopoDi, evidenziaDi, giornoLungo, giornoParlato, idApprovazione, inConcerto,
@@ -190,21 +190,34 @@ function useEsiste(id: string | undefined): boolean | undefined {
   return q.isError ? false : q.data ? true : undefined;
 }
 
-/* ── venue: catalogo, poi ricerca una volta sola ──────────────── */
+/* ── venue: solo il catalogo (una nuova la crea il Salva) ─────── */
 
-function useVenue(id: string, voce: VoceScheda | undefined): boolean | undefined {
+type VenueCatalogo = { id: string; name: string; city: string };
+
+/** Come sta la venue della scheda rispetto al catalogo condiviso. */
+interface StatoVenue {
+  /** Nel catalogo con questo nome e città (undefined: catalogo non ancora caricato o venue vuota). */
+  nelCatalogo?: boolean;
+  /** Senza città: le venue del catalogo con questo nome (con più di una si sceglie). */
+  omonime: VenueCatalogo[];
+  /** Fuori catalogo: una venue dal nome simile nella stessa città. */
+  simile?: VenueCatalogo;
+}
+
+/**
+ * La venue della scheda contro il catalogo (entries.venueCatalogo). Senza città e con una
+ * sola venue di quel nome è lei; fuori catalogo con la città è una venue nuova, che il
+ * Salva aggiunge (lib/venueUtente.ts): nessuna ricerca su OpenStreetMap da qui.
+ */
+function useVenue(id: string, voce: VoceScheda | undefined): StatoVenue {
   const catalogo = useDati(api.entries.venueCatalogo);
-  const convex = useConvex();
   const venues = catalogo.data?.venues;
   const venue = voce?.valori.venue.trim() ?? "";
   const citta = voce?.valori.city.trim() ?? "";
   const kv = chiaveNome(venue);
   const kc = chiaveNome(citta);
-  const query = `${venue} ${citta}`.trim();
   const esatta = !!venues?.some(x => chiaveNome(x.name) === kv && chiaveNome(x.city) === kc);
-  const omonime = venues?.filter(x => chiaveNome(x.name) === kv) ?? [];
-  const ricerca = voce?.ricercaVenue?.query === query ? voce.ricercaVenue : undefined;
-  const inArrivo = voce?.venueInArrivo;
+  const omonime = useMemo(() => (venues ?? []).filter(x => chiaveNome(x.name) === kv), [venues, kv]);
 
   // città mancante e una sola venue con quel nome: è lei
   useEffect(() => {
@@ -212,45 +225,14 @@ function useVenue(id: string, voce: VoceScheda | undefined): boolean | undefined
     aggiorna(id, v => ({ valori: { ...v.valori, venue: omonime[0].name, city: omonime[0].city } }));
   }, [id, voce, venue, citta, omonime]);
 
-  // una venue appena aggiunta al catalogo: si usa quando compare nell'elenco
-  useEffect(() => {
-    const v = inArrivo ? venues?.find(x => x.id === inArrivo) : undefined;
-    if (!v) return;
-    cambia(id, "venue", () => ({ venue: v.name, city: v.city }));
-    aggiorna(id, () => ({ venueInArrivo: undefined, editorAperto: null }));
-    // «Aggiungi e usa» è sparito col suo problema: il focus al prossimo, o alla riga Venue
-    recuperaFocus(id, ...dopoProblema("venue"));
-  }, [id, inArrivo, venues]);
-
-  // non è nel catalogo: una ricerca (catalogo del server, poi OpenStreetMap), ricordata nello store
-  const cerca = !!voce && !!venue && !!venues && !esatta && !(omonime.length === 1 && !citta) && !ricerca && !inArrivo;
-  useEffect(() => {
-    if (!cerca) return;
-    aggiorna(id, () => ({ ricercaVenue: { query, stato: "in_corso", candidati: [], attribuzione: "" } }));
-    convex
-      .action(api.geo.searchVenue, { query })
-      .then(r => {
-        // con la città: quella; senza: solo se nel catalogo ce n'è una sola con quel nome (con più città si sceglie)
-        const stessoNome = r.catalogo.filter(x => chiaveNome(x.name) === kv);
-        const hit = kc ? stessoNome.find(x => chiaveNome(x.city) === kc) : stessoNome.length === 1 && omonime.length <= 1 ? stessoNome[0] : undefined;
-        if (hit) {
-          aggiorna(id, v => ({ valori: { ...v.valori, venue: hit.name, city: hit.city }, ricercaVenue: { query: `${hit.name} ${hit.city}`, stato: "fatta", candidati: [], attribuzione: r.attribuzione, trovata: true } }));
-          return;
-        }
-        const tutte = kc ? [] : [...omonime, ...stessoNome].filter((x, i, a) => a.findIndex(y => y.id === x.id) === i);
-        const candidati = r.candidati.filter(c => c.featureType === "poi").slice(0, 3);
-        aggiorna(id, () => ({
-          ricercaVenue: { query, stato: "fatta", candidati, attribuzione: r.attribuzione, ...(tutte.length >= 2 ? { omonime: tutte.slice(0, 6) } : {}) },
-        }));
-      })
-      .catch(() => aggiorna(id, () => ({ ricercaVenue: { query, stato: "errore", candidati: [], attribuzione: "" } })));
-    // le omonime del catalogo si leggono all'avvio della ricerca (una volta sola): non sono dipendenze
-  }, [cerca, id, query, kv, kc, convex]);
-
-  if (!venue) return undefined;
-  if (esatta || ricerca?.trovata) return true;
-  if (!venues || !ricerca || ricerca.stato === "in_corso" || inArrivo) return undefined;
-  return false;
+  if (!venue || !venues) return { omonime };
+  if (esatta) return { nelCatalogo: true, omonime };
+  // un nome simile nella stessa città («Forum» e «Unipol Forum»): si propone, non si impone
+  const parole = kv.split(" ").filter(w => w.length > 2);
+  const simile = kc && parole.length
+    ? venues.find(x => chiaveNome(x.city) === kc && (parole.every(w => chiaveNome(x.name).includes(w)) || chiaveNome(x.name).split(" ").filter(w => w.length > 2).every(w => kv.includes(w))))
+    : undefined;
+  return { nelCatalogo: false, omonime: citta ? [] : omonime, ...(simile ? { simile } : {}) };
 }
 
 /* ── corpo ────────────────────────────────────────────────────── */
@@ -266,8 +248,11 @@ function cosaSistemare(p: Problema[]): string {
   const voci = p.map(x => {
     switch (x.tipo) {
       case "venue_manca":
-      case "venue_fuori_catalogo":
+      case "venue_ambigua":
+      case "venue_indirizzo":
         return "venue";
+      case "citta_manca":
+        return "città";
       case "persona_ambigua":
       case "nome_completo":
         return x.ruolo === "regalo" ? "regalato da" : "persone";
@@ -302,7 +287,8 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
   const regali = useDati(api.gifters.list);
   const eventi = useDati(api.entries.list, {});
   const vivo = useEsiste(voce.id);
-  const nelCatalogo = useVenue(part.id, voce);
+  const statoVenue = useVenue(part.id, voce);
+  const nelCatalogo = statoVenue.nelCatalogo;
   // le schede nuove aperte prima di questa nello stesso run (doppioni tra schede)
   const nelLotto = [...run.schede.keys()];
   const fratelli = useFratelli(nelLotto.slice(0, Math.max(0, nelLotto.indexOf(part.id))));
@@ -326,7 +312,8 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
     partenze: nomi.partenze,
     regali: nomi.regali,
     venueNelCatalogo: nelCatalogo,
-    venueAmbigua: nelCatalogo === false && !!voce.ricercaVenue?.omonime?.length,
+    venueAmbigua: nelCatalogo === false && statoVenue.omonime.length >= 2,
+    ...(statoVenue.simile ? { venueSimile: { name: statoVenue.simile.name, city: statoVenue.simile.city } } : {}),
     nomiOk: voce.nomiOk,
     bersaglioSparito: sparito,
     eventi: archivio,
@@ -515,10 +502,10 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
       )}
 
       <div className="scheda-sistemare" aria-live="polite">
-        {!sola && problemi.daSistemare.length > 0 && <DaSistemare id={part.id} voce={voce} problemi={problemi} archivio={archivio} />}
+        {!sola && problemi.daSistemare.length > 0 && <DaSistemare id={part.id} voce={voce} problemi={problemi} archivio={archivio} omonime={statoVenue.omonime} />}
       </div>
 
-      <CampiScheda id={part.id} voce={voce} nomi={nomi} oggi={oggi} sola={sola} fuoriCatalogo={nelCatalogo === false} />
+      <CampiScheda id={part.id} voce={voce} nomi={nomi} oggi={oggi} sola={sola} fuoriCatalogo={problemi.daSistemare.some(p => p.chiave === "venue" && p.tipo !== "venue_manca")} />
 
       {problemi.daControllare.length > 0 && (
         <ul className="scheda-controlla" aria-label="Da controllare">
@@ -532,6 +519,15 @@ function Corpo({ part, interruzione, stato, base }: { part: ParteScheda; interru
                 )}
                 {a.tipo === "doppione_vicino" && a.doppione?.id && (
                   <> <ApriQuello d={a.doppione} /></>
+                )}
+                {a.tipo === "venue_nuova" && a.venueSimile && (
+                  <>
+                    {" "}Nel catalogo c'è «{a.venueSimile.name}» ({a.venueSimile.city}):{" "}
+                    <button type="button" className="mod-link" onClick={() => cambia(part.id, "venue", () => ({ venue: a.venueSimile!.name, city: a.venueSimile!.city }))}>
+                      usa quella
+                    </button>
+                    .
+                  </>
                 )}
               </span>
             </li>
@@ -692,7 +688,7 @@ const PAROLA_MANCA: Partial<Record<CampoScheda, string>> = { artist: "artista", 
 
 const elenco = (xs: string[]) => (xs.length < 2 ? xs.join("") : `${xs.slice(0, -1).join(", ")} e ${xs[xs.length - 1]}`);
 
-function DaSistemare({ id, voce, problemi, archivio }: { id: string; voce: VoceScheda; problemi: ProblemiScheda; archivio?: (EventoEsterno & { id: string })[] }) {
+function DaSistemare({ id, voce, problemi, archivio, omonime }: { id: string; voce: VoceScheda; problemi: ProblemiScheda; archivio?: (EventoEsterno & { id: string })[]; omonime: VenueCatalogo[] }) {
   // più campi vuoti (una scheda vuota, «aggiungi un concerto»): una voce sola, le righe sotto dicono già «+ aggiungi»
   const vuoti = problemi.daSistemare.filter(p => p.tipo === "manca" || p.tipo === "venue_manca");
   const insieme = vuoti.length >= 2;
@@ -712,7 +708,7 @@ function DaSistemare({ id, voce, problemi, archivio }: { id: string; voce: VoceS
         {voci.map(p => (
           <li key={p.chiave}>
             <p>{p.testo}</p>
-            <AzioniProblema id={id} voce={voce} p={p} archivio={archivio} />
+            <AzioniProblema id={id} voce={voce} p={p} archivio={archivio} omonime={omonime} />
           </li>
         ))}
       </ul>
@@ -720,7 +716,7 @@ function DaSistemare({ id, voce, problemi, archivio }: { id: string; voce: VoceS
   );
 }
 
-function AzioniProblema({ id, voce, p, archivio }: { id: string; voce: VoceScheda; p: Problema; archivio?: (EventoEsterno & { id: string })[] }) {
+function AzioniProblema({ id, voce, p, archivio, omonime }: { id: string; voce: VoceScheda; p: Problema; archivio?: (EventoEsterno & { id: string })[]; omonime: VenueCatalogo[] }) {
   // il pulsante premuto sparisce col problema: il focus al prossimo problema, o alla riga del campo
   const fatto = (campo: string | undefined = p.campo) => recuperaFocus(id, ...dopoProblema(campo));
   switch (p.tipo) {
@@ -731,8 +727,12 @@ function AzioniProblema({ id, voce, p, archivio }: { id: string; voce: VoceSched
       return p.campo && p.campo !== "concerts" ? <div className="scheda-azioni-problema"><button type="button" className="mod-btn" onClick={() => apri(id, p.campo)}>Correggi</button></div> : null;
     case "venue_manca":
       return <div className="scheda-azioni-problema"><button type="button" className="mod-btn" onClick={() => apri(id, "venue")}>Scegli la venue</button></div>;
-    case "venue_fuori_catalogo":
-      return <CandidatiVenue id={id} voce={voce} />;
+    case "venue_ambigua":
+      return <OmonimeVenue id={id} omonime={omonime} />;
+    case "citta_manca":
+      return <div className="scheda-azioni-problema"><button type="button" className="mod-btn" onClick={() => apri(id, "venue")}>Aggiungi la città</button></div>;
+    case "venue_indirizzo":
+      return <div className="scheda-azioni-problema"><button type="button" className="mod-btn" onClick={() => apri(id, "venue")}>Correggi</button></div>;
     case "persona_ambigua":
       return (
         <div className="scheda-azioni-problema">
@@ -805,58 +805,27 @@ function AzioniProblema({ id, voce, p, archivio }: { id: string; voce: VoceSched
   }
 }
 
-/** I candidati di OpenStreetMap per una venue che non è nel catalogo: «Aggiungi e usa», o «Cerca un altro nome». */
-function CandidatiVenue({ id, voce }: { id: string; voce: VoceScheda }) {
-  const convex = useConvex();
-  const op = useOperazione();
-  const r = voce.ricercaVenue;
-  const aggiungi = async (ref: string) => {
-    const x = await op.esegui(() => convex.mutation(api.venues.createFromCandidate, { ref }));
-    if (x) aggiorna(id, () => ({ venueInArrivo: x.id }));
-  };
-  const usa = (o: { name: string; city: string }) => {
+/** Senza città, più venue del catalogo con lo stesso nome: «Usa» quella giusta, o un'altra venue. */
+function OmonimeVenue({ id, omonime }: { id: string; omonime: VenueCatalogo[] }) {
+  const usa = (o: VenueCatalogo) => {
     cambia(id, "venue", () => ({ venue: o.name, city: o.city }));
     recuperaFocus(id, ...dopoProblema("venue"));
   };
   return (
     <div className="scheda-candidati">
-      {r?.omonime && r.omonime.length > 0 && (
-        <ul className="scheda-opzioni" aria-label="Venue del catalogo con questo nome">
-          {r.omonime.map(o => (
-            <li key={o.id}>
-              <span>
-                {o.name} <span className="scheda-muto">· {o.city}</span>
-              </span>
-              <button type="button" className="mod-btn" aria-label={`Usa ${o.name}, ${o.city}`} onClick={() => usa(o)}>Usa</button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!r || r.stato === "in_corso" ? (
-        <p className="mod-hint" aria-busy="true">Cerco «{voce.valori.venue.trim()}» su OpenStreetMap…</p>
-      ) : r.stato === "errore" ? (
-        <p className="mod-hint">La ricerca non è andata: cerca a mano.</p>
-      ) : r.candidati.length === 0 ? (
-        !r.omonime?.length && <p className="mod-hint">Nessun locale con questo nome su OpenStreetMap.</p>
-      ) : (
-        <ul className="scheda-opzioni" aria-label="Venue da OpenStreetMap">
-          {r.candidati.map(c => (
-            <li key={c.ref}>
-              <span>
-                {c.name} <span className="scheda-muto">· {c.city}</span>
-              </span>
-              <button type="button" className="mod-btn" disabled={op.inCorso || !!voce.venueInArrivo} onClick={() => void aggiungi(c.ref)}>
-                {voce.venueInArrivo ? "Aggiungo…" : "Aggiungi e usa"}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {op.errore && <p className="mod-campo-errore" role="alert">{op.errore.messaggio}</p>}
+      <ul className="scheda-opzioni" aria-label="Venue del catalogo con questo nome">
+        {omonime.slice(0, 6).map(o => (
+          <li key={o.id}>
+            <span>
+              {o.name} <span className="scheda-muto">· {o.city}</span>
+            </span>
+            <button type="button" className="mod-btn" aria-label={`Usa ${o.name}, ${o.city}`} onClick={() => usa(o)}>Usa</button>
+          </li>
+        ))}
+      </ul>
       <div className="scheda-azioni-problema">
-        <button type="button" className="mod-link" onClick={() => apri(id, "venue")}>Cerca un altro nome</button>
+        <button type="button" className="mod-link" onClick={() => apri(id, "venue")}>È un'altra: scrivi la città</button>
       </div>
-      {r?.attribuzione && <p className="mod-attribuzione">{r.attribuzione}</p>}
     </div>
   );
 }

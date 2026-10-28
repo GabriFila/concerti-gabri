@@ -9,8 +9,8 @@
      riga → «Salva concerto»: un lotto firmato Oracolo (concerto e
      persona), «Aggiunto», «Apri» apre il form del concerto, «Annulla»
      toglie concerto e persona e la conferma diventa «Annullato»;
-   - una venue fuori catalogo: «Scegli la venue», il candidato dello stub
-     di Nominatim, «Aggiungi e usa», salvato con quella venue;
+   - una venue fuori catalogo: un avviso «Venue nuova», nessun blocco,
+     salvata col nome scritto;
    - una modifica: solo la riga Voto «5 → 4», «Salva modifiche (1)»;
    - da tastiera: la scheda nuova non prende il focus; Invio apre una
      riga, Esc la chiude rimettendo com'era (l'Oracolo resta aperto),
@@ -189,7 +189,7 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
       await expect(page.locator("section#persone").getByText("Marco R.", { exact: true })).toHaveCount(0);
     });
 
-    test("venue fuori catalogo: il candidato di OpenStreetMap, «Aggiungi e usa»", async ({ page }) => {
+    test("venue fuori catalogo: un avviso, e il Salva la aggiunge col nome scritto", async ({ page }) => {
       test.setTimeout(180_000);
       const spegni = await stubNominatim();
       try {
@@ -201,13 +201,8 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
 
         await scrivi(page, `Ho visto ${artista} al ${locale}`);
         const card = scheda(page, `Scheda: nuovo concerto ${artista}`);
-        await expect(card).toContainText(`Scegli la venue: «${locale}» (Milano) non è ancora nel catalogo.`);
-        await expect(card.getByRole("button", { name: "Salva concerto" })).toBeDisabled();
-        const candidati = card.getByRole("list", { name: "Venue da OpenStreetMap" });
-        await expect(candidati.getByRole("listitem")).toHaveCount(1);
-        await candidati.getByRole("button", { name: "Aggiungi e usa" }).click();
+        await expect(card.getByRole("list", { name: "Da controllare" })).toContainText(`Venue nuova: «${locale}» (Milano) si aggiunge al catalogo quando salvi`);
         await expect(card.getByRole("button", { name: "Salva concerto" })).toBeEnabled();
-        await expect(card.getByRole("button", { name: new RegExp(`^Venue ${locale}`) })).toBeVisible();
 
         await card.getByRole("button", { name: "Salva concerto" }).click();
         await expect(chat(page).getByText("Fatto: concerto aggiunto.")).toBeVisible();

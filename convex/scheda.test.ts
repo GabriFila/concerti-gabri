@@ -1,13 +1,14 @@
 /* entries.salvaScheda: il Salva della scheda dell'Oracolo (propose_concert).
    Un solo lotto con i nomi nuovi (persone, "regalato da", partenza solo
    col nome), autore "Oracolo", km subito; un Annulla toglie tutto; niente
-   scritto quando qualcosa non va (venue fuori catalogo, partenza che sembra
-   un indirizzo); solo l'Oracolo (dashboard e agenti → solo_oracolo); gli
+   scritto quando qualcosa non va (venue o partenza che sembrano un
+   indirizzo); una venue fuori catalogo nasce (lib/venueUtente.ts); solo l'Oracolo (dashboard e agenti → solo_oracolo); gli
    id altrui → not_found; gli errori non ripetono i valori. */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { scriviSegreto } from "./departures.ts";
 import { codiceDi } from "./lib/errors.ts";
 import { conProfilo, setup, venue, type T } from "./test.setup";
 
@@ -140,13 +141,49 @@ describe("entries.salvaScheda", () => {
     expect(e).toMatchObject({ code: "input_non_valido", data: { campo: "voto" } });
   });
 
-  it("venue fuori catalogo: nome_sconosciuto sul campo venue e niente scritto (nemmeno le persone)", async () => {
+  it("venue fuori catalogo: nasce col nome scritto, senza posizione e fuori dal lotto; i km arrivano con la posizione", async () => {
+    const t = setup();
+    const a = await proprietario(t);
+    // una partenza con l'indirizzo (un punto pubblico qualunque), così i km dipendono solo dalla venue
+    const dep = await t.run(async ctx => {
+      const d = await ctx.db.insert("departures", { profileId: a.profileId, name: "Casa", hasAddress: true, legacy: false, createdAt: 1 });
+      await scriviSegreto(ctx, { profileId: a.profileId, departureId: d, address: "test", lng: PUNTO_MILANO[0], lat: PUNTO_MILANO[1] });
+      return d;
+    });
+    const r = await salva(a.as, { artist: "Verdena", date: "2025-10-18", venue: "Locale Ignoto", city: "Milano", from: "Casa" });
+    expect(r).toMatchObject({ azione: "aggiunto", dopo: { venue: "Locale Ignoto", city: "Milano", kmPending: true } });
+    const ven = await t.run(async ctx => (await ctx.db.query("venues").collect()).find(v => v.name === "Locale Ignoto")!);
+    expect(ven).toMatchObject({ city: "Milano", source: "utente", posizione: "attesa", createdBy: a.profileId });
+    expect(ven.lng).toBeUndefined();
+    // la venue si registra a parte: Annulla sul concerto non tocca il catalogo
+    const voci = (await a.as.query(api.activity.list, {})).voci;
+    const vVenue = voci.find(v => v.tabella === "venues")!;
+    expect(vVenue).toMatchObject({ riassunto: "venue aggiunta al catalogo: Locale Ignoto (Milano)", annullabile: false });
+    expect(vVenue.lotto).toBeFalsy();
+    await a.as.mutation(api.activity.undo, { input: { activityId: r.activityId } });
+    expect(await t.run(async ctx => await ctx.db.get(ven._id))).not.toBeNull();
+
+    // di nuovo, poi arriva la posizione: una volta sola, e i km del concerto in attesa
+    const r2 = await salva(a.as, { artist: "Verdena", date: "2025-10-19", venue: "locale ignoto", city: "milano", from: "Casa" });
+    expect(r2.dopo).toMatchObject({ venue: "Locale Ignoto", kmPending: true });
+    await t.mutation(internal.venues.impostaPosizione, { venueId: ven._id, trovata: { lng: 9.2, lat: 45.48, tipo: "poi", osm: "N1" } });
+    await t.mutation(internal.venues.impostaPosizione, { venueId: ven._id, trovata: { lng: 12.5, lat: 41.9, tipo: "poi" } });
+    expect(await t.run(async ctx => await ctx.db.get(ven._id))).toMatchObject({ lng: 9.2, lat: 45.48, posizione: "poi", osm: "N1" });
+    const e = await t.run(async ctx => await ctx.db.get(r2.id as Id<"entries">));
+    expect(e?.kmPending).toBeUndefined();
+    expect(e?.km).toBeGreaterThan(0);
+    expect(e?.departureId).toBe(dep);
+  });
+
+  it("venue fuori catalogo che sembra un indirizzo: input_non_valido sul campo venue e niente scritto", async () => {
     const t = setup();
     const a = await proprietario(t);
     const prima = await conta(t, a.profileId);
-    const e = await errore(salva(a.as, { artist: "Verdena", date: "2025-10-18", venue: "Locale Ignoto", city: "Milano", with: ["Nuovo"], from: "Ufficio" }));
-    expect(e).toMatchObject({ code: "nome_sconosciuto", data: { campo: "venue" } });
+    const e = await errore(salva(a.as, { artist: "Verdena", date: "2025-10-18", venue: "Via Roma 12", city: "Milano", with: ["Nuovo"] }));
+    expect(e).toMatchObject({ code: "input_non_valido", data: { campo: "venue" } });
+    expect(e.testo).not.toContain("Roma 12");
     expect(await conta(t, a.profileId)).toEqual(prima);
+    expect(await t.run(async ctx => (await ctx.db.query("venues").collect()).length)).toBe(0);
   });
 
   it("una partenza nuova che sembra un indirizzo: input_non_valido sul campo from e niente scritto", async () => {

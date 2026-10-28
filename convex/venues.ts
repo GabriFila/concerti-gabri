@@ -16,27 +16,39 @@
    mai un riuso silenzioso: altrimenti chi ha occupato per primo il nome
    con un punto vicino a casa di qualcun altro si vedrebbe consegnare il
    concerto di quella persona, e con lui il km pubblico casa → quel punto.
+
+   Le venue scritte per nome (source "utente", lib/venueUtente.ts) nascono
+   senza coordinate: `impostaPosizione` le scrive UNA volta, con quelle
+   che geo.posizioneVenue ha trovato per «nome, città», e calcola i km dei
+   concerti rimasti in attesa. Dopo, anche loro sono immutabili.
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { aggiungiVenueInput, nomeConDettaglio, nomeVenueAmmesso, type CandidatoVenue } from "../shared/schema/venue.ts";
 import { CACHE_TTL } from "./geo.ts";
-import { logActivity } from "./lib/activity.ts";
-import { internalQuery, ownerMutation } from "./lib/builders.ts";
+import { logActivity, nuovoBatch } from "./lib/activity.ts";
+import { internalMutation, internalQuery, ownerMutation } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
-import { haversineKm } from "./lib/km.ts";
+import { campiKm, haversineKm } from "./lib/km.ts";
 import { chiave, venuePerNome } from "./lib/refs.ts";
 
 /** Entro questa distanza un'omonima nella stessa città è la stessa venue (POI diversi dello stesso posto, seed). */
 export const STESSO_POSTO_M = 300;
 
-const distanzaM = (v: { lng: number; lat: number }, c: { lng: number; lat: number }) => haversineKm([v.lng, v.lat], [c.lng, c.lat]) * 1000;
+/** Distanza in metri; una venue ancora senza posizione (nata per nome) conta come lo stesso posto. */
+const distanzaM = (v: { lng?: number; lat?: number }, c: { lng: number; lat: number }) =>
+  v.lng === undefined || v.lat === undefined ? 0 : haversineKm([v.lng, v.lat], [c.lng, c.lat]) * 1000;
 
 /** Un'omonima (nome+città) del catalogo che NON sta nello stesso punto del candidato. */
 async function omonimaAltrove(ctx: MutationCtx, nome: string, c: CandidatoVenue) {
   const v = await venuePerNome(ctx, nome, c.city);
   return v && distanzaM(v, c) > STESSO_POSTO_M ? v : null;
+}
+
+async function cittaNelCatalogo(ctx: MutationCtx, city: string, lng: number, lat: number) {
+  const c = await ctx.db.query("cities").withIndex("by_key", q => q.eq("key", chiave(city))).first();
+  if (!c) await ctx.db.insert("cities", { name: city, key: chiave(city), lng, lat });
 }
 
 /**
@@ -100,13 +112,57 @@ export const createFromCandidate = ownerMutation({
       source: candidate.featureType === "poi" ? "osm" : "citta",
       createdBy: owner.profile._id,
     });
-    if (candidate.featureType === "city") {
-      const c = await ctx.db.query("cities").withIndex("by_key", q => q.eq("key", chiave(candidate.city))).first();
-      if (!c) await ctx.db.insert("cities", { name: candidate.city, key: chiave(candidate.city), lng: candidate.lng, lat: candidate.lat });
-    }
+    if (candidate.featureType === "city") await cittaNelCatalogo(ctx, candidate.city, candidate.lng, candidate.lat);
     // catalogo condiviso: la creazione si registra ma non si annulla (niente istantanee)
     await logActivity(ctx, owner, { op: "create", table: "venues", docId: id, summary: `venue aggiunta al catalogo: ${nome} (${candidate.city})` });
     return { id: id as string, esistente: false };
+  },
+});
+
+/** Nome e città di una venue ancora da posizionare (null se ha già la posizione o non c'è più). */
+export const daPosizionare = internalQuery({
+  args: { venueId: v.id("venues") },
+  handler: async (ctx, { venueId }) => {
+    const ven = await ctx.db.get(venueId);
+    return ven && ven.lng === undefined && ven.posizione === "attesa" ? { name: ven.name, city: ven.city } : null;
+  },
+});
+
+/** Concerti in attesa ricalcolati per lotto di posizione. */
+const MAX_IN_ATTESA = 500;
+
+/**
+ * La posizione trovata (o no) per una venue nata per nome: si scrive una
+ * volta sola; poi i km dei concerti che la aspettavano (attività `sistema`).
+ */
+export const impostaPosizione = internalMutation({
+  args: {
+    venueId: v.id("venues"),
+    trovata: v.optional(v.object({ lng: v.number(), lat: v.number(), osm: v.optional(v.string()), tipo: v.union(v.literal("poi"), v.literal("citta")) })),
+  },
+  handler: async (ctx, { venueId, trovata }) => {
+    const ven = await ctx.db.get(venueId);
+    if (!ven || ven.lng !== undefined) return null;
+    if (!trovata) {
+      await ctx.db.patch(venueId, { posizione: "non_trovata" });
+      return null;
+    }
+    await ctx.db.patch(venueId, { lng: trovata.lng, lat: trovata.lat, posizione: trovata.tipo, ...(trovata.osm && trovata.tipo === "poi" ? { osm: trovata.osm } : {}) });
+    if (trovata.tipo === "citta") await cittaNelCatalogo(ctx, ven.city, trovata.lng, trovata.lat);
+    const batchId = nuovoBatch();
+    for (const e of await ctx.db.query("entries").withIndex("by_venue", q => q.eq("venueId", venueId)).take(MAX_IN_ATTESA)) {
+      if (!e.kmPending || !e.departureId) continue;
+      const km = await campiKm(ctx, { profileId: e.profileId, departureId: e.departureId, venueId });
+      if (km.kmPending) continue;
+      await ctx.db.patch(e._id, { km: km.km, kmSource: km.kmSource, kmPending: undefined });
+      const profile = await ctx.db.get(e.profileId);
+      if (profile) {
+        await logActivity(ctx, { profile, actor: { via: "sistema", label: "Sistema" } }, {
+          op: "update", table: "entries", docId: e._id, batchId, summary: `km calcolati (${ven.name})`,
+        });
+      }
+    }
+    return null;
   },
 });
 

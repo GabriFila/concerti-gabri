@@ -27,21 +27,6 @@ import { useMemo, useSyncExternalStore } from "react";
 import { dopoDi, type Bozza, type CampoScheda, type Fratello } from "./bozza.ts";
 import type { ValoriConcerto, ValoriFestival } from "../sezioni/forme.ts";
 
-type Candidato = { ref: string; name: string; city: string; featureType: "poi" | "city"; label: string };
-
-/** La ricerca della venue di una scheda (una volta sola: geo.searchVenue ha un limite). */
-export interface RicercaVenue {
-  /** "venue città" cercata. */
-  query: string;
-  stato: "in_corso" | "fatta" | "errore";
-  candidati: Candidato[];
-  attribuzione: string;
-  /** Trovata nel catalogo del server (con il suo nome e la sua città). */
-  trovata?: boolean;
-  /** Senza città, più venue del catalogo con quel nome (in città diverse): si sceglie, mai a caso. */
-  omonime?: { id: string; name: string; city: string }[];
-}
-
 export interface VoceScheda extends Bozza {
   /** Il proprietario l'ha cambiata (i suoi valori vanno anche nella `bozza` di una correzione). */
   modificata: boolean;
@@ -63,9 +48,6 @@ export interface VoceScheda extends Bozza {
   bloccata?: boolean;
   /** Quante cose ha da sistemare. */
   nProblemi?: number;
-  ricercaVenue?: RicercaVenue;
-  /** Una venue appena aggiunta al catalogo: si usa quando arriva nell'elenco. */
-  venueInArrivo?: string;
   /** Salva premuto: la risposta sta arrivando. */
   inviata: boolean;
   /** Scarta premuto. */

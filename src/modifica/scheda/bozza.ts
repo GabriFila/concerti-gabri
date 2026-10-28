@@ -30,7 +30,7 @@
 
 import { sortKey } from "../../../shared/lib/dates.ts";
 import { mancanoDi } from "../../../shared/lib/mancano.ts";
-import { chiaveNome, sembraIndirizzo, sembraNomeCompleto, simili, soprannomeSuggerito } from "../../../shared/lib/nomi.ts";
+import { chiaveNome, sembraIndirizzo, sembraIndirizzoCivico, sembraNomeCompleto, simili, soprannomeSuggerito } from "../../../shared/lib/nomi.ts";
 import { isoInGiorno } from "../../../shared/schema/campi.ts";
 import {
   CAMPI_RIMOVIBILI, CAMPI_RIMOVIBILI_CONCERTO, daProposta, differenze, propostaConcertoInput,
@@ -693,7 +693,7 @@ export function testoDoppione(d: Doppione): string {
 /* ── problemi ─────────────────────────────────────────────────── */
 
 export type TipoProblema =
-  | "manca" | "data_non_valida" | "venue_manca" | "venue_fuori_catalogo" | "persona_ambigua" | "nome_completo" | "partenza_indirizzo"
+  | "manca" | "data_non_valida" | "venue_manca" | "venue_ambigua" | "citta_manca" | "venue_indirizzo" | "persona_ambigua" | "nome_completo" | "partenza_indirizzo"
   | "doppione" | "festival_corto" | "set_senza_artista" | "set_rimosso" | "bersaglio_sparito" | "nessuna_differenza" | "schema";
 
 /** Un problema che blocca il Salva, con quello che serve per risolverlo. */
@@ -715,7 +715,7 @@ export interface Problema {
   indice?: number;
 }
 
-export type TipoAvviso = "persona_nuova" | "regalo_nuovo" | "partenza_nuova" | "partenza_senza_indirizzo" | "futuro_con_voto" | "doppione_vicino" | "ignorato";
+export type TipoAvviso = "venue_nuova" | "persona_nuova" | "regalo_nuovo" | "partenza_nuova" | "partenza_senza_indirizzo" | "futuro_con_voto" | "doppione_vicino" | "ignorato";
 
 export interface Avviso {
   chiave: string;
@@ -725,6 +725,8 @@ export interface Avviso {
   partenza?: string;
   /** Lo stesso artista un giorno prima o dopo («Apri quello»). */
   doppione?: Doppione;
+  /** Una venue del catalogo dal nome simile, nella stessa città («Usa quella»). */
+  venueSimile?: { name: string; city: string };
 }
 
 /** Quello che la scheda sa dei dati del proprietario; undefined = non ancora caricato. */
@@ -738,6 +740,8 @@ export interface ContestoScheda {
   venueNelCatalogo?: boolean;
   /** Senza città, nel catalogo ci sono più venue con quel nome: si sceglie quale. */
   venueAmbigua?: boolean;
+  /** Fuori catalogo: una venue del catalogo dal nome simile nella stessa città, da proporre. */
+  venueSimile?: { name: string; city: string };
   /** Chiavi (chiaveNome) dei nomi nuovi confermati così come sono. */
   nomiOk?: readonly string[];
   /** Una modifica il cui concerto non c'è più. */
@@ -844,16 +848,30 @@ export function problemiScheda(b: Bozza, ctx: ContestoScheda): ProblemiScheda {
       daSistemare.push({ chiave: `doppione:${d.chiave}`, tipo: "doppione", testo: testoDoppione(d), doppione: d });
     }
   }
-  if (!v.venue.trim()) {
+  // la venue: fuori catalogo con la città è nuova (la crea il Salva, lib/venueUtente.ts); blocca solo
+  // se manca, se è ambigua senza città, se manca la città o se sembra un indirizzo (il catalogo è pubblico)
+  const nomeVenue = v.venue.trim();
+  const cittaVenue = v.city.trim();
+  let venueBloccata = !nomeVenue;
+  if (!nomeVenue) {
     daSistemare.push({ chiave: "venue", tipo: "venue_manca", campo: "venue", testo: "Manca la venue." });
   } else if (ctx.venueNelCatalogo === false) {
-    const citta = v.city.trim() ? ` (${v.city.trim()})` : "";
-    const testo = ctx.venueAmbigua
-      ? `Scegli la venue: nel catalogo c'è più di un «${v.venue.trim()}».`
-      : `Scegli la venue: «${v.venue.trim()}»${citta} non è ancora nel catalogo.`;
-    daSistemare.push({ chiave: "venue", tipo: "venue_fuori_catalogo", campo: "venue", testo });
+    venueBloccata = true;
+    if (ctx.venueAmbigua) daSistemare.push({ chiave: "venue", tipo: "venue_ambigua", campo: "venue", testo: `Scegli la venue: nel catalogo c'è più di un «${nomeVenue}».` });
+    else if (sembraIndirizzoCivico(nomeVenue)) {
+      daSistemare.push({ chiave: "venue", tipo: "venue_indirizzo", campo: "venue", testo: `«${nomeVenue}» sembra un indirizzo: il catalogo delle venue è pubblico, scrivi il nome del locale.` });
+    } else if (!cittaVenue) daSistemare.push({ chiave: "venue", tipo: "citta_manca", campo: "venue", testo: `Manca la città di «${nomeVenue}».` });
+    else {
+      venueBloccata = false;
+      daControllare.push({
+        chiave: "venue",
+        tipo: "venue_nuova",
+        testo: `Venue nuova: «${nomeVenue}» (${cittaVenue}) si aggiunge al catalogo quando salvi; la posizione la cerco su OpenStreetMap.`,
+        ...(ctx.venueSimile ? { venueSimile: ctx.venueSimile } : {}),
+      });
+    }
   }
-  if (!v.venue.trim() || ctx.venueNelCatalogo === false) ["venue", "city"].forEach(c => coperti.add(c));
+  if (venueBloccata) ["venue", "city"].forEach(c => coperti.add(c));
 
   // la lineup
   if (festival) {

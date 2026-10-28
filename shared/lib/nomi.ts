@@ -68,3 +68,15 @@ export function sembraIndirizzo(n: string): boolean {
   const s = n.trim();
   return PAROLA_STRADA.test(s) || NUMERO_IN_FONDO.test(s);
 }
+
+// un numero civico ovunque: "Via Roma 12", "Via dei Canarini 7, Genova"
+const NUMERO_CIVICO = /(?:^|[^\p{L}\p{N}])\d{1,4}[a-z]?(?![\p{L}\p{N}])/iu;
+
+/**
+ * Per le venue, più stretto: via/piazza… E un numero civico («Via Roma 12», «Via dei Canarini 7, Genova»).
+ * «Piazza San Marco» o «Fabrique 2» sono venue vere; il nome è pubblico nel catalogo condiviso.
+ */
+export function sembraIndirizzoCivico(n: string): boolean {
+  const s = n.trim();
+  return PAROLA_STRADA.test(s) && NUMERO_CIVICO.test(s);
+}

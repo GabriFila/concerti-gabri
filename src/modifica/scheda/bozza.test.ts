@@ -135,7 +135,16 @@ describe("problemiScheda", () => {
   it("i campi che mancano, la data non valida, la venue", () => {
     expect(problemiScheda(valoriDaProposta(p({})), CTX).daSistemare.map(x => x.testo)).toEqual(["Manca l'artista.", "Manca la data.", "Manca la venue."]);
     expect(tipi(nuovo({ date: "31/02/20" }))).toEqual(["data_non_valida"]);
-    expect(problemiScheda(nuovo({}), { ...CTX, venueNelCatalogo: false }).daSistemare[0].testo).toBe("Scegli la venue: «Alcatraz» (Milano) non è ancora nel catalogo.");
+    // fuori catalogo con la città: non blocca, è una venue nuova (la crea il Salva), con l'eventuale nome simile
+    const fuori = problemiScheda(nuovo({}), { ...CTX, venueNelCatalogo: false, venueSimile: { name: "Alcatraz Club", city: "Milano" } });
+    expect(fuori.daSistemare).toEqual([]);
+    expect(fuori.daControllare).toContainEqual({
+      chiave: "venue", tipo: "venue_nuova", venueSimile: { name: "Alcatraz Club", city: "Milano" },
+      testo: "Venue nuova: «Alcatraz» (Milano) si aggiunge al catalogo quando salvi; la posizione la cerco su OpenStreetMap.",
+    });
+    // senza città, o con un indirizzo al posto del nome: blocca
+    expect(tipi(nuovo({ city: "" }), { venueNelCatalogo: false })).toEqual(["citta_manca"]);
+    expect(tipi(nuovo({ venue: "Via Roma 12" }), { venueNelCatalogo: false })).toEqual(["venue_indirizzo"]);
     // venue ancora da verificare: non blocca
     expect(tipi(nuovo({}), { venueNelCatalogo: undefined })).toEqual([]);
   });
@@ -193,7 +202,7 @@ describe("problemiScheda", () => {
     expect(problemiScheda(valoriDaProposta(p({})), CTX).mancano).toBeNull();
     const b = valoriDaProposta(p({ artist: "X", date: "2025-10-18", venue: "Teatro Verdi" }));
     expect(problemiScheda(b, { ...CTX, venueNelCatalogo: false, venueAmbigua: true }).daSistemare).toContainEqual(
-      expect.objectContaining({ tipo: "venue_fuori_catalogo", testo: "Scegli la venue: nel catalogo c'è più di un «Teatro Verdi»." }),
+      expect.objectContaining({ tipo: "venue_ambigua", testo: "Scegli la venue: nel catalogo c'è più di un «Teatro Verdi»." }),
     );
   });
 
