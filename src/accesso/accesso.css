@@ -12,7 +12,6 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
 .acc-marchio a{color:inherit;text-decoration:none}
 .acc-titolo{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(2.4rem,8vw,4.6rem);line-height:1;letter-spacing:-.025em;color:var(--text)}
 .acc-titolo--piccolo{font-size:clamp(2rem,6vw,3rem);margin-bottom:22px}
-.acc-sub{margin-top:24px;max-width:52ch;color:var(--muted);font-size:clamp(1rem,2.3vw,1.12rem);line-height:1.65}
 .acc-azioni{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;margin-top:32px}
 .acc-nota{color:var(--muted);font-size:.95rem;line-height:1.6;margin:12px 0}
 .acc-nota a,.acc-testo a{color:var(--lamp)}
@@ -53,7 +52,18 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
 .acc-prefisso{display:flex;align-items:center;gap:2px;color:var(--dim);font-size:.95rem}
 .acc-prefisso input{flex:1}
 .acc-scelte{display:flex;flex-direction:column;gap:8px}
-.acc-scelta{display:flex;gap:10px;align-items:baseline;cursor:pointer;color:var(--text)}
+/* le scelte (forma, candidati dell'indirizzo): righe a pastiglia come i segmenti di /modifica, con un radio disegnato */
+.acc-scelta,.acc-candidato{display:flex;gap:12px;align-items:center;min-height:44px;padding:10px 14px;border:1px solid var(--line-2);border-radius:10px;
+  cursor:pointer;color:var(--text);transition:border-color .15s,background .15s}
+.acc-scelta:hover,.acc-candidato:hover{border-color:var(--muted)}
+.acc-scelta:has(input:checked),.acc-candidato:has(input:checked){border-color:var(--lamp);background:var(--lamp-faint)}
+.acc-scelta input[type=radio],.acc-candidato input[type=radio]{appearance:none;-webkit-appearance:none;flex-shrink:0;width:18px;height:18px;margin:0;
+  border:1.5px solid var(--line-2);border-radius:50%;background:var(--panel);cursor:pointer;display:grid;place-content:center;transition:border-color .15s}
+.acc-scelta input[type=radio]::before,.acc-candidato input[type=radio]::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lamp);
+  transform:scale(0);transition:transform .15s}
+.acc-scelta input[type=radio]:checked,.acc-candidato input[type=radio]:checked{border-color:var(--lamp)}
+.acc-scelta input[type=radio]:checked::before,.acc-candidato input[type=radio]:checked::before{transform:scale(1)}
+.acc-scelta input[type=radio]:focus-visible,.acc-candidato input[type=radio]:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
 .acc-riga{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
 .acc-riga input{flex:1 1 220px}
 .acc-riga--spazio{justify-content:space-between}
@@ -85,7 +95,6 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
 .acc-elenco{list-style:none;display:flex;flex-direction:column;gap:10px;margin:14px 0}
 .acc-elenco-voce{padding:12px 14px;border:1px solid var(--line);border-radius:10px}
 .acc-stato{font-size:.75rem;color:var(--dim);margin-left:6px}
-.acc-stato--ok{color:var(--planned)}
 .acc-blocco{margin:20px 0}
 .acc-codice{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem;background:var(--panel-2);border:1px solid var(--line);
   border-radius:8px;padding:3px 8px;word-break:break-all}
@@ -98,7 +107,8 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
 .acc-indirizzo--attesa{min-height:120px}
 .acc-candidati{border:none;display:flex;flex-direction:column;gap:8px;margin:12px 0}
 .acc-candidati legend{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.acc-candidato{display:flex;gap:10px;align-items:baseline;cursor:pointer;color:var(--text);font-size:.92rem}
+.acc-candidato{font-size:.92rem}
+.acc-nuova{margin:22px 0 0;font-size:.95rem;color:var(--text);font-weight:500}
 .acc-candidati .acc-btn{align-self:flex-start}
 
 /* ── "Esci" nel footer delle pagine ──────────────────────────── */

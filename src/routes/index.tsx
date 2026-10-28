@@ -73,11 +73,11 @@ function Landing() {
   return (
     <main className="acc acc-landing">
       <p className="acc-marchio">Concerti</p>
-      <h1 className="acc-titolo">Tutti i tuoi concerti, in un solo posto.</h1>
-      <p className="acc-sub">
-        Voti, compagni, posti, chilometri e soldi spesi diventano grafici e numeri. La pagina è pubblica e la scrivi tu,
-        dalla dashboard o col tuo agente AI.
-      </p>
+      <h1 className="acc-titolo">
+        Tutti i tuoi concerti,{" "}
+        <br />
+        in un solo posto.
+      </h1>
       <div className="acc-azioni">
         <a className="acc-btn" href={hrefAccedi(CREA)} onClick={apri(CREA)}>
           Crea la tua pagina

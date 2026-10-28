@@ -61,7 +61,7 @@ test("landing → finestra → codice → /benvenuto, poi Esci", { tag: "@sessio
   await expect(page).toHaveURL(/\/benvenuto$/);
   await expect(page.locator("html")).toHaveAttribute("data-auth", "1");
   await expect(page.getByRole("heading", { name: "Ti diamo il benvenuto" })).toBeVisible();
-  await expect(page.getByText("Passo 1 di 5")).toBeVisible();
+  await expect(page.getByText("Passo 1 di 4")).toBeVisible();
 
   // l'HTML di chi è entrato non porta né il JWT di Convex né l'email (lib/auth-sessione.ts)
   const html = await (await page.request.get("/benvenuto")).text();

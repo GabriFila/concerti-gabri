@@ -37,9 +37,9 @@ test("passo 3: l'import CSV riempie la pagina dal vivo", { tag: "@sessione" }, a
     await expect(passo.getByRole("status")).toHaveText("Importate 3 voci, con 2 persone nuove.");
 
     for (const n of [1, 2, 3]) await expect(visitatore.getByText(`Onboarding e2e ${n}`, { exact: true }).first()).toBeVisible({ timeout: 20_000 });
-    // l'onboarding prosegue
+    // l'onboarding prosegue (e finisce: il passo "regalato da" non c'è più)
     await page.getByRole("button", { name: "Avanti" }).click();
-    await expect(page.getByRole("heading", { name: "Regalato da" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "La tua pagina è pronta" })).toBeVisible();
   } finally {
     await visitatore.context().close();
   }

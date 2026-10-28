@@ -43,7 +43,7 @@ export function PassoProfilo() {
 
   return (
     <Passo titolo="La tua pagina">
-      <p className="acc-nota">Scegli l'indirizzo della pagina, come vuoi che parli di te e il nome da mostrare.</p>
+      <p className="acc-nota">Scegli l'indirizzo della pagina, come vuoi che si riferisca a te e il tuo nome sulla pagina.</p>
       <form
         className="acc-form"
         onSubmit={e => {
@@ -88,10 +88,10 @@ export function PassoProfilo() {
 
         <form.Field
           name="forma"
-          validators={{ onChange: ({ value }) => (campi.forma.safeParse(value).success ? undefined : "Scegli come vuoi che la pagina parli di te.") }}
+          validators={{ onChange: ({ value }) => (campi.forma.safeParse(value).success ? undefined : "Scegli come vuoi che la pagina si riferisca a te.") }}
           children={field => (
             <fieldset className="acc-campo acc-scelte">
-              <legend>Come vuoi che la pagina parli di te?</legend>
+              <legend>Come vuoi che la pagina si riferisca a te?</legend>
               {FORME.map(f => (
                 <label key={f.valore} className="acc-scelta">
                   <input
@@ -117,7 +117,7 @@ export function PassoProfilo() {
           validators={{ onChange: ({ value }) => (campi.displayName.safeParse(value).success ? undefined : "Scrivi un nome da 1 a 40 caratteri.") }}
           children={field => (
             <label className="acc-campo">
-              <span>Nome da mostrare</span>
+              <span>Il tuo nome sulla pagina</span>
               <input
                 name="displayName"
                 autoComplete="nickname"
@@ -126,7 +126,6 @@ export function PassoProfilo() {
                 onChange={e => field.handleChange(e.target.value)}
                 onBlur={field.handleBlur}
               />
-              <span className="acc-piccolo">Va nel titolo: «{field.state.value.trim() || "Nome"} ai concerti».</span>
               <ErroriCampo meta={field.state.meta} />
             </label>
           )}
@@ -145,7 +144,6 @@ export function PassoProfilo() {
             </button>
           )}
         />
-        <p className="acc-piccolo">Indirizzo, nome e forma si cambiano poi da Modifica → Account.</p>
       </form>
     </Passo>
   );

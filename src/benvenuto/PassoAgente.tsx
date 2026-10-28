@@ -30,8 +30,8 @@ export function PassoAgente({ handle }: { handle: string }) {
   return (
     <Passo titolo="Collega il tuo agente">
       <p className="acc-nota">
-        Consigliato: con il server MCP collegato, il tuo agente AI (Claude, ChatGPT…) legge le email dei biglietti e il
-        calendario e scrive i concerti direttamente qui. La pagina si riempie mentre lavora.
+        Ti consigliamo di collegare il tuo agente AI preferito tramite un connettore MCP: segui le istruzioni del tuo
+        agente inserendo questo URL per il connettore. Potrai modificare la tua pagina tramite la sua chat.
       </p>
 
       <div className="acc-blocco">
@@ -68,14 +68,14 @@ export function PassoAgente({ handle }: { handle: string }) {
       <div className="acc-blocco">
         <p className="acc-etichetta">Senza MCP</p>
         <p className="acc-nota">
-          Lo stesso prompt fa preparare all'agente un file CSV: caricalo qui sotto. I modelli mostrano le colonne e un
-          esempio di concerto e di festival.
+          Puoi anche caricare un file CSV o JSON: se usi il prompt sopra senza il connettore, l'agente ti preparerà un
+          CSV da caricare qui sotto.
         </p>
-        <ModelliImport />
+        <ModelliImport colonne={false} />
         <ImportUpload contesto="onboarding" />
       </div>
 
-      <Navigazione indietro="partenze" avanti="regali" />
+      <Navigazione indietro="partenze" avanti="fatto" />
     </Passo>
   );
 }

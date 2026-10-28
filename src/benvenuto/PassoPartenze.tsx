@@ -1,6 +1,7 @@
 /* Passo 2 di /benvenuto: le partenze, nome pubblico e indirizzo privato
    (AddressPicker, lo stesso di #partenze). Facoltativo: i km dei concerti
-   senza indirizzo restano in attesa finché non lo imposti. */
+   senza indirizzo restano in attesa finché non lo imposti. Una partenza in
+   più si aggiunge solo quando quelle di prima hanno l'indirizzo. */
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -38,11 +39,14 @@ export function PassoPartenze() {
   // l'indirizzo aperto (anche subito dopo Aggiungi) è Cerca/Conferma dell'AddressPicker; poi Avanti
   const nessuna = partenze.length === 0;
   const avantiSecondario = nessuna || partenze.some(d => d.id === aperta);
+  // la prossima partenza si aggiunge solo con tutte le altre confermate (e nessun indirizzo aperto)
+  const puoiAggiungere = aperta === null && partenze.every(d => d.stato === "impostato");
   return (
-    <Passo titolo="Da dove parti">
+    <Passo titolo="Da dove parti solitamente">
       <p className="acc-nota">
-        Ogni viaggio parte da una partenza: un nome pubblico (es. «Casa Milano») e un indirizzo che vedi solo tu e che
-        serve a calcolare i km. Se cambi casa, aggiungi una partenza nuova: i viaggi di prima restano com'erano.
+        La tua pagina calcolerà i km che hai percorso per vedere i concerti, per questo dobbiamo sapere da dove parti
+        solitamente. La posizione è nascosta e i km sono calcolati in modo tale da non poter risalire all'origine degli
+        spostamenti. Puoi aggiungere più origini per i tuoi concerti.
       </p>
 
       {partenze.length > 0 && (
@@ -51,10 +55,8 @@ export function PassoPartenze() {
             <li key={d.id} className="acc-elenco-voce">
               <div className="acc-riga acc-riga--spazio">
                 <span>
-                  <b>{d.name}</b>{" "}
-                  <span className={d.stato === "impostato" ? "acc-stato acc-stato--ok" : "acc-stato"}>
-                    {d.stato === "impostato" ? "indirizzo impostato" : "indirizzo mancante"}
-                  </span>
+                  <b>{d.name}</b>
+                  {d.stato !== "impostato" && <span className="acc-stato">indirizzo mancante</span>}
                 </span>
                 {aperta !== d.id && (
                   <button type="button" className="acc-link" onClick={() => setAperta(d.id)}>
@@ -75,47 +77,50 @@ export function PassoPartenze() {
         </ul>
       )}
 
-      <form
-        className="acc-form"
-        onSubmit={e => {
-          e.preventDefault();
-          void form.handleSubmit();
-        }}
-      >
-        <form.Field
-          name="name"
-          validators={{ onChange: ({ value }) => (aggiungiPartenzaInput.shape.name.safeParse(value).success ? undefined : "Da 1 a 40 caratteri.") }}
-          children={field => (
-            <label className="acc-campo">
-              <span>Nome della partenza</span>
-              <span className="acc-riga">
-                <input
-                  name="partenza"
-                  maxLength={40}
-                  placeholder="Casa Milano"
-                  value={field.state.value}
-                  onChange={e => field.handleChange(e.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                <form.Subscribe
-                  selector={s => [s.canSubmit, s.isSubmitting, s.values.name.trim().length > 0] as const}
-                  children={([puo, invio, pieno]) => (
-                    <button type="submit" className={nessuna ? "acc-btn" : "acc-btn acc-btn--ghost"} disabled={!puo || invio || !pieno}>
-                      Aggiungi
-                    </button>
-                  )}
-                />
-              </span>
-              <ErroriCampo meta={field.state.meta} />
-            </label>
+      {puoiAggiungere && !nessuna && <p className="acc-nuova">Parti anche da un altro posto? Aggiungi un'altra partenza.</p>}
+      {puoiAggiungere && (
+        <form
+          className="acc-form"
+          onSubmit={e => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+        >
+          <form.Field
+            name="name"
+            validators={{ onChange: ({ value }) => (aggiungiPartenzaInput.shape.name.safeParse(value).success ? undefined : "Da 1 a 40 caratteri.") }}
+            children={field => (
+              <label className="acc-campo">
+                <span>{nessuna ? "Nome della partenza" : "Nome della nuova partenza"}</span>
+                <span className="acc-riga">
+                  <input
+                    name="partenza"
+                    maxLength={40}
+                    placeholder="Casa Milano"
+                    value={field.state.value}
+                    onChange={e => field.handleChange(e.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  <form.Subscribe
+                    selector={s => [s.canSubmit, s.isSubmitting, s.values.name.trim().length > 0] as const}
+                    children={([puo, invio, pieno]) => (
+                      <button type="submit" className={nessuna ? "acc-btn" : "acc-btn acc-btn--ghost"} disabled={!puo || invio || !pieno}>
+                        Aggiungi
+                      </button>
+                    )}
+                  />
+                </span>
+                <ErroriCampo meta={field.state.meta} />
+              </label>
+            )}
+          />
+          {errore && (
+            <p className="acc-errore" role="alert">
+              {errore}
+            </p>
           )}
-        />
-        {errore && (
-          <p className="acc-errore" role="alert">
-            {errore}
-          </p>
-        )}
-      </form>
+        </form>
+      )}
 
       <Navigazione avanti="agente" etichettaAvanti={nessuna ? "Salta per ora" : "Avanti"} avantiSecondario={avantiSecondario} />
     </Passo>

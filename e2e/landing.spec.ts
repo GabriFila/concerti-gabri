@@ -125,13 +125,13 @@ test.describe("chi è entrato", () => {
   test("onboarding a metà: / porta a /benvenuto, che lascia andare alla pagina; finiti i passi, / porta alla pagina", { tag: "@sessione" }, async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto("/");
-    // passo 1 fatto: profilo `active` con handle, passi 2–4 da fare
+    // passo 1 fatto: profilo `active` con handle, passi 2–3 da fare
     const { handle } = await nuovoProprietario(page);
 
     expect(await senzaSeguire(page, "/")).toEqual({ status: 307, dove: "/benvenuto", cache: NO_STORE });
     await page.goto("/");
     await expect(page).toHaveURL(/\/benvenuto$/);
-    await expect(page.getByText("Passo 2 di 5")).toBeVisible();
+    await expect(page.getByText("Passo 2 di 4")).toBeVisible();
     await idratata(page);
 
     // senza partenze l'azione principale è Aggiungi, "Salta per ora" è secondaria
@@ -147,8 +147,9 @@ test.describe("chi è entrato", () => {
     await expect(aggiungi).toHaveClass(/acc-btn--ghost/);
     await expect(page.getByRole("button", { name: "Avanti" })).toHaveClass(/acc-btn--ghost/);
     await expect(principali).toHaveText(["Cerca"]);
-    // chiuso l'indirizzo, Avanti torna l'azione principale
+    // chiuso l'indirizzo, Avanti torna l'azione principale; un'altra partenza si aggiunge solo con questa confermata
     await page.getByRole("button", { name: "Annulla" }).click();
+    await expect(aggiungi).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Avanti" })).not.toHaveClass(/acc-btn--ghost/);
     await expect(principali).toHaveText(["Avanti"]);
 
@@ -159,14 +160,12 @@ test.describe("chi è entrato", () => {
     await expect(page).toHaveURL(new RegExp(`/${handle}$`));
     await navigaNelBrowser(page, "/");
     await expect(page).toHaveURL(/\/benvenuto$/);
-    await expect(page.getByText("Passo 2 di 5")).toBeVisible();
+    await expect(page.getByText("Passo 2 di 4")).toBeVisible();
     expect(await nessunRicaricamento(page)).toBe(1);
 
     await page.getByRole("button", { name: "Avanti" }).click();
-    await expect(page.getByText("Passo 3 di 5")).toBeVisible();
+    await expect(page.getByText("Passo 3 di 4")).toBeVisible();
     await page.getByRole("button", { name: "Avanti" }).click();
-    await expect(page.getByText("Passo 4 di 5")).toBeVisible();
-    await page.getByRole("button", { name: "Fine" }).click();
     await expect(page.getByRole("heading", { name: "La tua pagina è pronta" })).toBeVisible();
 
     // ora `/` porta alla pagina, anche dal browser

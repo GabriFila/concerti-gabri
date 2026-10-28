@@ -1,10 +1,12 @@
 /* ──────────────────────────────────────────────────────────────
-   /benvenuto (PIANO traguardo 3, §1.19, §6 guard): i 5 passi del primo
+   /benvenuto (PIANO traguardo 3, §1.19, §6 guard): i 4 passi del primo
    accesso, ripresi da dove si era rimasti. Il passo viene dal profilo
    (`me.profile`, dal vivo): `onboarding` → 1, poi `onboardingStep`
-   partenze → 2, agente → 3, regali → 4, fatto → 5 ("pagina pronta").
+   partenze → 2, agente → 3, fatto → 4 ("pagina pronta"). Il passo
+   "regalato da" non c'è più (si gestisce da #regali): chi era rimasto lì
+   riprende dall'agente, il cui Avanti chiude l'onboarding.
    Ogni "Avanti" scrive il passo sul server, quindi un reload riprende lì.
-   Finché i passi 2–4 non sono finiti anche `/` porta qui (routes/index.tsx):
+   Finché i passi 2–3 non sono finiti anche `/` porta qui (routes/index.tsx):
    un link sotto il passo porta comunque alla pagina, che dal passo 1
    esiste già, e la prossima volta si riprende da dov'era.
    A onboarding finito il guard della rotta porta a /<handle>/modifica.
@@ -17,10 +19,9 @@ import type { PassoDb } from "./comuni.tsx";
 import { PassoAgente } from "./PassoAgente.tsx";
 import { PassoPartenze } from "./PassoPartenze.tsx";
 import { PassoProfilo } from "./PassoProfilo.tsx";
-import { PassoRegali } from "./PassoRegali.tsx";
 
-const NUMERO: Record<PassoDb, number> = { partenze: 2, agente: 3, regali: 4, fatto: 5 };
-const NOMI = ["La pagina", "Partenze", "Agente", "Regalato da", "Pronta"];
+const NUMERO: Record<PassoDb, number> = { partenze: 2, agente: 3, regali: 3, fatto: 4 };
+const NOMI = ["La pagina", "Partenze", "Agente", "Pronta"];
 
 export function Benvenuto() {
   const { data: me, isPending } = useProfiloDiChiGuarda();
@@ -64,8 +65,7 @@ export function Benvenuto() {
       {passo === 1 && <PassoProfilo />}
       {passo === 2 && <PassoPartenze />}
       {passo === 3 && me.handle && <PassoAgente handle={me.handle} />}
-      {passo === 4 && <PassoRegali />}
-      {passo >= 2 && passo <= 4 && me.handle && (
+      {passo >= 2 && passo <= 3 && me.handle && (
         <p className="acc-secondaria">
           Puoi finire dopo:{" "}
           <Link className="acc-link" to="/$handle" params={{ handle: me.handle }}>
@@ -74,10 +74,9 @@ export function Benvenuto() {
           . La prossima volta riprendi da qui.
         </p>
       )}
-      {passo === 5 && me.handle && (
+      {passo === 4 && me.handle && (
         <section className="acc-passo" aria-labelledby="acc-passo-titolo">
           <h2 id="acc-passo-titolo">La tua pagina è pronta</h2>
-          <p className="acc-nota">Ha già il tema predefinito: lo stile, i concerti e tutto il resto si cambiano da Modifica.</p>
           <div className="acc-azioni">
             <Link className="acc-btn" to="/$handle" params={{ handle: me.handle }}>
               Vai alla tua pagina

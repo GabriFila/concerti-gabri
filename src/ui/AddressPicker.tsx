@@ -97,7 +97,7 @@ export function AddressPicker({ departureId, correzione = false, onConfermato, o
       )}
       <form className="acc-form acc-form--riga" onSubmit={cerca}>
         <label className="acc-campo" htmlFor={`${id}-indirizzo`}>
-          <span>Indirizzo (lo vedi solo tu)</span>
+          <span>Indirizzo</span>
         </label>
         <div className="acc-riga">
           <input
@@ -116,10 +116,7 @@ export function AddressPicker({ departureId, correzione = false, onConfermato, o
             Cerca
           </button>
         </div>
-        <p className="acc-piccolo">
-          Serve solo a calcolare i km dei viaggi, che sulla pagina hanno sempre uno scarto casuale. Non esce mai dal
-          server.
-        </p>
+        <p className="acc-piccolo">Serve solo a calcolare i km dei viaggi, che sulla pagina hanno sempre uno scarto casuale.</p>
       </form>
 
       {candidati && candidati.length === 0 && (
