@@ -1,15 +1,14 @@
 /* Login e onboarding (PIANO traguardo 3, Accettazione): il trigger crea il
    profilo `onboarding`, completeOnboarding lo attiva con errori leggibili,
    i passi 2–4 scrivono, un secondo profilo è impossibile, claimProfile,
-   SIGNUP_ALLOWLIST e le opzioni di Better Auth. Il login è quello vero:
+   la registrazione aperta e le opzioni di Better Auth. Il login è quello vero:
    route HTTP di Better Auth con l'OTP di sviluppo (convex/test.auth.ts). */
 
 import { handleOAuthUserInfo } from "better-auth/oauth2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { messaggioErroreGoogle } from "../src/lib/auth-errori.ts";
 import { api, components, internal } from "./_generated/api";
 import {
-  authComponent, createAuth, createAuthOptions, emailAmmessa, MESSAGGIO_INVITO, NON_INVITATO, OPZIONI_API_KEY, PERCORSI_ACCOUNT_SPENTI,
+  authComponent, createAuth, createAuthOptions, OPZIONI_API_KEY, PERCORSI_ACCOUNT_SPENTI,
   PERCORSI_MCP, percorsiSpenti,
 } from "./auth.ts";
 import { codiceDi } from "./lib/errors.ts";
@@ -205,84 +204,23 @@ describe("admin:claimProfile", () => {
   });
 });
 
-describe("SIGNUP_ALLOWLIST", () => {
-  it("assente: registrazione aperta", () => {
-    expect(emailAmmessa("chiunque@example.com", {})).toBe(true);
-  });
-
-  it("presente: solo le email dell'elenco creano un account (maiuscole e spazi indifferenti)", async () => {
-    expect(emailAmmessa("Amica@Example.com", { SIGNUP_ALLOWLIST: " amica@example.com , altro@example.com" })).toBe(true);
-    expect(emailAmmessa("estranea@example.com", { SIGNUP_ALLOWLIST: "amica@example.com" })).toBe(false);
-
-    envLocale({ SIGNUP_ALLOWLIST: "amica@example.com" });
+describe("registrazione aperta", () => {
+  it("anche con un vecchio SIGNUP_ALLOWLIST sul deployment, chiunque crea un account (OTP e Google)", async () => {
+    envLocale({ GOOGLE_CLIENT_ID: "id-finto", GOOGLE_CLIENT_SECRET: "segreto-finto" });
+    vi.stubEnv("SIGNUP_ALLOWLIST", "amica@example.com");
     const t = setup();
-    // fuori elenco e senza account: la stessa risposta di un invio vero, ma nessun codice generato né inviato
-    const invio = await chiediCodice(t, "Estranea@Example.com");
-    expect(invio.status).toBe(200);
-    expect(await invio.json()).toEqual({ success: true });
-    expect(await t.run(ctx => ctx.db.query("devOtpOutbox").collect())).toEqual([]);
-    const verifiche = await t.run(ctx => ctx.runQuery(components.betterAuth.adapter.findMany, { model: "verification", paginationOpts: { numItems: 10, cursor: null } }));
-    expect((verifiche as { page: unknown[] }).page).toEqual([]);
-    const r = await post(t, "/sign-in/email-otp", { email: "estranea@example.com", otp: "123456" });
-    expect(r.status).not.toBe(200);
-    const utenti = await t.run(ctx => ctx.runQuery(components.betterAuth.adapter.findMany, { model: "user", paginationOpts: { numItems: 10, cursor: null } }));
-    expect((utenti as { page: unknown[] }).page).toEqual([]);
-    expect(await t.run(ctx => ctx.db.query("profiles").collect())).toEqual([]);
-
-    const ok = await accedi(t, "amica@example.com");
-    expect(await profiliDi(t, ok.userId)).toHaveLength(1);
-  });
-
-  it("fuori elenco: le richieste a vuoto non consumano i limiti; chi ha già un account entra come sempre", async () => {
-    const t = setup();
-    // un account nato prima dell'elenco, e un codice chiesto prima dell'elenco da chi un account non ce l'ha
-    const vecchia = await accedi(t, "vecchia@example.com");
-    await chiediCodice(t, "tardiva@example.com");
-    const codiceTardivo = await ultimoCodice(t, "tardiva@example.com");
-    envLocale({ SIGNUP_ALLOWLIST: "amica@example.com" });
-    // otpSendEmail è 3 ogni 10 minuti: sei richieste a vuoto non generano codici né arrivano al limite (sempre 200)
-    for (let i = 0; i < 6; i++) expect((await chiediCodice(t, "estranea@example.com")).status).toBe(200);
-    expect(await ultimoCodice(t, "estranea@example.com")).toBeUndefined();
-    // l'account di prima dell'elenco riceve il codice ed entra
-    const di = await accedi(t, "vecchia@example.com");
-    expect(di.userId).toBe(vecchia.userId);
-    // difesa in profondità: il codice chiesto prima dell'elenco non crea comunque l'account
-    const r = await post(t, "/sign-in/email-otp", { email: "tardiva@example.com", otp: codiceTardivo });
-    expect(r.status).toBe(403);
-    expect(await r.json()).toMatchObject({ code: "NON_INVITATO", message: NON_INVITATO });
-  });
-
-  it("con Resend, a un'email fuori elenco non parte nessuna email; a un'invitata sì", async () => {
-    envLocale({ AUTH_DEV_OTP: undefined, RESEND_API_KEY: "re_finta", EMAIL_FROM: "Prove <prove@example.com>", SIGNUP_ALLOWLIST: "amica@example.com" });
-    const chiamate: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string | URL | Request) => {
-      chiamate.push(String(url));
-      return new Response(JSON.stringify({ id: "email-finta" }), { status: 200 });
-    }));
-    const t = setup();
-    expect((await chiediCodice(t, "estranea@example.com")).status).toBe(200);
-    expect(chiamate).toEqual([]);
-    expect((await chiediCodice(t, "amica@example.com")).status).toBe(200);
-    expect(chiamate).toHaveLength(1);
-    vi.unstubAllGlobals();
-  });
-
-  it("con Google il rifiuto torna su /accedi come ?error=non_invitato, che la UI traduce nel messaggio dell'invito", async () => {
-    envLocale({ SIGNUP_ALLOWLIST: "amica@example.com", GOOGLE_CLIENT_ID: "id-finto", GOOGLE_CLIENT_SECRET: "segreto-finto" });
-    const t = setup();
-    // il passo del callback OAuth che crea l'utente (better-auth/oauth2): l'errore del hook diventa `result.error`
+    const a = await accedi(t, "estranea@example.com");
+    expect(await profiliDi(t, a.userId)).toHaveLength(1);
+    // il passo del callback OAuth che crea l'utente (better-auth/oauth2)
     const esito = await t.run(async ctx =>
       handleOAuthUserInfo({ context: await createAuth(ctx).$context } as never, {
-        userInfo: { id: "g-1", email: "Estranea@Example.com", emailVerified: true, name: "Estranea" },
+        userInfo: { id: "g-1", email: "Altra@Example.com", emailVerified: true, name: "Altra" },
         account: { providerId: "google", accountId: "g-1" },
         callbackURL: "/",
       } as never),
     );
-    // api/routes/callback.mjs: redirectOnError(…, result.error.split(" ").join("_"))
-    const errore = esito.error!.split(" ").join("_");
-    expect(errore).toBe("non_invitato");
-    expect(messaggioErroreGoogle(errore)).toBe(MESSAGGIO_INVITO);
-    expect(await t.run(ctx => ctx.db.query("profiles").collect())).toEqual([]);
+    expect(esito.error).toBeFalsy();
+    expect(await t.run(ctx => ctx.db.query("profiles").collect())).toHaveLength(2);
   });
 });
 

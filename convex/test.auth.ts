@@ -13,7 +13,7 @@ const HEADERS = { "content-type": "application/json", origin: SITO };
 /** Le variabili che contano per il login: tutte impostate o tolte, mai ereditate dall'ambiente della sessione. */
 const NOMI = [
   "SITE_URL", "BETTER_AUTH_TRUSTED_ORIGINS", "BETTER_AUTH_SECRET", "AUTH_DEV_OTP", "CONVEX_CLOUD_URL", "CONVEX_SITE_URL",
-  "RESEND_API_KEY", "EMAIL_FROM", "SIGNUP_ALLOWLIST", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
+  "RESEND_API_KEY", "EMAIL_FROM", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
   "OAUTH_PROXY_SECRET", "OAUTH_PROXY_PRODUCTION_URL",
 ] as const;
 

@@ -125,11 +125,7 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
      `grep '^CHAT_SERVER_SECRET_PROD=' fnox.toml | grep -c 'value ='` (1 = c'è),
      poi
      `fnox -P prod exec -- sh -c 'printf %s "$CHAT_SERVER_SECRET_PROD" | pnpm exec convex env set CHAT_SERVER_SECRET --prod'`.
-  2. `SIGNUP_ALLOWLIST`: la tua email Google e quelle degli amici, separate da
-     virgola, **prima** del tuo primo login in produzione (senza la tua email
-     non potresti creare l'account): `pnpm exec convex env set SIGNUP_ALLOWLIST --prod`
-     (senza valore lo chiede).
-  3. Mai `AUTH_DEV_OTP`. `SITE_URL` resta `https://concerti-gabri.vercel.app`
+  2. Mai `AUTH_DEV_OTP`. `SITE_URL` resta `https://concerti-gabri.vercel.app`
      fino al DNS (B11). `OAUTH_PROXY_*` solo dopo il DNS (B13): con `SITE_URL`
      diverso da `OAUTH_PROXY_PRODUCTION_URL` la produzione farebbe passare dal
      proxy anche il proprio login Google.
@@ -137,7 +133,7 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
   Impostarle prima del deploy non ha effetti: il codice che le legge arriva
   con il passo B4.
 - **Verifica:** `pnpm exec convex env list --prod --names-only` elenca
-  `CHAT_SERVER_SECRET` e `SIGNUP_ALLOWLIST` accanto a `SITE_URL`,
+  `CHAT_SERVER_SECRET` accanto a `SITE_URL`,
   `BETTER_AUTH_SECRET`, `BETTER_AUTH_TRUSTED_ORIGINS`, `GOOGLE_CLIENT_ID` e
   `GOOGLE_CLIENT_SECRET`, e non `AUTH_DEV_OTP`.
 
@@ -192,7 +188,7 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
 - **Chi:** Gabri.
 - **Come:** `https://concerti-gabri.vercel.app/accedi` → Google. Si arriva su
   `/benvenuto` con un profilo vuoto: **non** completare l'onboarding.
-- **Verifica:** il login riesce, senza messaggio d'invito.
+- **Verifica:** il login riesce.
 
 ### B8. Claim di `gabrifila`
 - **Chi:** Gabri.

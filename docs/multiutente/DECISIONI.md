@@ -157,7 +157,7 @@ Gabri ha approvato `PIANO.md` e tutte le proposte di §12:
 5. Claude.ai/ChatGPT veri sull'MCP: dopo lo switch;
 6. forma neutra: si rivede sugli screenshot;
 7. chat dell'Oracolo in modalità scrittura: private, mai nello storico pubblico;
-8. in produzione si registra solo chi è in `SIGNUP_ALLOWLIST`; dev e preview aperti;
+8. ~~in produzione si registra solo chi è in `SIGNUP_ALLOWLIST`~~: dal 2026-10-31 la registrazione è aperta a tutti anche in produzione e `SIGNUP_ALLOWLIST` non esiste più (scelta di Gabri);
 9. protezione della produzione dagli agenti: fatta subito, vedi sotto;
 10. correzione dell'indirizzo di una partenza al massimo una volta al giorno.
 
@@ -340,10 +340,10 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
 - `/delete-user` e `/delete-user/callback` spenti via HTTP: l'account si
   elimina solo con `account:elimina` (cascata, poi `auth.api.deleteUser` lato
   server).
-- `SIGNUP_ALLOWLIST`: il rifiuto è il codice `non_invitato`, uguale per OTP e
-  Google. A un'email fuori elenco e senza account si risponde come a un invio
-  vero, ma nessun codice parte e nessun limite si consuma: il messaggio
-  d'invito compare in pratica solo con Google.
+- Registrazione aperta (2026-10-31): `SIGNUP_ALLOWLIST`, il codice
+  `non_invitato` e il messaggio d'invito sono stati tolti; chiunque entri con
+  Google o con l'OTP crea un account. Contro l'abuso restano i limiti Convex
+  (`otpSendEmail`, `otpSendGlobal`, i limiti per profilo).
 - Login e logout fanno sempre un reload completo.
 - `devOtp:azzeraLimiti` esiste solo per gli e2e, su deployment locali e dev.
 - La regola dei soprannomi sta accanto ai modelli CSV/JSON, non dentro (i
@@ -484,7 +484,6 @@ sta in PIANO §1 e nei commit `Fase 3.N`.
 | `AUTH_DEV_OTP` (`=1`) | – | – | dev, predefinite delle preview, `preview/multiutente`, locali; **mai** prod | il codice la ignora in produzione |
 | `NOMINATIM_URL` | – | – | facoltativa (default OSM); stub nei locali | |
 | `RESEND_API_KEY`, `EMAIL_FROM` | – (per ora) | – | – (per ora) | servono entrambe |
-| `SIGNUP_ALLOWLIST` | – | – | prod allo switch | email separate da virgola, compresa quella di Gabri; assente = registrazione aperta |
 | `OAUTH_PROXY_SECRET`, `OAUTH_PROXY_PRODUCTION_URL` | il primo | – | prod e predefinite delle preview, dopo il DNS | §1.43 |
 | `PREVIEW_URL` | – | – | – | solo per `pnpm e2e:preview` |
 | `E2E`, `E2E_NOW`, `ORACOLO_FAKE`, `VITE_E2E`, `E2E_INGEST_URL`, `E2E_SINK_PORT`, `NOMINATIM_STUB_PORT` | – | **mai** | – | solo nei test locali |

@@ -12,14 +12,8 @@
    - I limiti per IP di Better Auth sono spenti (§1.29: nelle httpAction
      l'IP non è affidabile). Contano i limiti Convex: `otpSendEmail` e
      `otpSendGlobal` prima di ogni invio di codice (vedi limitaInvioOtp).
-   - SIGNUP_ALLOWLIST (email separate da virgola): se c'è, solo quelle
-     email creano un account. Assente = registrazione aperta. Il rifiuto
-     è il codice NON_INVITATO (shared/accesso.ts), lo stesso per OTP e
-     Google. A un'email fuori elenco e senza account non parte nemmeno il
-     codice (invioOtpDaSaltare): risposta identica a un invio vero, niente
-     enumerazione, nessun limite consumato. Altrimenti chiunque farebbe
-     spedire codici a indirizzi qualsiasi col mittente di concerti.gabrifila.me
-     ed esaurirebbe otpSendGlobal agli invitati.
+   - Registrazione aperta: chiunque entri con Google o con l'OTP crea un
+     account (dal 2026-10-31 non c'è più SIGNUP_ALLOWLIST).
    - Il primo login crea l'utente e, nella stessa transazione (trigger),
      il profilo in `onboarding` (convex/profiles.ts lo completa).
    - MCP: `mcp({ ...opzioniMcp })` seguito da `irrobustimentoMcp(ctx)`,
@@ -46,7 +40,6 @@ import { mcp } from "better-auth/plugins";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { oAuthProxy } from "better-auth/plugins/oauth-proxy";
 import { v } from "convex/values";
-import { MESSAGGIO_INVITO, NON_INVITATO } from "../shared/accesso.ts";
 import { LAYOUT_VUOTO, TEMA_PREDEFINITO } from "../shared/schema/profile.ts";
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
@@ -58,8 +51,6 @@ import authSchema from "./betterAuth/schema";
 import { inviaOtpResend, OTP_MINUTI } from "./email.ts";
 import { internalMutation } from "./lib/builders.ts";
 import { rateLimiter } from "./rateLimits.ts";
-
-type Env = Record<string, string | undefined>;
 
 /* ── profilo al primo login ────────────────────────────────────── */
 
@@ -106,13 +97,6 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 /* ── regole ────────────────────────────────────────────────────── */
 
-/** Le email ammesse alla registrazione: tutte se SIGNUP_ALLOWLIST manca. */
-export function emailAmmessa(email: string, env: Env = process.env): boolean {
-  const elenco = (env.SIGNUP_ALLOWLIST ?? "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
-  return !elenco.length || elenco.includes(email.trim().toLowerCase());
-}
-
-export { MESSAGGIO_INVITO, NON_INVITATO };
 export const MESSAGGIO_TROPPI_CODICI = "Troppi codici richiesti: riprova tra qualche minuto.";
 
 /** I percorsi di MCP (plugin mcp di Better Auth 1.6). */
@@ -159,18 +143,6 @@ export async function limitaInvioOtp(ctx: GenericCtx<DataModel>, email: unknown)
   if (!globale.ok) throw new APIError("TOO_MANY_REQUESTS", { message: MESSAGGIO_TROPPI_CODICI });
 }
 
-/**
- * true se un codice per `email` non va né generato né inviato: c'è
- * SIGNUP_ALLOWLIST, l'email non è nell'elenco e non ha già un account (chi
- * l'ha, magari da prima dell'elenco, entra come sempre). Un'email malformata
- * la rifiuta Better Auth subito dopo.
- */
-export async function invioOtpDaSaltare(email: unknown, trovaUtente: (email: string) => Promise<unknown>, env: Env = process.env): Promise<boolean> {
-  const e = typeof email === "string" ? email.trim().toLowerCase() : "";
-  if (!e || emailAmmessa(e, env)) return false;
-  return !(await trovaUtente(e));
-}
-
 /* ── opzioni ───────────────────────────────────────────────────── */
 
 const origini = (s: string | undefined) => (s ?? "").split(",").map(x => x.trim()).filter(Boolean);
@@ -191,23 +163,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     ...(googleAttivo(env)
       ? { socialProviders: { google: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET!, prompt: "select_account" as const } } }
       : {}),
-    databaseHooks: {
-      user: {
-        create: {
-          before: async user => {
-            // il messaggio è un codice: con Google diventa il `?error=` di /accedi
-            if (!emailAmmessa(user.email)) throw new APIError("FORBIDDEN", { message: NON_INVITATO, code: NON_INVITATO.toUpperCase() });
-          },
-        },
-      },
-    },
     hooks: {
       before: createAuthMiddleware(async c => {
         if (c.path !== "/email-otp/send-verification-otp") return;
-        const email = (c.body as { email?: unknown } | undefined)?.email;
-        // fuori elenco e senza account: la stessa risposta di un invio vero, ma nessun codice
-        if (await invioOtpDaSaltare(email, e => c.context.internalAdapter.findUserByEmail(e))) return c.json({ success: true });
-        await limitaInvioOtp(ctx, email);
+        await limitaInvioOtp(ctx, (c.body as { email?: unknown } | undefined)?.email);
       }),
     },
     plugins: [
