@@ -7,8 +7,9 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
 
 **Regole**
 - I passi che toccano la produzione li fa Gabri: `.claude/settings.json` vieta
-  agli agenti `--prod`, il nome del deployment prod, il profilo fnox `prod`, i
-  deploy Vercel e i push su `main`. Un agente prepara i comandi, fa i passi su
+  agli agenti `--prod`, il nome del deployment prod, il profilo fnox `prod` e i
+  deploy Vercel. Il push su `main` (= deploy di produzione) l'agente lo fa solo
+  su richiesta esplicita di Gabri o dopo conferma. Un agente prepara i comandi, fa i passi su
   dev e preview e verifica dove basta leggere.
 - Segreti sempre per riferimento, mai sulla riga di comando o a video:
   `fnox [-P prod] exec -- sh -c 'printf %s "$NOME" | pnpm exec convex env set NOME …'`,

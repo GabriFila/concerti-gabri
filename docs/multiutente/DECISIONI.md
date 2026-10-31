@@ -169,6 +169,10 @@ Gabri ha approvato `PIANO.md` e tutte le proposte di §12:
   Vercel, i push su `main` e i push forzati. Le regole guardano tutta la riga
   di comando: un messaggio di commit che cita quei comandi viene bloccato,
   quindi si committa con `git commit -F <file>`.
+- Dal 2026-10-31 (scelta di Gabri) gli agenti possono agire sulla produzione,
+  ma solo su sua richiesta esplicita o dopo avergli chiesto conferma. Per
+  questo i due divieti sui push su `main` sono stati tolti: un push su `main` è
+  un deploy di produzione e vale la stessa regola. Gli altri divieti restano.
 - In fnox `CONVEX_DEPLOY_KEY_PROD` e `BETTER_AUTH_SECRET_PROD` stanno nel profilo
   `prod` (`[profiles.prod.secrets]`): non finiscono in `.env.local` né
   nell'ambiente delle sessioni. Servono solo a mano, caricando quel profilo.

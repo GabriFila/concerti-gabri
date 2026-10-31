@@ -16,8 +16,6 @@
       "Bash(*vercel deploy*)",
       "Bash(*vercel promote*)",
       "Bash(*vercel rollback*)",
-      "Bash(*git push*origin main*)",
-      "Bash(*git push*:main*)",
       "Bash(*git push --force*)",
       "Bash(*git push -f*)",
       "Bash(*pgrep -a*)",
