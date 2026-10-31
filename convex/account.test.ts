@@ -145,7 +145,7 @@ describe("account.esporta", () => {
     for (const d of exp.partenze) await b.as.mutation(api.departures.add, { input: { name: d.name } });
     for (const g of exp.regali) await b.as.mutation(api.gifters.add, { input: { label: g.label, url: g.url } });
     for (const e of exp.concerti) await b.as.mutation(api.entries.add, { input: e });
-    const senzaIdNeKm = (l: Record<string, unknown>[]) => l.map(({ id, km, kmPending, daCompletare, ...r }) => (void id, void km, void kmPending, void daCompletare, r));
+    const senzaIdNeKm = (l: Record<string, unknown>[]) => l.map(({ id, km, kmPending, daCompletare, mancano, ...r }) => (void id, void km, void kmPending, void daCompletare, void mancano, r));
     expect(senzaIdNeKm((await b.as.query(api.entries.list, {})).concerts)).toEqual(senzaIdNeKm((await a.as.query(api.entries.list, {})).concerts));
   });
 

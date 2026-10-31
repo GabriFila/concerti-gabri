@@ -16,6 +16,7 @@
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isPlanned, todayKey } from "../shared/lib/dates.ts";
+import { mancanoDi, type EventoPerMancano } from "../shared/lib/mancano.ts";
 import { nessunInput } from "../shared/schema/campi.ts";
 import {
   cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertoInput,
@@ -34,12 +35,13 @@ import { venueOCrea } from "./lib/venueUtente.ts";
 
 const etichetta = (e: { kind: string; artist?: string; name?: string; date: string }) => `${e.kind === "festival" ? e.name : e.artist} (${e.date})`;
 
-/** Un concerto passato senza voto, vicinanza o canzoni note. */
-export function daCompletare(e: Doc<"entries">, today: number): boolean {
-  if (isPlanned(e, today)) return false;
-  const manca = (c: { voto?: number; vicinanza?: number; canzoniNote?: number | string }) =>
-    c.voto === undefined || c.vicinanza === undefined || c.canzoniNote === undefined;
-  return e.kind === "festival" ? (e.concerts ?? []).some(manca) : manca(e);
+/**
+ * Cosa manca a un evento passato, come nel riquadro «Da completare» di
+ * #concerti e negli avvisi della pagina: voto, posizione, canzoni note (per
+ * concerto, anche nei festival) e partenza. [] se è in programma o completo.
+ */
+function mancanoDa(e: EventoPerMancano, today: number): string[] {
+  return isPlanned(e, today) ? [] : mancanoDi(e, today, { prezzo: false });
 }
 
 async function inserisci(ctx: MutationCtx, owner: Owner, campi: Awaited<ReturnType<typeof campiDaInput>>, batchId?: string) {
@@ -122,9 +124,13 @@ export const list = ownerQuery({
     const today = todayKey(Date.now());
     let rows = await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", owner.profile._id)).collect();
     if (f.anno !== undefined) rows = rows.filter(e => e.y === f.anno);
-    if (f.da_completare) rows = rows.filter(e => daCompletare(e, today));
     const nomi = await nomiPerEsterno(ctx, owner.profile._id, rows);
-    let out = rows.map(e => ({ ...esterno(e, nomi), daCompletare: daCompletare(e, today) }));
+    let out = rows.map(e => {
+      const est = esterno(e, nomi);
+      const mancano = mancanoDa(est, today);
+      return { ...est, daCompletare: mancano.length > 0, mancano };
+    });
+    if (f.da_completare) out = out.filter(e => e.daCompletare);
     if (f.artista) {
       const a = f.artista.toLowerCase();
       out = out.filter(e =>

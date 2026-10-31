@@ -50,7 +50,7 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
     descrizione: "Il profilo del proprietario: handle, nome visualizzato, forma grammaticale, tema e layout." }),
   op({ name: "list_concerts", tipo: "lettura", traguardo: 2, funzione: "entries:list", input: elencaConcertiInput,
     output: z.object({ concerts: z.array(z.any()) }),
-    descrizione: `Elenca concerti e festival, con filtri per anno, artista o "da completare" (passati senza voto, vicinanza o canzoni note: proponi di completarli). ${SCALE}` }),
+    descrizione: `Elenca concerti e festival, con filtri per anno, artista o "da completare" (passati senza voto, vicinanza, canzoni note o partenza; ogni riga ha "mancano" con cosa manca, in italiano: proponi di completarli). ${SCALE}` }),
   op({ name: "get_concert", tipo: "lettura", traguardo: 2, funzione: "entries:get", input: leggiConcertoInput, output: z.any(),
     descrizione: "Legge un concerto o festival per id, con i nomi di persone, venue, partenza e \"regalato da\"." }),
   op({ name: "list_people", tipo: "lettura", traguardo: 2, funzione: "people:list", input: vuoto,

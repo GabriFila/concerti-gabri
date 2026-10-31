@@ -150,7 +150,7 @@ export const elencaConcertiInput = z
   .object({
     anno: z.number().int().min(1950).max(2100).optional().describe("Solo gli eventi di quest'anno"),
     artista: z.string().max(120).optional().describe("Solo i concerti di quest'artista (senza maiuscole)"),
-    da_completare: z.boolean().optional().describe("Solo i concerti passati senza voto, vicinanza o canzoni note"),
+    da_completare: z.boolean().optional().describe("Solo gli eventi passati a cui manca qualcosa (voto, vicinanza o canzoni note di un concerto, o la partenza): ogni riga dice cosa in `mancano`"),
   })
   .describe("Filtri dell'elenco dei concerti");
 

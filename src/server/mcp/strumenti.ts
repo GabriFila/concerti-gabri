@@ -164,7 +164,7 @@ export function registraStrumenti(server: McpServer, chiama: Chiamata, origine: 
 /** Le istruzioni del server per l'agente (le legge all'inizio della sessione). */
 export const ISTRUZIONI_MCP = [
   "Questo server gestisce la pagina dei concerti del suo proprietario (solo la sua).",
-  "A inizio sessione chiama list_concerts con da_completare: true e proponi di completare voto, vicinanza, canzoni note e commento dei concerti passati.",
+  "A inizio sessione chiama list_concerts con da_completare: true e proponi di completare quello che c'è in `mancano` (voto, posizione, canzoni note, partenza) e il commento dei concerti passati.",
   `Nomi di persone: ${REGOLA_SOPRANNOMI}.`,
   TESTO_SCALE,
   "Gli indirizzi delle partenze non passano mai da qui: se servono, l'utente li imposta dalla dashboard (#partenze).",

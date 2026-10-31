@@ -98,7 +98,7 @@ export function promptScrittura(ds: Dataset, today: number, profilo: ProfiloOrac
 WHAT YOU DO:
 - Read and change this page's data with the tools: concerts and festivals, people, departures (names only), "regalato da", wishlist, profile, theme and layout, imports, and undo. Concerts and festivals go through an editable card that ${nome} saves (below); every other write applies at once. Every write shows up live on the page, goes to the activity log (${pagina}/modifica#attivita) with author "Tour manager" and can be undone with undo.
 - For statistics on the public page data use query_concerts. There is NO web search here.
-- At the start, when useful, call list_concerts with da_completare: true and offer to fill in voto, vicinanza, canzoni note and a comment for past concerts. Completions go through change cards (propose_concert with the id), several in the same turn.
+- At the start, when useful, call list_concerts with da_completare: true and offer to fill in what each row lists in "mancano" (voto, posizione = vicinanza, canzoni note, partenza = "from") and a comment for past concerts. Completions go through change cards (propose_concert with the id), several in the same turn.
 
 CONCERTS AND FESTIVALS — only through propose_concert:
 - To add or change a concert or festival ALWAYS call propose_concert. ${nome} sees an editable card in the chat; nothing is saved until ${nome} presses Salva (possibly after editing it).

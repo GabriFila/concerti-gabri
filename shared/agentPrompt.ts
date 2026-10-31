@@ -59,6 +59,6 @@ export function agentPrompt(d: DatiPrompt): string {
     "- Un festival è un solo biglietto con almeno due concerti: prezzo, viaggio e commento stanno sul festival, non sui singoli concerti.",
     `- Partenze del viaggio: ${partenze}. Usa solo questi nomi e mai indirizzi: i km li calcola il sito. Se una partenza non ha ancora l'indirizzo, i km restano in attesa: dimmi di impostarlo da ${modifica}#partenze.`,
     "",
-    `Dopo la serata: a inizio sessione chiama list_concerts({"da_completare": true}) e proponimi di completare voto, vicinanza, canzoni note e commento dei concerti appena passati.`,
+    `Dopo la serata: a inizio sessione chiama list_concerts({"da_completare": true}) e proponimi di completare quello che manca (il campo "mancano" di ogni riga: voto, posizione, canzoni note, partenza) e il commento dei concerti appena passati.`,
   ].join("\n");
 }
