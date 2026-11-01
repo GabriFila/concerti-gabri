@@ -172,7 +172,11 @@ Gabri ha approvato `PIANO.md` e tutte le proposte di §12:
 - Dal 2026-10-31 (scelta di Gabri) gli agenti possono agire sulla produzione,
   ma solo su sua richiesta esplicita o dopo avergli chiesto conferma. Per
   questo i due divieti sui push su `main` sono stati tolti: un push su `main` è
-  un deploy di produzione e vale la stessa regola. Gli altri divieti restano.
+  un deploy di produzione e vale la stessa regola. Dal 2026-11-01 sono tolti
+  anche gli altri divieti sulla produzione (Convex `--prod` e deploy, nome del
+  deployment prod, profilo fnox `prod`, Vercel, push forzati): vale solo la
+  regola della richiesta esplicita o della conferma. Restano i divieti che
+  impediscono di elencare processi e ambiente (stamperebbero i segreti).
 - In fnox `CONVEX_DEPLOY_KEY_PROD` e `BETTER_AUTH_SECRET_PROD` stanno nel profilo
   `prod` (`[profiles.prod.secrets]`): non finiscono in `.env.local` né
   nell'ambiente delle sessioni. Servono solo a mano, caricando quel profilo.
