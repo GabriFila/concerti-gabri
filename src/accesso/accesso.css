@@ -91,6 +91,12 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
 .acc-passi{list-style:none;display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem;color:var(--dim);margin-bottom:6px}
 .acc-passi li.on{color:var(--text);font-weight:500}
 .acc-passi li.fatto{color:var(--muted)}
+/* un passo già raggiunto si riapre: bersaglio alto 44 px senza allargare la riga (margini negativi) */
+.acc-passi-vai{font:inherit;color:inherit;background:none;border:none;cursor:pointer;min-height:44px;padding:0 6px;margin:-12px -6px;
+  text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px}
+.acc-passi-vai:hover{color:var(--text);text-decoration-color:currentColor}
+.acc-passi-vai:focus-visible{outline:2px solid var(--lamp);outline-offset:-4px;border-radius:6px}
+.acc-passi-vai:disabled{opacity:.5;cursor:default}
 .acc-passo{margin-top:26px;padding:clamp(20px,3vw,30px);background:var(--panel);border:1px solid var(--line);border-radius:14px}
 .acc-passo h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(1.4rem,3vw,1.8rem);color:var(--text)}
 .acc-navigazione{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;margin-top:26px}

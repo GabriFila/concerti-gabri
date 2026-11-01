@@ -91,6 +91,21 @@ test("i 4 passi, la pagina subito pubblica, la ripresa e il redirect finale", { 
   await page.reload();
   await expect(page.getByText("Passo 3 di 4")).toBeVisible();
   await idratata(page);
+
+  // i passi già raggiunti si riaprono dall'elenco: il passo 1 in modifica, poi si torna al 3
+  const passi = page.getByRole("list", { name: "Passi" });
+  await passi.getByRole("button", { name: "La pagina" }).click();
+  await expect(page.getByLabel("Indirizzo della pagina")).toHaveValue(handle);
+  await expect(page.getByLabel("Il tuo nome sulla pagina")).toHaveValue("Prova");
+  await page.getByLabel("Il tuo nome sulla pagina").fill("Prova due");
+  await page.getByRole("button", { name: "Salva e continua" }).click();
+  await expect(page.getByText("Passo 3 di 4")).toBeVisible();
+  // il 2 riporta lì anche il passo salvato: il 3 non è più raggiunto
+  await passi.getByRole("button", { name: "Partenze" }).click();
+  await expect(page.getByText("Passo 2 di 4")).toBeVisible();
+  await expect(passi.getByRole("button", { name: "Agente" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await expect(page.getByText("Passo 3 di 4")).toBeVisible();
   await page.getByRole("button", { name: "Avanti" }).click();
 
   // ── passo 4: pronta (il passo "regalato da" non c'è più: si gestisce da #regali)
