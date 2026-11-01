@@ -11,7 +11,7 @@
      nell'elenco», «Completa in sequenza» col focus sul primo campo che
      manca, «Salva e vai al prossimo» e «Tutto completo.» alla fine;
    - il modulo: il riepilogo «Controlla 3 campi: …» col focus sul primo,
-     «in programma» che chiude «Com'è andata», le scorciatoie (Usate di
+     «in programma» con «Com'è andata» sempre aperta, le scorciatoie (Usate di
      recente, Frequenti, Come l'ultimo), concerto ↔ festival coi valori, e
      «Cancella…» dal menu ⋯ del pannello;
    - la concorrenza: un'altra scheda cambia il concerto aperto (form pulito
@@ -170,7 +170,8 @@ test.describe("#concerti: elenco e modulo", { tag: "@sessione" }, () => {
     const m = page.getByRole("dialog", { name: "Modifica concerto" });
     await expect(m.getByText("Da completare · 1 di 2")).toBeVisible();
     await expect(m.locator('input[name="artist"]')).toHaveValue("Canarino Due");
-    await expect(m.getByText("Mancano: voto, posizione, canzoni note.")).toBeVisible();
+    // la partenza sta in «Com'è andata» con i voti, quindi manca anche lei
+    await expect(m.getByText("Mancano: voto, posizione, canzoni note, partito da.")).toBeVisible();
     // in coda il focus parte dal primo campo che manca
     await expect(m.locator('input[name="voto"][value="5"]')).toBeFocused();
     await m.locator('input[name="voto"][value="4"]').check();
@@ -208,13 +209,13 @@ test.describe("#concerti: elenco e modulo", { tag: "@sessione" }, () => {
     await riepilogo.getByRole("button", { name: "Venue" }).click();
     await expect(d.getByLabel("Cerca una venue")).toBeFocused();
 
-    // una data in programma: «Com'è andata» si compila dopo, ma si può aprire
+    // una data in programma: «Com'è andata» resta in fondo, sempre aperta
     await d.locator('input[name="artist"]').fill("Canarino Nuovo");
     await d.locator('input[name="date"]').fill("2027-01-15");
     await expect(d.getByText("in programma", { exact: true })).toBeVisible();
-    await expect(d.getByText("Si compila dopo la serata.")).toBeVisible();
-    await expect(d.locator('input[name="voto"][value="5"]')).toBeHidden();
-    await d.getByRole("button", { name: "Compila adesso" }).click();
+    await expect(d.locator('input[name="voto"][value="5"]')).toBeVisible();
+    // niente scroll orizzontale nel pannello (il selettore di data nativo non lo allarga)
+    expect(await d.locator(".mf-pannello-corpo").evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await d.locator('input[name="voto"][value="5"]').check();
     await expect(d.locator('input[name="voto"][value="5"]')).toBeChecked();
     // «Togli» sparisce col voto: il focus passa alla prima stella, non si perde
@@ -243,6 +244,16 @@ test.describe("#concerti: elenco e modulo", { tag: "@sessione" }, () => {
     await expect(d.locator('input[name="artist"]')).toHaveValue("Canarino Nuovo");
     await expect(d.locator('input[name="date"]')).toHaveValue("2027-01-15");
     await expect(d.locator('input[name="voto"][value="5"]')).toBeChecked();
+
+    // il biglietto: prima la scelta, poi il prezzo o chi l'ha regalato
+    const biglietto = d.getByRole("combobox", { name: "Biglietto" });
+    await expect(biglietto).toHaveValue("prezzo");
+    await expect(d.getByLabel("Prezzo (€)")).toBeVisible();
+    await biglietto.selectOption({ label: "Regalato" });
+    await expect(d.getByRole("combobox", { name: "Regalato da" })).toBeVisible();
+    await expect(d.getByLabel("Prezzo (€)")).toHaveCount(0);
+    await biglietto.selectOption({ label: "Non ricordo il prezzo" });
+    await expect(d.getByRole("combobox", { name: "Regalato da" })).toHaveCount(0);
 
     await d.getByRole("button", { name: "Salva", exact: true }).click();
     await avviso(page, "Concerto aggiunto: i km arrivano quando la partenza ha un indirizzo.");

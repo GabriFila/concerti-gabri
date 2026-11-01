@@ -29,7 +29,7 @@ import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
 import { getOwned, type Owner } from "./lib/owner.ts";
 import {
-  caricaRefs, campiDaInput, esterno, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, type Refs,
+  caricaRefs, campiDaInput, esterno, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, venuesOf, type Refs,
 } from "./lib/refs.ts";
 import { venueOCrea } from "./lib/venueUtente.ts";
 
@@ -188,16 +188,17 @@ export const remove = ownerMutation({
 });
 
 /**
- * #concerti: le venue del catalogo condiviso, per scegliere quella del
- * concerto nel modale (nome e città; le coordinate restano alla mappa
- * pubblica). Una venue nuova nasce al salvataggio col nome scritto
- * (lib/venueUtente.ts), oppure da geo.searchVenue → venues.createFromCandidate.
+ * #concerti: le venue del proprietario (ognuno ha le sue), per scegliere
+ * quella del concerto nel modulo (nome e città; le coordinate restano alla
+ * mappa pubblica). Una venue nuova nasce da geo.searchVenue (o
+ * geo.cercaIndirizzoVenue) → venues.createFromCandidate, oppure al
+ * salvataggio col nome scritto (lib/venueUtente.ts).
  */
 export const venueCatalogo = ownerQuery({
-  dashboardOnly: "modale dei concerti: elenco del catalogo venue (gli agenti usano search_venue)",
+  dashboardOnly: "modulo dei concerti: elenco delle venue del proprietario (gli agenti usano search_venue)",
   input: nessunInput,
-  handler: async ctx => ({
-    venues: (await ctx.db.query("venues").take(5000))
+  handler: async (ctx, owner) => ({
+    venues: (await venuesOf(ctx, owner.profile._id))
       .map(v => ({ id: v._id as string, name: v.name, city: v.city }))
       .sort((a, b) => a.name.localeCompare(b.name, "it") || a.city.localeCompare(b.city, "it")),
   }),

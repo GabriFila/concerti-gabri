@@ -44,7 +44,7 @@ import { Pannello } from "../ui/Pannello.tsx";
 import { useScrittura, useToast, type AzioneToast } from "../ui/Toast.tsx";
 import { useVista } from "../useVista.ts";
 import { useNomi } from "./campiConcerto.tsx";
-import { CampiConcerto, CampiFestival, ProviderModulo, SaltiModulo, ScegliTipo, type ContestoModulo, type FormEvento } from "./ConcertoForm.tsx";
+import { CampiConcerto, CampiFestival, ProviderModulo, ScegliTipo, type ContestoModulo, type FormEvento } from "./ConcertoForm.tsx";
 import { Conferma, Errore, useConvex } from "./comuni.tsx";
 import {
   campiMancanti, campoDaServer, chiaveNome, daConcertoAFestival, daFestivalAConcerto, eFestival, eValoriFestival, erroriSchema, etichettaCampo,
@@ -291,7 +291,6 @@ function ModuloEvento(p: PropsModulo) {
   const { op, nomi, salva } = useSalvaEvento(t.etichetta, !base, daWishlist);
   const prefisso = `mf${useId().replace(/[^A-Za-z0-9]/g, "")}`;
   const [oggi] = useState(() => todayKey(Date.now()));
-  const [andataAperta, setAndataAperta] = useState(false);
   const [setAperti, setSetAperti] = useState<ReadonlySet<number>>(() => {
     const n = eValoriFestival(p.iniziali) ? p.iniziali.concerts.length : 0;
     return new Set(n <= 3 ? Array.from({ length: n }, (_, i) => i) : []);
@@ -302,15 +301,13 @@ function ModuloEvento(p: PropsModulo) {
   const salvando = useRef(false);
   const conProssimo = !!coda?.prossimo && !scheda;
 
-  const espandi = useCallback((k: "andata" | number, aperto: boolean) => {
-    if (k === "andata") setAndataAperta(aperto);
-    else
-      setSetAperti(s => {
-        const n = new Set(s);
-        if (aperto) n.add(k);
-        else n.delete(k);
-        return n;
-      });
+  const espandi = useCallback((k: number, aperto: boolean) => {
+    setSetAperti(s => {
+      const n = new Set(s);
+      if (aperto) n.add(k);
+      else n.delete(k);
+      return n;
+    });
   }, []);
   const scambia = useCallback((i: number, j: number) => {
     setSetAperti(s => {
@@ -331,7 +328,6 @@ function ModuloEvento(p: PropsModulo) {
   const vaiAlCampo = useCallback((campo: string) => {
     const set = /^concerts\[(\d+)\]/.exec(campo);
     if (set) espandi(Number(set[1]), true);
-    if (/(^|\.)(voto|vicinanza|canzoniNote)$/.test(campo)) setAndataAperta(true);
     dopoIlRender(() => focusCampo(campo));
   }, [espandi]);
 
@@ -437,9 +433,9 @@ function ModuloEvento(p: PropsModulo) {
         ]
       : [];
 
-  const testa = (
+  // senza avvisi niente fascia in testa
+  const testa = !p.sparito && !conflitto && !riepilogo.length ? null : (
     <>
-      <SaltiModulo festival={festival} prefisso={prefisso} mancanti={mancanti} />
       {p.sparito && (
         <p className="mod-attenzione mf-avviso-pannello" role="status">
           {festival ? "Questo festival non c'è più." : "Questo concerto non c'è più."}
@@ -497,7 +493,6 @@ function ModuloEvento(p: PropsModulo) {
     mancanti,
     evidenzia: new Set(apertura?.evidenzia ?? []),
     erroreServer: campoErrore && op.errore ? { campo: campoErrore, errore: op.errore } : null,
-    andataAperta,
     setAperti,
     espandi,
     scambia,

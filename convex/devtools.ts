@@ -14,7 +14,7 @@ import { logActivity } from "./lib/activity.ts";
 import { internalAction, internalMutation, internalQuery } from "./lib/builders.ts";
 import { parseInput } from "./lib/errors.ts";
 import { campiKm, cancellaCoppieDelProfilo } from "./lib/km.ts";
-import { caricaRefs, campiDaInput } from "./lib/refs.ts";
+import { caricaRefs, campiDaInput, chiave, venuePerNome } from "./lib/refs.ts";
 
 /** Il deployment di produzione (mai devtools né OTP di sviluppo lì). */
 export const PROD_DEPLOYMENT = "brave-chickadee-534";
@@ -29,6 +29,22 @@ async function profiloPerHandle(ctx: MutationCtx, handle: string) {
   const p = await ctx.db.query("profiles").withIndex("by_handle", q => q.eq("handle", handle)).first();
   if (!p) throw new Error("devtools: profilo inesistente");
   return p;
+}
+
+/**
+ * Ogni profilo ha le sue venue: per un concerto di prova il profilo riceve una
+ * copia (con le coordinate) di una venue con lo stesso nome e città di un
+ * altro profilo, di solito una del seed di gabrifila.
+ */
+async function venueDiProva(ctx: MutationCtx, profileId: Id<"profiles">, input: { venue: string; city: string }) {
+  if (await venuePerNome(ctx, profileId, input.venue, input.city)) return;
+  const altra = await ctx.db.query("venues").withIndex("by_key", q => q.eq("nameKey", chiave(input.venue)).eq("cityKey", chiave(input.city))).first();
+  if (!altra) return; // campiDaInput dirà che non c'è
+  const { _id, _creationTime, createdBy, ...copia } = altra;
+  void _id;
+  void _creationTime;
+  void createdBy;
+  await ctx.db.insert("venues", { ...copia, profileId });
 }
 
 export const whoami = internalQuery({
@@ -47,6 +63,7 @@ export const addEntry = internalMutation({
     guardiaSviluppo();
     const profile = await profiloPerHandle(ctx, handle);
     const input = parseInput(entryInput, entry);
+    await venueDiProva(ctx, profile._id, input);
     const campi = await campiDaInput(ctx, await caricaRefs(ctx, profile._id), input);
     const km = await campiKm(ctx, { profileId: profile._id, departureId: campi.departureId, venueId: campi.venueId });
     const doc = Object.fromEntries(Object.entries({ ...campi, ...km, profileId: profile._id, updatedAt: Date.now() }).filter(([, x]) => x !== undefined));
@@ -239,7 +256,9 @@ export const preparaProfiloDiProva = internalMutation({
       for (const d of await ctx.db.query("activity").withIndex("by_profile_at", q => q.eq("profileId", profileId)).collect()) await ctx.db.delete(d._id);
       const refs = await caricaRefs(ctx, profileId);
       for (const entry of a.concerti) {
-        const campi = await campiDaInput(ctx, refs, parseInput(entryInput, entry));
+        const input = parseInput(entryInput, entry);
+        await venueDiProva(ctx, profileId, input);
+        const campi = await campiDaInput(ctx, refs, input);
         const km = await campiKm(ctx, { profileId, departureId: campi.departureId, venueId: campi.venueId });
         const doc = Object.fromEntries(Object.entries({ ...campi, ...km, profileId, updatedAt: Date.now() }).filter(([, x]) => x !== undefined));
         await ctx.db.insert("entries", doc as never);

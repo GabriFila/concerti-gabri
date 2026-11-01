@@ -139,8 +139,7 @@ export function ImportUpload({ contesto, onImportato }: ImportUploadProps) {
           {stato.fase === "leggo" && <span className="ag-attesa" aria-busy="true">Controllo {stato.nome}…</span>}
         </div>
         <p className="ag-hint">
-          Le venue devono essere già nel catalogo (si cercano da #concerti) e le partenze già create; compagni e "regalato da"
-          nuovi nascono con l'import. {REGOLA_SOPRANNOMI}.
+          Le partenze devono essere già create; compagni, "regalato da" e venue nuovi nascono con l'import. {REGOLA_SOPRANNOMI}.
         </p>
         {contesto === "agenti" && <FormatoFile />}
         {stato.fase === "vuoto" && <Errore errore={stato.errore} />}
@@ -202,7 +201,7 @@ function RiquadroAnteprima({ stato, onImporta, onNo, onLascia }: {
           {a.nuoviRegali.length > 0 && <p className="ag-hint">"Regalato da" nuovi ({a.nuoviRegali.length}): {a.nuoviRegali.join(", ")}.</p>}
           {a.nuoveVenue.length > 0 && (
             <p className="ag-hint">
-              Venue nuove ({a.nuoveVenue.length}): {a.nuoveVenue.join(", ")}. Si aggiungono al catalogo condiviso; la posizione la cerchiamo su OpenStreetMap.
+              Venue nuove ({a.nuoveVenue.length}): {a.nuoveVenue.join(", ")}. Si aggiungono alle tue venue; la posizione la cerchiamo su OpenStreetMap.
             </p>
           )}
           {conferma ? (

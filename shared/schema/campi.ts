@@ -85,7 +85,7 @@ export const nomePersona = z
   .max(40)
   .describe(`Nome di un compagno di concerto. ${REGOLA_SOPRANNOMI}`);
 
-export const artista = z.string().trim().min(1).max(120).describe("Nome dell'artista o del gruppo, come in locandina");
+export const artista = z.string().trim().min(1).max(120).describe("Nome dell'artista o del gruppo");
 export const nomeFestival = z.string().trim().min(1).max(120).describe('Nome del festival, es. "MI AMI 2026"');
 export const nomeVenue = z.string().trim().min(1).max(120).describe("Nome del locale, teatro, stadio o festival dove si è suonato");
 export const nomeCitta = z.string().trim().min(1).max(80).describe("Città della venue");

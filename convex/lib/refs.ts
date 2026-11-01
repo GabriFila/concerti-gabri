@@ -3,8 +3,9 @@
    venue e "regalato da" sono id; gli input esterni (MCP, import, Oracolo,
    form) usano i nomi, tradotti qui da un unico `resolveRefs`. Un nome
    sconosciuto dà un errore con l'elenco dei nomi VALIDI (mai il valore
-   ricevuto). Le venue no: con un autore, una venue che non è nel catalogo
-   nasce col nome scritto (lib/venueUtente.ts).
+   ricevuto). Le venue no: con un autore, una venue che non è tra quelle
+   del profilo nasce col nome scritto (lib/venueUtente.ts). Ogni profilo ha
+   le sue venue: si cercano sempre per (profilo, nome, città).
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc, Id } from "../_generated/dataModel";
@@ -36,11 +37,21 @@ export async function giftersOf(ctx: Ctx, profileId: Id<"profiles">) {
   return await ctx.db.query("gifters").withIndex("by_profile", q => q.eq("profileId", profileId)).collect();
 }
 
-export async function venuePerNome(ctx: Ctx, name: string, city: string) {
-  return await ctx.db.query("venues").withIndex("by_key", q => q.eq("nameKey", chiave(name)).eq("cityKey", chiave(city))).first();
+/** La venue di questo profilo con questo nome e città (senza maiuscole e accenti). */
+export async function venuePerNome(ctx: Ctx, profileId: Id<"profiles">, name: string, city: string) {
+  return await ctx.db
+    .query("venues")
+    .withIndex("by_profile_key", q => q.eq("profileId", profileId).eq("nameKey", chiave(name)).eq("cityKey", chiave(city)))
+    .first();
+}
+
+/** Le venue di un profilo. */
+export async function venuesOf(ctx: Ctx, profileId: Id<"profiles">) {
+  return await ctx.db.query("venues").withIndex("by_profile_key", q => q.eq("profileId", profileId)).collect();
 }
 
 export interface Refs {
+  profileId: Id<"profiles">;
   people: Map<string, Id<"people">>;
   departures: Map<string, Id<"departures">>;
   gifters: Map<string, Id<"gifters">>;
@@ -52,6 +63,7 @@ export interface Refs {
 export async function caricaRefs(ctx: Ctx, profileId: Id<"profiles">): Promise<Refs> {
   const [people, deps, gifts] = await Promise.all([peopleOf(ctx, profileId), departuresOf(ctx, profileId), giftersOf(ctx, profileId)]);
   return {
+    profileId,
     people: new Map(people.map(p => [chiave(p.name), p._id])),
     departures: new Map(deps.map(d => [chiave(d.name), d._id])),
     gifters: new Map(gifts.map(g => [chiave(g.label), g._id])),
@@ -83,9 +95,9 @@ export function regaloDa(refs: Refs, label: string): Id<"gifters"> {
   return id;
 }
 
-export async function venueDa(ctx: Ctx, name: string, city: string): Promise<Id<"venues">> {
-  const v = await venuePerNome(ctx, name, city);
-  if (!v) throw errore("nome_sconosciuto", "venue: non è nel catalogo; cercala con search_venue e aggiungila con add_venue, poi usa il nome e la città con cui compare nel catalogo", { campo: "venue" });
+export async function venueDa(ctx: Ctx, profileId: Id<"profiles">, name: string, city: string): Promise<Id<"venues">> {
+  const v = await venuePerNome(ctx, profileId, name, city);
+  if (!v) throw errore("nome_sconosciuto", "venue: non è tra le tue venue; cercala con search_venue e aggiungila con add_venue, poi usa il nome e la città con cui compare", { campo: "venue" });
   return v._id;
 }
 
@@ -103,7 +115,7 @@ export const nuovoCid = () => `c${Date.now().toString(36)}${(cidSeq++ % 1296).to
  * Con `autore` una venue fuori catalogo nasce (venueOCrea); senza, è un errore.
  */
 export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInput, autore?: AutoreLotto) {
-  const venueId = autore ? await venueOCrea(ctx, autore, input.venue, input.city) : await venueDa(ctx, input.venue, input.city);
+  const venueId = autore ? await venueOCrea(ctx, autore, input.venue, input.city) : await venueDa(ctx, refs.profileId, input.venue, input.city);
   const base = {
     date: input.date,
     ...tempoDi(input.date),

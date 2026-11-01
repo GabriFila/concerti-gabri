@@ -142,7 +142,7 @@ describe("venues.createFromCandidate: solo candidati emessi dal server", () => {
     expect(await t.run(async ctx => (await ctx.db.query("venues").collect()).length)).toBe(0);
   });
 
-  it("coordinate, osm e città vengono dalla cache: nessuno occupa un id OSM o un nome+città con coordinate sue", async () => {
+  it("coordinate, osm e città vengono dalla cache; ognuno ha le sue venue", async () => {
     finto([[POI]]);
     const t = setup();
     const a = await conProfilo(t, "u-a", "utente-a");
@@ -151,65 +151,88 @@ describe("venues.createFromCandidate: solo candidati emessi dal server", () => {
     const [c] = r.candidati;
     expect(c.ref).toMatch(/^[A-Za-z0-9]+:0$/);
     const creata = await a.as.mutation(api.venues.createFromCandidate, { input: { ref: c.ref } });
-    expect(creata.esistente).toBe(false);
+    expect(creata).toMatchObject({ esistente: false, name: "Unipol Forum", city: "Assago" });
     const v = await t.run(async ctx => (await ctx.db.query("venues").collect())[0]);
-    expect(v).toMatchObject({ name: "Unipol Forum", city: "Assago", osm: "W26626007", lng: 9.1422, lat: 45.4014, source: "osm" });
-    // B con lo stesso candidato ritrova la stessa venue
+    expect(v).toMatchObject({ profileId: a.profileId, name: "Unipol Forum", city: "Assago", osm: "W26626007", lng: 9.1422, lat: 45.4014, source: "osm" });
+    // A con lo stesso candidato ritrova la sua (per id OSM), anche con un altro nome
+    expect(await a.as.mutation(api.venues.createFromCandidate, { input: { ref: c.ref, name: "Il Forum" } })).toMatchObject({ id: creata.id, esistente: true });
+    // B ha la sua, mai quella di A; e search_venue non gli mostra le venue di A
     const r2 = await b.as.action(api.geo.searchVenue, { input: { query: "Forum di Assago" } });
-    expect(await b.as.mutation(api.venues.createFromCandidate, { input: { ref: r2.candidati[0].ref } })).toEqual({ id: creata.id, esistente: true });
+    expect(r2.catalogo).toEqual([]);
+    const di_b = await b.as.mutation(api.venues.createFromCandidate, { input: { ref: r2.candidati[0].ref } });
+    expect(di_b).toMatchObject({ esistente: false });
+    expect(di_b.id).not.toBe(creata.id);
+    expect((await a.as.query(api.entries.venueCatalogo, {})).venues.map(x => x.id)).toEqual([creata.id]);
+    expect((await b.as.query(api.entries.venueCatalogo, {})).venues.map(x => x.id)).toEqual([di_b.id]);
     const tutte = JSON.stringify(await t.run(async ctx => await ctx.db.query("venues").collect()));
     expect(tutte).not.toContain("8.9345");
     expect(tutte).not.toContain("44.4123");
   });
 
-  it("nome+città occupato da un altro punto: chi aggiunge la venue vera non riceve mai quella dell'altro", async () => {
-    // B prova a chiamare "Arena del Mare" un bar a 120 m dal canarino (la casa di A)
+  it("il nome lo sceglie il proprietario (mai un indirizzo); un'omonima sua in un altro punto è un conflitto", async () => {
     const BAR = { ...POI, lat: "44.4133", lon: "8.9351", display_name: "Bar Vicino, Genova", name: "Bar Vicino", osm_id: 111, address: { city: "Genova" } };
     const ARENA = { ...POI, lat: "44.4089", lon: "8.9263", display_name: "Arena del Mare, Porto Antico, Genova", name: "Arena del Mare", osm_id: 222, address: { city: "Genova" } };
-    const GENOVA = { ...CITTA, lat: "44.4073", lon: "8.9339", display_name: "Genova, Liguria, Italia", name: "Genova", osm_id: 44, addresstype: "city", address: { city: "Genova" } };
     const t = setup();
     const a = await conProfilo(t, "u-a", "utente-a");
     const b = await conProfilo(t, "u-b", "utente-b");
     const venues = () => t.run(async ctx => await ctx.db.query("venues").collect());
 
-    // 1. un POI tiene il suo nome: niente "Arena del Mare" sulle coordinate del bar
+    // B chiama "Arena del Mare" il bar: è affar suo, sta solo tra le sue venue
     finto([[BAR]]);
     const bar = (await b.as.action(api.geo.searchVenue, { input: { query: "bar vicino genova" } })).candidati[0];
-    expect(await codice(b.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Arena del Mare" } }))).toBe("input_non_valido");
-    // nemmeno travestito da dettaglio, se non c'è un'omonima da distinguere
-    expect(await codice(b.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Bar Vicino (Arena del Mare)" } }))).toBe("input_non_valido");
-    expect(await venues()).toEqual([]);
+    const sua = await b.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Arena del Mare" } });
+    expect(sua).toMatchObject({ esistente: false, name: "Arena del Mare", city: "Genova" });
+    // un indirizzo col numero civico no: la pagina è pubblica
+    expect(await codice(b.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Via dei Canarini 7" } }))).toBe("input_non_valido");
 
-    // 2. il ripiego sulla città si può chiamare come si vuole, ma sta sul centro abitato
-    finto([[], [GENOVA]]);
-    const citta = (await b.as.action(api.geo.searchVenue, { input: { query: "genova" } })).candidati[0];
-    expect(citta.featureType).toBe("city");
-    const squat = await b.as.mutation(api.venues.createFromCandidate, { input: { ref: citta.ref, name: "Arena del Mare" } });
-    expect(squat.esistente).toBe(false);
-
-    // 3. A aggiunge l'Arena vera: conflitto, mai l'id di B
+    // A aggiunge l'Arena vera: la sua, sul punto giusto, mai quella di B
     finto([[ARENA]]);
     const vera = (await a.as.action(api.geo.searchVenue, { input: { query: "arena del mare genova" } })).candidati[0];
-    expect(await codice(a.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref } }))).toBe("conflitto");
-    // col dettaglio tra parentesi (ammesso perché l'omonima c'è davvero) A ha la sua venue, sul punto giusto
-    const propria = await a.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref, name: "Arena del Mare (Porto Antico)" } });
+    const propria = await a.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref } });
     expect(propria).toMatchObject({ esistente: false });
-    expect(propria.id).not.toBe(squat.id);
-    const v = (await venues()).find(x => x._id === propria.id);
-    expect(v).toMatchObject({ name: "Arena del Mare (Porto Antico)", city: "Genova", osm: "W222", lat: 44.4089, lng: 8.9263, source: "osm" });
-    // chi sceglie di nuovo lo stesso POI ritrova la venue di A (per id OSM)
-    expect(await b.as.mutation(api.venues.createFromCandidate, { input: { ref: vera.ref } })).toEqual({ id: propria.id, esistente: true });
+    expect(propria.id).not.toBe(sua.id);
+    expect((await venues()).find(x => x._id === propria.id)).toMatchObject({ profileId: a.profileId, name: "Arena del Mare", osm: "W222", lat: 44.4089, lng: 8.9263 });
+
+    // A chiama "Arena del Mare" anche il bar, a 700 m: conflitto con la sua omonima
+    expect(await codice(a.as.mutation(api.venues.createFromCandidate, { input: { ref: bar.ref, name: "Arena del Mare" } }))).toBe("conflitto");
   });
 
   it("un'omonima nello stesso punto (entro 300 m) è la stessa venue; un nome che differisce solo per maiuscole e accenti è ammesso", async () => {
     const t = setup();
     const a = await conProfilo(t, "u-a", "utente-a");
     // la venue del seed, ~100 m dal POI di OpenStreetMap
-    const seed = await venue(t, "Unipol Forum", "Assago", 9.1431, 45.4011);
+    const seed = await venue(t, "Unipol Forum", "Assago", 9.1431, 45.4011, a.profileId);
     finto([[POI]]);
     const c = (await a.as.action(api.geo.searchVenue, { input: { query: "Forum di Assago" } })).candidati[0];
-    expect(await a.as.mutation(api.venues.createFromCandidate, { input: { ref: c.ref, name: "UNIPOL forum" } })).toEqual({ id: seed, esistente: true });
+    expect(await a.as.mutation(api.venues.createFromCandidate, { input: { ref: c.ref, name: "UNIPOL forum" } })).toMatchObject({ id: seed, esistente: true });
     expect(await t.run(async ctx => (await ctx.db.query("venues").collect()).length)).toBe(1);
+  });
+
+  it("una venue nata per nome, ancora senza posizione, la prende dal candidato scelto", async () => {
+    finto([[POI]]);
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const id = await t.run(async ctx =>
+      ctx.db.insert("venues", { profileId: a.profileId, name: "Forum", city: "Assago", nameKey: "forum", cityKey: "assago", source: "utente", posizione: "attesa" }),
+    );
+    const c = (await a.as.action(api.geo.searchVenue, { input: { query: "Forum di Assago" } })).candidati[0];
+    expect(await a.as.mutation(api.venues.createFromCandidate, { input: { ref: c.ref, name: "Forum" } })).toMatchObject({ id, esistente: true, name: "Forum" });
+    expect(await t.run(async ctx => await ctx.db.get(id))).toMatchObject({ lng: 9.1422, lat: 45.4014, osm: "W26626007", posizione: "poi" });
+  });
+
+  it("per indirizzo: i punti di Nominatim con la città; la venue tiene il nome scritto (obbligatorio)", async () => {
+    const chiamate = finto([[CASA]]);
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const r = await a.as.action(api.geo.cercaIndirizzoVenue, { input: { address: "Via Roma 1, Assago" } });
+    expect(chiamate[0].url.searchParams.get("layer")).toBeNull();
+    expect(r.candidati).toEqual([expect.objectContaining({ featureType: "indirizzo", city: "Assago", lng: 9.14, lat: 45.4 })]);
+    expect(await codice(a.as.mutation(api.venues.createFromCandidate, { input: { ref: r.candidati[0].ref } }))).toBe("input_non_valido");
+    const creata = await a.as.mutation(api.venues.createFromCandidate, { input: { ref: r.candidati[0].ref, name: "Circolo Arci" } });
+    expect(creata).toMatchObject({ esistente: false, name: "Circolo Arci", city: "Assago" });
+    expect(await t.run(async ctx => await ctx.db.get(creata.id as never))).toMatchObject({ profileId: a.profileId, source: "indirizzo", lng: 9.14, lat: 45.4 });
+    // agli agenti no: la loro strada è search_venue
+    expect(await codice(a.as.action(api.geo.cercaIndirizzoVenue, { as: "oracolo", input: { address: "Via Roma 1, Assago" } }))).toBe("solo_dashboard");
   });
 
   it("indice fuori dai risultati → not_found", async () => {
@@ -234,7 +257,7 @@ describe("venues.createFromCandidate: solo candidati emessi dal server", () => {
       throw new Error("doveva fallire");
     } catch (e) {
       expect(codiceDi(e)).toBe("conflitto");
-      expect((e as { data: { messaggio: string } }).data.messaggio).toContain("catalogo condiviso");
+      expect((e as { data: { messaggio: string } }).data.messaggio).toContain("aggiunta di una venue");
     }
   });
 });

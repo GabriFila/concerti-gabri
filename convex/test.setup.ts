@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 /* Il backend finto dei test (convex-test) con i componenti registrati.
    Il nome ha due punti: la CLI Convex non lo pubblica. */
+import type { Id } from "./_generated/dataModel";
 import { convexTest } from "convex-test";
 import rateLimiter from "@convex-dev/rate-limiter/test";
 import { components } from "./_generated/api";
@@ -51,8 +52,17 @@ export async function conProfilo(t: T, user: string, handle: string, extra: Reco
   return { profileId, as: (await sessione(t, user)).as };
 }
 
-/** Una venue nel catalogo. */
-export async function venue(t: T, name: string, city: string, lng: number, lat: number) {
+/**
+ * Una venue con le coordinate: del profilo indicato, oppure (senza) una copia per ogni profilo che
+ * c'è già (ognuno ha le sue venue); restituisce l'id della prima.
+ */
+export async function venue(t: T, name: string, city: string, lng: number, lat: number, profileId?: Id<"profiles">) {
   const k = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-  return await t.run(async ctx => ctx.db.insert("venues", { name, city, nameKey: k(name), cityKey: k(city), lng, lat, source: "seed" }));
+  return await t.run(async ctx => {
+    const profili = profileId ? [profileId] : (await ctx.db.query("profiles").collect()).map(p => p._id);
+    const ids = [];
+    for (const p of profili) ids.push(await ctx.db.insert("venues", { profileId: p, name, city, nameKey: k(name), cityKey: k(city), lng, lat, source: "seed" }));
+    if (!ids.length) throw new Error("test: venue() senza profili; crea prima il profilo o passa profileId");
+    return ids[0];
+  });
 }

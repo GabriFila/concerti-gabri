@@ -1,20 +1,21 @@
 /* ──────────────────────────────────────────────────────────────
    I campi del form di un concerto o di un festival (#concerti, spec
    ux-modifica §6.2), dentro il pannello di ConcertoPannello.tsx. Il form
-   è diviso in parti con la loro legenda, raggiungibili dai salti nella
-   testa del pannello:
+   è diviso in parti con la loro legenda, una sotto l'altra:
    - «La serata»: artista, data (con «in programma»), venue, con chi; per
-     un festival nome, data (anche più giorni) e venue;
-   - «Com'è andata»: voto, posizione e canzoni note a pastiglie (radio
-     veri, CampoSegmenti, con i nomi di sempre: `voto`, `vicinanza`,
-     `canzoniNote`, `concerts[i].voto`…); per un festival le schede dei
-     suoi concerti, ognuna con artista, giorno, compagni e voti;
-   - «Biglietto», «Viaggio», «Commento».
+     un festival nome, data (anche più giorni) e venue, poi «Concerti del
+     festival»: le schede dei suoi concerti, ognuna con artista, giorno,
+     compagni e voti;
+   - «Biglietto»: prima com'è andata col biglietto (non ricordo il prezzo,
+     ricordo il prezzo, accredito, regalato), poi il prezzo o chi l'ha
+     regalato;
+   - «Com'è andata», in fondo e sempre aperta: voto, posizione e canzoni
+     note a pastiglie (radio veri, CampoSegmenti, con i nomi di sempre:
+     `voto`, `vicinanza`, `canzoniNote`, `concerts[i].voto`…; per un
+     festival stanno nelle schede dei concerti), «Partito da» e il commento.
 
-   - Con la data in programma «Com'è andata» si chiude in «Si compila
-     dopo la serata.» + «Compila adesso»: i campi restano montati,
-     nascosti. A un evento passato a cui manca qualcosa la parte si segna
-     in ambra con «Mancano: …».
+   - A un evento passato a cui manca qualcosa la parte si segna in ambra
+     con «Mancano: …».
    - Un festival con più di tre concerti li mostra chiusi (si aprono uno a
      uno, e da soli se hanno un errore); i campi restano montati.
    - Scorciatoie a un tocco: «Usate di recente» per la venue, «Frequenti»
@@ -72,15 +73,13 @@ export interface ContestoModulo {
   evidenzia: ReadonlySet<string>;
   /** L'errore del server sul suo campo (campoDaServer), se ce n'è uno. */
   erroreServer: { campo: string; errore: ErroreUi } | null;
-  /** «Com'è andata» aperta anche con la data in programma. */
-  andataAperta: boolean;
   /** I concerti del festival aperti (per indice). */
   setAperti: ReadonlySet<number>;
-  espandi: (k: "andata" | number, aperto: boolean) => void;
+  espandi: (k: number, aperto: boolean) => void;
   /** Le schede aperte seguono i concerti spostati o tolti. */
   scambia: (i: number, j: number) => void;
   rimuovi: (i: number) => void;
-  /** Il prefisso degli id delle parti (i salti della testa). */
+  /** Il prefisso degli id delle parti. */
   prefisso: string;
   /** Dove va il focus all'apertura: il primo campo (nuovo), il tipo (dopo un cambio di tipo), niente. */
   autofocus: "campo" | "tipo" | null;
@@ -96,53 +95,7 @@ function useModulo(): ContestoModulo {
   return m;
 }
 
-/* ── le parti e i salti ───────────────────────────────────────── */
-
-const PARTI_CONCERTO = [
-  { id: "serata", testo: "La serata" },
-  { id: "andata", testo: "Com'è andata" },
-  { id: "biglietto", testo: "Biglietto" },
-  { id: "viaggio", testo: "Viaggio" },
-  { id: "commento", testo: "Commento" },
-] as const;
-const PARTI_FESTIVAL = [
-  { id: "serata", testo: "La serata" },
-  { id: "concerti", testo: "Concerti" },
-  { id: "biglietto", testo: "Biglietto" },
-  { id: "viaggio", testo: "Viaggio" },
-  { id: "commento", testo: "Commento" },
-] as const;
-
-/** Una parte del form manca di qualcosa (il punto ambra del suo salto). */
-const mancaNellaParte = (parte: string, mancanti: string[]) =>
-  parte === "andata"
-    ? mancanti.some(c => c === "voto" || c === "vicinanza" || c === "canzoniNote")
-    : parte === "concerti"
-      ? mancanti.some(c => c.startsWith("concerts["))
-      : parte === "viaggio" && mancanti.includes("from");
-
-/** Porta a una parte del form: scorre il pannello fin lì e ci mette il focus. */
-function vaiAllaParte(id: string) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const lento = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  el.scrollIntoView({ block: "start", behavior: lento ? "smooth" : "auto" });
-  el.focus({ preventScroll: true });
-}
-
-/** I salti alle parti del form, nella testa del pannello; un punto ambra dove manca qualcosa. */
-export function SaltiModulo({ festival, prefisso, mancanti }: { festival: boolean; prefisso: string; mancanti: string[] }) {
-  return (
-    <nav className="mf-salti" aria-label="Parti del modulo">
-      {(festival ? PARTI_FESTIVAL : PARTI_CONCERTO).map(p => (
-        <button key={p.id} type="button" className="mf-salto" onClick={() => vaiAllaParte(`${prefisso}-${p.id}`)}>
-          {p.testo}
-          {mancaNellaParte(p.id, mancanti) && <span className="mf-salto-punto" role="img" aria-label="manca qualcosa" />}
-        </button>
-      ))}
-    </nav>
-  );
-}
+/* ── il tipo ──────────────────────────────────────────────────── */
 
 /** Concerto o festival, solo in un form nuovo che non arriva dal ponte: i valori passano dall'uno all'altro. */
 export function ScegliTipo({ festival, autofocus, onTipo }: { festival: boolean; autofocus: boolean; onTipo: (t: "concert" | "festival") => void }) {
@@ -163,7 +116,7 @@ export function ScegliTipo({ festival, autofocus, onTipo }: { festival: boolean;
 
 /* ── pezzi ────────────────────────────────────────────────────── */
 
-/** Una parte del form: fieldset con la legenda, raggiungibile dai salti. */
+/** Una parte del form: fieldset con la legenda. */
 function Parte({ id, titolo, mancano, segno, children }: { id: string; titolo: string; mancano?: boolean; segno?: ReactNode; children: ReactNode }) {
   const m = useModulo();
   return (
@@ -216,32 +169,6 @@ function Voti({ prefisso }: { prefisso: string }) {
       <form.Field name={`${prefisso}vicinanza`}>{(f: AnyFieldApi) => <CampoSegmenti f={f} legenda="Posizione" opzioni={OPZ_VIC} segno={<Segno campo={f.name} />} />}</form.Field>
       <form.Field name={`${prefisso}canzoniNote`}>{(f: AnyFieldApi) => <CampoSegmenti f={f} legenda="Canzoni note" opzioni={OPZ_CN} segno={<Segno campo={f.name} />} />}</form.Field>
     </div>
-  );
-}
-
-/**
- * I voti di una serata ancora in programma: chiusi in «Si compila dopo la
- * serata.» finché non si chiede «Compila adesso» (i campi restano montati).
- */
-function DopoLaSerata({ id, chiusa, children }: { id: string; chiusa: boolean; children: ReactNode }) {
-  const m = useModulo();
-  const apri = () => {
-    m.espandi("andata", true);
-    // il pulsante sparisce: il focus va alla prima scelta
-    setTimeout(() => document.getElementById(id)?.querySelector<HTMLElement>("input")?.focus(), 0);
-  };
-  return (
-    <>
-      {chiusa && (
-        <div className="mf-dopo">
-          <p>Si compila dopo la serata.</p>
-          <button type="button" className="mod-btn" onClick={apri}>Compila adesso</button>
-        </div>
-      )}
-      <div id={id} className="mf-andata" hidden={chiusa}>
-        {children}
-      </div>
-    </>
   );
 }
 
@@ -307,17 +234,16 @@ function SerataConcerto() {
   );
 }
 
+/** «Com'è andata», in fondo: i voti (solo di un concerto: quelli del festival sono nelle sue schede), la partenza, il commento. */
 function ComEAndata() {
   const m = useModulo();
-  const v = m.valori as ValoriConcerto;
-  const mancano = m.mancanti.filter(c => c === "voto" || c === "vicinanza" || c === "canzoniNote");
-  const chiusa = m.inProgramma && !m.andataAperta && v.voto === undefined && v.vicinanza === undefined && v.canzoniNote === undefined;
+  const mancano = m.mancanti.filter(c => c === "voto" || c === "vicinanza" || c === "canzoniNote" || c === "from");
   return (
     <Parte id="andata" titolo="Com'è andata" mancano={mancano.length > 0}>
-      {!chiusa && <Mancano campi={mancano} />}
-      <DopoLaSerata id={`${m.prefisso}-voti`} chiusa={chiusa}>
-        <Voti prefisso="" />
-      </DopoLaSerata>
+      <Mancano campi={mancano} />
+      {!m.festival && <Voti prefisso="" />}
+      <m.form.Field name="from">{(f: AnyFieldApi) => <CampoPartenza f={f} />}</m.form.Field>
+      <m.form.Field name="comments">{(f: AnyFieldApi) => <CampoCommento f={f} />}</m.form.Field>
     </Parte>
   );
 }
@@ -359,7 +285,6 @@ function SetFestival({ f, i }: { f: AnyFieldApi; i: number }) {
   const aperto = m.setAperti.has(i);
   const idCorpo = `${m.prefisso}-set-${i}`;
   const mancano = m.mancanti.filter(c => c.startsWith(`concerts[${i}].`));
-  const chiusa = m.inProgramma && !m.andataAperta && s.voto === undefined && s.vicinanza === undefined && s.canzoniNote === undefined;
   const sposta = (j: number) => {
     f.moveValue(i, j);
     m.scambia(i, j);
@@ -399,10 +324,8 @@ function SetFestival({ f, i }: { f: AnyFieldApi; i: number }) {
           <form.Field name={`concerts[${i}].date`}>{(c: AnyFieldApi) => <CampoTesto f={c} etichetta="Giorno (se diverso)" tipo="date" segno={<Segno campo={c.name} />} />}</form.Field>
         </div>
         <form.Field name={`concerts[${i}].with`}>{(c: AnyFieldApi) => <CampoCompagni f={c} />}</form.Field>
-        {!chiusa && <Mancano campi={mancano} />}
-        <DopoLaSerata id={`${idCorpo}-voti`} chiusa={chiusa}>
-          <Voti prefisso={`concerts[${i}].`} />
-        </DopoLaSerata>
+        <Mancano campi={mancano} />
+        <Voti prefisso={`concerts[${i}].`} />
       </div>
     </li>
   );
@@ -442,17 +365,7 @@ function ConcertiFestival() {
   );
 }
 
-/* ── biglietto, viaggio, commento (concerti e festival) ───────── */
-
-function Spunta({ f, testo, titolo }: { f: AnyFieldApi; testo: string; titolo?: string }) {
-  return (
-    <label className="mod-spunta" title={titolo}>
-      <input type="checkbox" name={f.name} checked={!!f.state.value} onChange={e => f.handleChange(e.target.checked)} />
-      {testo}
-      <Segno campo={f.name} />
-    </label>
-  );
-}
+/* ── biglietto, partenza, commento (concerti e festival) ──────── */
 
 /** «Regalato da»: i "regalato da" della pagina (uno nuovo della scheda dell'Oracolo resta tra le scelte). */
 function CampoRegalo({ f }: { f: AnyFieldApi }) {
@@ -481,22 +394,49 @@ function CampoRegalo({ f }: { f: AnyFieldApi }) {
   );
 }
 
+/** Com'è andata col biglietto: sceglie quali campi contano (cost, gift/giftFrom, accredito) e svuota gli altri. */
+type ModoBiglietto = "nonRicordo" | "prezzo" | "accredito" | "regalato";
+const MODI_BIGLIETTO: { modo: ModoBiglietto; testo: string }[] = [
+  { modo: "nonRicordo", testo: "Non ricordo il prezzo" },
+  { modo: "prezzo", testo: "Ricordo il prezzo" },
+  { modo: "accredito", testo: "Accredito" },
+  { modo: "regalato", testo: "Regalato" },
+];
+const modoBiglietto = (v: { cost?: number | "na"; gift: boolean; accredito: boolean }): ModoBiglietto =>
+  v.gift ? "regalato" : v.accredito ? "accredito" : v.cost === "na" ? "nonRicordo" : "prezzo";
+
 function Biglietto() {
   const m = useModulo();
   const { form } = m;
+  // non `${prefisso}-biglietto`: quello è l'id della parte (il fieldset)
+  const id = `${m.prefisso}-modo-biglietto`;
+  const modo = modoBiglietto(m.valori);
+  const scegli = (nuovo: ModoBiglietto) => {
+    const costo = m.valori.cost;
+    form.setFieldValue("cost", nuovo === "nonRicordo" ? "na" : nuovo === "prezzo" && typeof costo === "number" ? costo : undefined);
+    form.setFieldValue("gift", nuovo === "regalato");
+    form.setFieldValue("accredito", nuovo === "accredito");
+    if (nuovo !== "regalato") form.setFieldValue("giftFrom", "");
+  };
   return (
     <Parte id="biglietto" titolo="Biglietto">
-      <form.Field name="cost">{(f: AnyFieldApi) => <CampoCosto f={f} segno={<Segno campo="cost" />} />}</form.Field>
-      <div className="mod-riga mod-riga-spunte">
-        <form.Field name="gift">{(f: AnyFieldApi) => <Spunta f={f} testo="Regalato" />}</form.Field>
-        <form.Field name="accredito">{(f: AnyFieldApi) => <Spunta f={f} testo="Accredito o lista ospiti" titolo={descrizione(C.accredito)} />}</form.Field>
+      <div className="mod-campo" data-campo="biglietto">
+        {/* la legenda della parte dice già «Biglietto»: l'etichetta resta per lo screen reader */}
+        <label className="mf-sr" htmlFor={id}>Biglietto</label>
+        <Segno campo="gift" />
+        <Segno campo="accredito" />
+        <select id={id} value={modo} onChange={e => scegli(e.target.value as ModoBiglietto)}>
+          {MODI_BIGLIETTO.map(o => <option key={o.modo} value={o.modo}>{o.testo}</option>)}
+        </select>
+        {modo === "accredito" && <span className="mod-hint">{descrizione(C.accredito)}</span>}
       </div>
-      {m.valori.gift && <form.Field name="giftFrom">{(f: AnyFieldApi) => <CampoRegalo f={f} />}</form.Field>}
+      {modo === "prezzo" && <form.Field name="cost">{(f: AnyFieldApi) => <CampoCosto f={f} segno={<Segno campo="cost" />} />}</form.Field>}
+      {modo === "regalato" && <form.Field name="giftFrom">{(f: AnyFieldApi) => <CampoRegalo f={f} />}</form.Field>}
     </Parte>
   );
 }
 
-/** «Partito da»: mai precompilata; per un concerto nuovo la scorciatoia «Come l'ultimo: X». */
+/** «Partito da»: mai precompilata (vuota = «—»); per un concerto nuovo la scorciatoia «Come l'ultimo: X». */
 function CampoPartenza({ f }: { f: AnyFieldApi }) {
   const m = useModulo();
   const d = useDescrizione(f, true);
@@ -513,7 +453,7 @@ function CampoPartenza({ f }: { f: AnyFieldApi }) {
         <Segno campo={f.name} />
       </label>
       <select id={d.id} name={f.name} value={v} onChange={e => f.handleChange(e.target.value)} onBlur={f.handleBlur} aria-describedby={d.descritto} aria-invalid={d.invalido}>
-        <option value="">Non ancora</option>
+        <option value="">—</option>
         {m.nomi.partenze.map(x => <option key={x.id} value={x.name}>{x.name}</option>)}
         {v && !p && <option value={v}>{v} (nuova)</option>}
       </select>
@@ -537,22 +477,16 @@ function CampoPartenza({ f }: { f: AnyFieldApi }) {
   );
 }
 
-function Viaggio() {
-  const m = useModulo();
-  return (
-    <Parte id="viaggio" titolo="Viaggio" mancano={m.mancanti.includes("from")}>
-      <m.form.Field name="from">{(f: AnyFieldApi) => <CampoPartenza f={f} />}</m.form.Field>
-    </Parte>
-  );
-}
-
 function CampoCommento({ f }: { f: AnyFieldApi }) {
   const m = useModulo();
   const d = useDescrizione(f, true);
   const n = String(f.state.value ?? "").length;
   return (
     <div className="mod-campo" data-campo={f.name}>
-      <label className="mf-sr" htmlFor={d.id}>Commento</label>
+      <label className="mod-etichetta" htmlFor={d.id}>
+        Commento
+        <Segno campo="comments" />
+      </label>
       <textarea
         id={d.id}
         name={f.name}
@@ -573,25 +507,14 @@ function CampoCommento({ f }: { f: AnyFieldApi }) {
   );
 }
 
-function Commento() {
-  const m = useModulo();
-  return (
-    <Parte id="commento" titolo="Commento" segno={<Segno campo="comments" />}>
-      <m.form.Field name="comments">{(f: AnyFieldApi) => <CampoCommento f={f} />}</m.form.Field>
-    </Parte>
-  );
-}
-
 /* ── i due form ───────────────────────────────────────────────── */
 
 export function CampiConcerto() {
   return (
     <>
       <SerataConcerto />
-      <ComEAndata />
       <Biglietto />
-      <Viaggio />
-      <Commento />
+      <ComEAndata />
     </>
   );
 }
@@ -602,8 +525,7 @@ export function CampiFestival() {
       <SerataFestival />
       <ConcertiFestival />
       <Biglietto />
-      <Viaggio />
-      <Commento />
+      <ComEAndata />
     </>
   );
 }

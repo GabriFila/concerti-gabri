@@ -36,9 +36,13 @@ test("i 4 passi, la pagina subito pubblica, la ripresa e il redirect finale", { 
   await expect(page.getByText("Passo 1 di 4")).toBeVisible();
   await idratata(page);
 
-  // ── passo 1: handle (controllo dal vivo), forma, nome
+  // ── passo 1: handle (controllato quando lasci il campo, poi a ogni modifica), forma, nome
   const handleInput = page.getByLabel("Indirizzo della pagina");
+  await handleInput.fill("d");
+  await expect(page.locator(".acc-errore-campo")).toHaveCount(0);
   await handleInput.fill("dati");
+  await expect(page.locator(".acc-errore-campo")).toHaveCount(0);
+  await handleInput.blur();
   await expect(page.getByText("Questo indirizzo è riservato al sito")).toBeVisible();
   await handleInput.fill("gabrifila");
   await expect(page.getByText(/indirizzo è (riservato|già preso)/)).toBeVisible();
@@ -57,6 +61,7 @@ test("i 4 passi, la pagina subito pubblica, la ripresa e il redirect finale", { 
     const r = await p2.goto(`/${handle}`);
     expect(r?.status()).toBe(200);
     await expect(p2.getByText("Qui non suona nessuno")).toHaveCount(0);
+    await expect(p2.getByRole("link", { name: "Aggiungi il primo concerto" })).toHaveCount(0);
     await expect.poll(() => p2.evaluate(() => document.readyState)).toBe("complete");
     // nessuna eccezione e nessun errore di idratazione (la mappa vuota può avvisare in console)
     expect(errori2.all.filter(e => e.startsWith("pageerror"))).toEqual([]);
@@ -79,6 +84,10 @@ test("i 4 passi, la pagina subito pubblica, la ripresa e il redirect finale", { 
 
   // ── passo 3: l'agente, col prompt e i modelli; un reload riprende da qui
   await expect(page.getByRole("heading", { name: "Collega il tuo agente" })).toBeVisible();
+  // in due parti: prima il connettore, poi il prompt e i file
+  await expect(page.getByText("Indirizzo del server MCP")).toBeVisible();
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await expect(page.getByText("2 di 2 · Il prompt")).toBeVisible();
   const prompt = page.getByRole("textbox", { name: "Prompt per l'agente" });
   await expect(prompt).toHaveValue(new RegExp(`/${handle}`));
   await expect(prompt).toHaveValue(/"Casa"/);
@@ -107,10 +116,18 @@ test("i 4 passi, la pagina subito pubblica, la ripresa e il redirect finale", { 
   await page.getByRole("button", { name: "Avanti" }).click();
   await expect(page.getByText("Passo 3 di 4")).toBeVisible();
   await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByRole("button", { name: "Avanti" }).click();
 
   // ── passo 4: pronta (il passo "regalato da" non c'è più: si gestisce da #regali)
   await expect(page.getByRole("heading", { name: "La tua pagina è pronta" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Vai alla tua pagina" })).toHaveAttribute("href", `/${handle}`);
+
+  // sulla sua pagina ancora vuota la proprietaria trova l'invito al primo concerto (chi visita no)
+  await page.goto(`/${handle}`);
+  const primo = page.getByRole("link", { name: "Aggiungi il primo concerto" });
+  await expect(primo).toHaveAttribute("href", `/${handle}/modifica#concerti?nuovo=concerto`);
+  await primo.click();
+  await expect(page.getByRole("dialog", { name: "Nuovo concerto" })).toBeVisible();
 
   // a onboarding finito /benvenuto porta a Modifica, sulla vista Concerti
   await page.goto("/benvenuto");

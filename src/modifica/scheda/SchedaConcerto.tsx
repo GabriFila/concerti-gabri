@@ -194,7 +194,7 @@ function useEsiste(id: string | undefined): boolean | undefined {
 
 type VenueCatalogo = { id: string; name: string; city: string };
 
-/** Come sta la venue della scheda rispetto al catalogo condiviso. */
+/** Come sta la venue della scheda rispetto alle venue del proprietario (ognuno ha le sue). */
 interface StatoVenue {
   /** Nel catalogo con questo nome e città (undefined: catalogo non ancora caricato o venue vuota). */
   nelCatalogo?: boolean;
@@ -205,8 +205,8 @@ interface StatoVenue {
 }
 
 /**
- * La venue della scheda contro il catalogo (entries.venueCatalogo). Senza città e con una
- * sola venue di quel nome è lei; fuori catalogo con la città è una venue nuova, che il
+ * La venue della scheda contro le venue del proprietario (entries.venueCatalogo). Senza città e
+ * con una sola venue di quel nome è lei; altrimenti con la città è una venue nuova, che il
  * Salva aggiunge (lib/venueUtente.ts): nessuna ricerca su OpenStreetMap da qui.
  */
 function useVenue(id: string, voce: VoceScheda | undefined): StatoVenue {

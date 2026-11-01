@@ -153,12 +153,12 @@ describe("entries.salvaScheda", () => {
     const r = await salva(a.as, { artist: "Verdena", date: "2025-10-18", venue: "Locale Ignoto", city: "Milano", from: "Casa" });
     expect(r).toMatchObject({ azione: "aggiunto", dopo: { venue: "Locale Ignoto", city: "Milano", kmPending: true } });
     const ven = await t.run(async ctx => (await ctx.db.query("venues").collect()).find(v => v.name === "Locale Ignoto")!);
-    expect(ven).toMatchObject({ city: "Milano", source: "utente", posizione: "attesa", createdBy: a.profileId });
+    expect(ven).toMatchObject({ profileId: a.profileId, city: "Milano", source: "utente", posizione: "attesa", createdBy: a.profileId });
     expect(ven.lng).toBeUndefined();
-    // la venue si registra a parte: Annulla sul concerto non tocca il catalogo
+    // la venue si registra a parte: Annulla sul concerto non la toglie
     const voci = (await a.as.query(api.activity.list, {})).voci;
     const vVenue = voci.find(v => v.tabella === "venues")!;
-    expect(vVenue).toMatchObject({ riassunto: "venue aggiunta al catalogo: Locale Ignoto (Milano)", annullabile: false });
+    expect(vVenue).toMatchObject({ riassunto: "venue aggiunta: Locale Ignoto (Milano)", annullabile: false });
     expect(vVenue.lotto).toBeFalsy();
     await a.as.mutation(api.activity.undo, { input: { activityId: r.activityId } });
     expect(await t.run(async ctx => await ctx.db.get(ven._id))).not.toBeNull();

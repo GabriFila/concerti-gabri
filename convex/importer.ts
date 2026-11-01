@@ -70,10 +70,10 @@ async function verificaRiferimenti(ctx: QueryCtx, profileId: Id<"profiles">, voc
     const kv = `${chiave(entry.venue)}\u0000${chiave(entry.city)}`;
     if (!venueViste.has(kv)) {
       venueViste.add(kv);
-      if (!(await venuePerNome(ctx, entry.venue, entry.city))) {
-        // il catalogo è pubblico: un indirizzo non ci entra (lib/venueUtente.ts)
+      if (!(await venuePerNome(ctx, profileId, entry.venue, entry.city))) {
+        // le venue sono pubbliche sulla pagina: un indirizzo non diventa una venue (lib/venueUtente.ts)
         if (sembraIndirizzoCivico(entry.venue)) {
-          errori.push({ riga: righe[0], campo: "venue", messaggio: "venue: sembra un indirizzo (via e numero civico); scrivi il nome del locale, il catalogo delle venue è pubblico" });
+          errori.push({ riga: righe[0], campo: "venue", messaggio: "venue: sembra un indirizzo (via e numero civico); scrivi il nome del posto, le venue sono pubbliche sulla pagina" });
         } else venue.set(kv, `${entry.venue.trim()} (${entry.city.trim()})`);
       }
     }

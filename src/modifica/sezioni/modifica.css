@@ -12,7 +12,6 @@
 .mod-sezione h3,.mod-pop h3{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;font-size:1.2rem;margin:0 0 10px;color:var(--text);display:flex;align-items:center;gap:10px}
 .mod-sezione p,.mod-pop p{margin:0}
 .mod-hint{display:block;font-size:.8rem;color:var(--muted);line-height:1.5}
-.mod-soprannomi::before{content:"✎ ";color:var(--mf-ambra-testo,var(--lamp))}
 .mod-vuoto,.mod-attesa{color:var(--muted);font-size:.88rem;padding:6px 0}
 .mod-conta{font-size:.78rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .mod-ok{font-size:.85rem;color:var(--text);background:var(--lamp-faint);border:1px solid var(--lamp-soft);border-radius:10px;padding:8px 12px}
@@ -56,7 +55,8 @@
 /* misurate sul contenitore (la vista, il pannello o la finestra), non sulla finestra del browser:
    accanto all'Oracolo agganciato la colonna è stretta anche su uno schermo largo */
 @container (max-width:479px){
-  .mod-griglia,.mod-griglia-3{grid-template-columns:1fr}
+  /* minmax(0,…): con 1fr (= minmax(auto,1fr)) la larghezza minima del selettore di data nativo allarga il pannello */
+  .mod-griglia,.mod-griglia-3{grid-template-columns:minmax(0,1fr)}
   .mod-griglia-4{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
@@ -75,6 +75,9 @@
 .mod-sezione input[aria-invalid=true],.mod-pop input[aria-invalid=true]{border-color:rgba(224,112,95,.6)}
 .mod-sezione input:disabled,.mod-pop input:disabled{opacity:.5}
 html[data-theme="light"] .mod-pop input[type=date],html[data-theme="light"] .mod-sezione input[type=date]{color-scheme:light}
+/* Safari su iPhone dà al selettore di data nativo una larghezza sua, più larga del campo: si riporta a quella del campo */
+.mod-sezione input[type=date],.mod-pop input[type=date]{-webkit-appearance:none;appearance:none;display:block;max-width:100%;min-height:2.4em}
+.mod-sezione input[type=date]::-webkit-date-and-time-value,.mod-pop input[type=date]::-webkit-date-and-time-value{text-align:left}
 .mod-sezione input[type=color],.mod-pop input[type=color]{width:42px;height:38px;padding:2px;border:1px solid var(--line-2);border-radius:10px;background:var(--bg-2);cursor:pointer}
 .mod-hex{max-width:110px;font-variant-numeric:tabular-nums}
 .mod-campo-errore{display:block;font-size:.78rem;color:#e0705f}

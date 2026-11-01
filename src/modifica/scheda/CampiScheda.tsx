@@ -10,8 +10,8 @@
    - Invio in un testo conferma e passa alla prossima riga vuota.
    - Niente si crea da qui: persone, "regalato da" e partenze nuove
      arrivano al Salva, nello stesso lotto del concerto. Le venue invece
-     sono del catalogo condiviso: si scelgono o si aggiungono subito
-     (VenueScelta di campiConcerto.tsx, come nel form).
+     si scelgono tra le proprie o si aggiungono subito, cercate su
+     OpenStreetMap (VenueScelta di campiConcerto.tsx, come nel form).
    - Una modifica (diff) mostra solo le righe cambiate, «prima → dopo»;
      «Mostra gli altri campi» apre le altre, e cambiarne una la aggiunge.
    - La lineup di un festival: una riga compatta per concerto («1 ·
@@ -537,55 +537,57 @@ function EditorVoto({ id, voce }: { id: string; voce: VoceScheda }) {
   return <SceltaVoto id={id} nome="voto" valore={(voce.valori as ValoriConcerto).voto} onScegli={n => cambia(id, "voto", () => ({ voto: n }))} />;
 }
 
+type ModoBiglietto = "nonRicordo" | "prezzo" | "accredito" | "regalato";
+/** Le stesse scelte del «Biglietto» del modulo completo (ConcertoForm.tsx). */
+const MODI_BIGLIETTO: { modo: ModoBiglietto; testo: string }[] = [
+  { modo: "nonRicordo", testo: "Non ricordo il prezzo" },
+  { modo: "prezzo", testo: "Ricordo il prezzo" },
+  { modo: "accredito", testo: "Accredito" },
+  { modo: "regalato", testo: "Regalato" },
+];
+
 function EditorBiglietto({ id, voce, nomi }: { id: string; voce: VoceScheda; nomi: NomiScheda }) {
   const v = voce.valori;
-  const iniziale = v.accredito ? "accredito" : v.gift ? "regalo" : v.cost !== undefined ? "pagato" : null;
-  const [modo, setModo] = useState<"pagato" | "regalo" | "accredito" | null>(iniziale);
+  const iniziale: ModoBiglietto | "" = v.accredito ? "accredito" : v.gift ? "regalato" : v.cost === "na" ? "nonRicordo" : v.cost !== undefined ? "prezzo" : "";
+  const [modo, setModo] = useState<ModoBiglietto | "">(iniziale);
   const regali = nomi.regali ?? [];
   const daNoto = regali.find(r => chiaveNome(r) === chiaveNome(v.giftFrom));
   const [nuovo, setNuovo] = useState(!!v.giftFrom.trim() && !daNoto);
   const idPrezzo = useId();
-  const gruppo = useRef<HTMLDivElement>(null);
-  const scegli = (m: "pagato" | "regalo" | "accredito") => {
+  const scegli = (m: ModoBiglietto | "") => {
     setModo(m);
-    if (m === "pagato") cambia(id, "biglietto", () => ({ gift: false, giftFrom: "", accredito: false }));
-    if (m === "regalo") cambia(id, "biglietto", () => ({ gift: true, accredito: false, cost: undefined }));
-    if (m === "accredito") cambia(id, "biglietto", () => ({ accredito: true, gift: false, giftFrom: "", cost: undefined }));
+    if (m !== "regalato") setNuovo(false);
+    const prezzo = m === "prezzo" && typeof v.cost === "number" ? v.cost : undefined;
+    cambia(id, "biglietto", () => ({
+      cost: m === "nonRicordo" ? "na" : prezzo,
+      gift: m === "regalato",
+      accredito: m === "accredito",
+      ...(m === "regalato" ? {} : { giftFrom: "" }),
+    }));
   };
   return (
     <div className="scheda-biglietto">
-      <div className="scheda-chips" role="radiogroup" aria-label="Biglietto" ref={gruppo}>
-        {(["pagato", "regalo", "accredito"] as const).map(m => (
-          <label key={m} className="scheda-opzione" data-scelta={modo === m || undefined}>
-            <input type="radio" name={`${id}-biglietto`} checked={modo === m} onChange={() => scegli(m)} autoFocus={modo === m || (!modo && m === "pagato")} />
-            <span>{m === "pagato" ? "Pagato" : m === "regalo" ? "Regalo" : "Accredito"}</span>
-          </label>
-        ))}
-      </div>
-      {modo === "pagato" && (
-        <div className="mod-riga">
-          <label className="scheda-prezzo" htmlFor={idPrezzo}>
-            <input
-              id={idPrezzo}
-              className="scheda-input"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={0.01}
-              value={typeof v.cost === "number" ? v.cost : ""}
-              disabled={v.cost === "na"}
-              aria-label="Prezzo in euro, commissioni comprese"
-              onChange={e => cambia(id, "biglietto", () => ({ cost: e.target.value === "" ? undefined : Number(e.target.value) }))}
-            />
-            <span aria-hidden="true">€</span>
-          </label>
-          <label className="mod-spunta">
-            <input type="checkbox" checked={v.cost === "na"} onChange={e => cambia(id, "biglietto", () => ({ cost: e.target.checked ? "na" : undefined }))} />
-            Pagato, prezzo dimenticato
-          </label>
-        </div>
+      <select className="scheda-input" autoFocus value={modo} aria-label="Biglietto" onChange={e => scegli(e.target.value as ModoBiglietto | "")}>
+        <option value="">—</option>
+        {MODI_BIGLIETTO.map(o => <option key={o.modo} value={o.modo}>{o.testo}</option>)}
+      </select>
+      {modo === "prezzo" && (
+        <label className="scheda-prezzo" htmlFor={idPrezzo}>
+          <input
+            id={idPrezzo}
+            className="scheda-input"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step={0.01}
+            value={typeof v.cost === "number" ? v.cost : ""}
+            aria-label="Prezzo in euro, commissioni comprese"
+            onChange={e => cambia(id, "biglietto", () => ({ cost: e.target.value === "" ? undefined : Number(e.target.value) }))}
+          />
+          <span aria-hidden="true">€</span>
+        </label>
       )}
-      {modo === "regalo" && (
+      {modo === "regalato" && (
         <div className="mod-campo">
           <label className="mod-etichetta" htmlFor={`${idPrezzo}-da`}>Regalato da</label>
           <select
@@ -617,13 +619,6 @@ function EditorBiglietto({ id, voce, nomi }: { id: string; voce: VoceScheda; nom
             </>
           )}
         </div>
-      )}
-      {modo && (
-        <button type="button" className="mod-link" onClick={() => togliScelta(gruppo, () => {
-          setModo(null);
-          setNuovo(false);
-          cambia(id, "biglietto", () => ({ cost: undefined, gift: false, giftFrom: "", accredito: false }));
-        })}>Togli</button>
       )}
     </div>
   );
@@ -700,7 +695,7 @@ function EditorCampo({ campo, id, voce, nomi, oggi, fuoriCatalogo }: { campo: Ca
   const c = voce.valori as ValoriConcerto;
   switch (campo) {
     case "artist":
-      return <EditorTesto id={id} voce={voce} nomi={nomi} campo="artist" max={120} placeholder="Come in locandina" />;
+      return <EditorTesto id={id} voce={voce} nomi={nomi} campo="artist" max={120} placeholder="Artista o gruppo" />;
     case "name":
       return <EditorTesto id={id} voce={voce} nomi={nomi} campo="name" max={120} placeholder="Es. MI AMI 2026" />;
     case "date":
@@ -774,7 +769,7 @@ function EditorSet({ id, voce, nomi, i }: { id: string; voce: VoceScheda; nomi: 
           autoFocus
           value={s.artist}
           maxLength={120}
-          placeholder="Come in locandina"
+          placeholder="Artista o gruppo"
           onChange={e => cambiaSet(id, i, () => ({ artist: e.target.value }))}
           onKeyDown={e => {
             if (e.key === "Enter" && !componendo(e)) {

@@ -6,6 +6,7 @@ import { computePortrait } from "../../shared/lib/portrait.ts";
 import { soloHttps } from "../../shared/lib/url.ts";
 import { MapBoundary, MapCard } from "../dashboard/MapCard.tsx";
 import { useForma, useProfile } from "../profile/ProfileContext.tsx";
+import { PrimoConcerto } from "../ui/PrimoConcerto.tsx";
 import WishlistAct from "./WishlistAct.tsx";
 
 /* ============================================================
@@ -205,6 +206,7 @@ export function Ritratto({openChat,onExplore}: {openChat:(q?:string)=>void;onExp
           <div className="rt-hero-inner">
             <h1 className="rt-h1">{profile.displayName}<span className="rt-h1-2">ai concerti</span></h1>
             <p className="rt-lede">Una vita contata in luci, viaggi e concerti sotto un palco.</p>
+            <PrimoConcerto className="primo-concerto--hero"/>
           </div>
         </div>
         <div className="rt-cuerow">

@@ -6,6 +6,7 @@ import { sezioniDelProfilo, type SectionId } from "../../shared/sections.ts";
 import { useData } from "../filters/FilterContext.tsx";
 import { useIsOwner } from "../lib/viewer.ts";
 import { useDataset, useForma, usePlanned, useProfile, useToday } from "../profile/ProfileContext.tsx";
+import { PrimoConcerto } from "../ui/PrimoConcerto.tsx";
 import { ENT_ARTIST, ENT_PEOPLE } from "../ui/ShowAllBtn.tsx";
 import { EsciFooter } from "../accesso/Esci.tsx";
 import { anyMissing, FromAlert, VicinanzaAlert, VotoAlert } from "./Alerts.tsx";
@@ -109,6 +110,7 @@ export function FullDashboard(){
         <span className="fixture f6"></span>
       </div>
       <span className="spot"></span>
+      <PrimoConcerto/>
       {isOwner&&anyMissing(ds,today)&&<header><VicinanzaAlert/><VotoAlert/><FromAlert/></header>}
       {visibili[0]?.id==="sec-kpis"&&<div id="sec-kpis" className="tocsec"><SezioneCorrente id="sec-kpis"><KPIs/></SezioneCorrente></div>}
     </div>

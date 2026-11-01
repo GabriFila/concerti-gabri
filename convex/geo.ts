@@ -10,6 +10,10 @@
      POI si ripiega sulla città (`featureType=city`), mai su una via. La
      cache condivisa vale SOLO per le venue: chiave = SHA-256 della ricerca
      normalizzata, mai il testo in chiaro.
+   - Venue che su OSM non ci sono: `cercaIndirizzoVenue` cerca l'indirizzo
+     che dà il proprietario (qualunque risultato con una città, anche una
+     casa o una via: è la venue, non la partenza), con la stessa cache e
+     gli stessi `ref` di `searchVenue`; la venue tiene il nome scritto.
    - Venue scritte per nome (lib/venueUtente.ts): `posizioneVenue` cerca
      «nome, città» con la stessa cache e prende il primo POI di quella
      città con quel nome (stessoNome), altrimenti il centro della città; coda piena o servizio giù →
@@ -24,7 +28,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { geocodificaPartenzaInput } from "../shared/schema/departure.ts";
-import { cercaVenueInput, rifCandidato, type CandidatoProposto, type CandidatoVenue } from "../shared/schema/venue.ts";
+import { cercaIndirizzoVenueInput, cercaVenueInput, rifCandidato, type CandidatoProposto, type CandidatoVenue } from "../shared/schema/venue.ts";
 import { internalAction, internalMutation, internalQuery, ownerAction } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
 import type { Owner } from "./lib/owner.ts";
@@ -97,6 +101,15 @@ export function candidatoPoi(r: RisultatoNominatim): CandidatoVenue | null {
 /** I tipi di luogo che il ripiego `featureType=city` accetta: centri abitati, mai una via o una casa. */
 export const CITTA = new Set(["city", "town", "village", "municipality", "hamlet"]);
 
+/** Un indirizzo dato per una venue che su OSM non si trova: il suo punto, con la città. */
+export function candidatoIndirizzo(r: RisultatoNominatim): CandidatoVenue | null {
+  const city = cittaDi(r);
+  const lng = Number(r.lon);
+  const lat = Number(r.lat);
+  if (!city || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  return { name: (r.name || r.display_name.split(",")[0]).slice(0, 120), city: city.slice(0, 80), lng, lat, featureType: "indirizzo", label: r.display_name.slice(0, 300) };
+}
+
 export function candidatoCitta(r: RisultatoNominatim): CandidatoVenue | null {
   // anche se Nominatim rispondesse con una casa o una via, non diventa una venue
   if (!isPoi(r) || (r.addresstype !== undefined && !CITTA.has(r.addresstype))) return null;
@@ -146,10 +159,33 @@ export const searchVenue = ownerAction({
   input: cercaVenueInput,
   loadProfile: caricaProfilo,
   handler: async (ctx, owner, { query }): Promise<{ catalogo: { id: string; name: string; city: string }[]; candidati: CandidatoProposto[]; attribuzione: string }> => {
-    const catalogo: { id: string; name: string; city: string }[] = await ctx.runQuery(internal.venues.cercaNelCatalogo, { query });
+    const catalogo: { id: string; name: string; city: string }[] = await ctx.runQuery(internal.venues.cercaNelCatalogo, { profileId: owner.profile._id, query });
     await limitiGeocoding(ctx, owner);
     const { id, results } = await cercaVenue(ctx, query);
     return { catalogo, candidati: results.map((c, i) => ({ ...c, ref: rifCandidato(id, i) })), attribuzione: ATTRIBUZIONE };
+  },
+});
+
+/**
+ * L'indirizzo di una venue che per nome non si trova (dal modulo del
+ * concerto): i punti di Nominatim con la loro città, ciascuno col suo `ref`
+ * per add_venue, che gli darà il nome scritto dal proprietario.
+ */
+export const cercaIndirizzoVenue = ownerAction({
+  dashboardOnly: "modulo del concerto: venue che su OpenStreetMap non si trova per nome (gli agenti usano search_venue)",
+  input: cercaIndirizzoVenueInput,
+  loadProfile: caricaProfilo,
+  handler: async (ctx, owner, { address }): Promise<{ candidati: CandidatoProposto[]; attribuzione: string }> => {
+    await limitiGeocoding(ctx, owner);
+    // chiave diversa da quella della stessa frase cercata come nome
+    const keyHash = await chiaveCache(`indirizzo: ${address}`);
+    let cached: { id: string; results: CandidatoVenue[] } | null = await ctx.runQuery(internal.geo.cacheGet, { keyHash });
+    if (!cached) {
+      const results = (await nominatim(ctx, { q: address, limit: "5" })).map(candidatoIndirizzo).filter((c): c is CandidatoVenue => c !== null);
+      cached = { id: await ctx.runMutation(internal.geo.cachePut, { keyHash, results }), results };
+    }
+    const { id, results } = cached;
+    return { candidati: results.map((c, i) => ({ ...c, ref: rifCandidato(id, i) })), attribuzione: ATTRIBUZIONE };
   },
 });
 
@@ -228,7 +264,7 @@ const risultatoV = v.object({
   city: v.string(),
   lng: v.number(),
   lat: v.number(),
-  featureType: v.union(v.literal("poi"), v.literal("city")),
+  featureType: v.union(v.literal("poi"), v.literal("city"), v.literal("indirizzo")),
   label: v.string(),
 });
 

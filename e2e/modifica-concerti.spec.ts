@@ -46,10 +46,10 @@ test.describe("dashboard dei concerti", { tag: "@sessione" }, () => {
   const salva = async (dialogo: Locator) => await dialogo.getByRole("button", { name: "Salva", exact: true }).click();
   const avviso = (page: Page, testo: string) => expect(page.getByRole("status").filter({ hasText: testo })).toBeVisible();
 
-  /** La venue dal catalogo, scritta e scelta. */
+  /** Una delle venue del profilo, scritta e scelta. */
   async function scegliVenue(dialogo: Locator, nome: string) {
     await dialogo.getByLabel("Cerca una venue").fill(nome);
-    await dialogo.getByRole("list", { name: "Venue del catalogo" }).getByRole("button", { name: new RegExp(`^${nome}`) }).first().click();
+    await dialogo.getByRole("list", { name: "Le tue venue" }).getByRole("button", { name: new RegExp(`^${nome}`) }).first().click();
   }
 
   test("aggiunge, modifica e annulla: i visitatori vedono tutto dal vivo", async ({ page, browser }) => {

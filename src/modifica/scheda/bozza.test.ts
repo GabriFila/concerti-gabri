@@ -140,7 +140,7 @@ describe("problemiScheda", () => {
     expect(fuori.daSistemare).toEqual([]);
     expect(fuori.daControllare).toContainEqual({
       chiave: "venue", tipo: "venue_nuova", venueSimile: { name: "Alcatraz Club", city: "Milano" },
-      testo: "Venue nuova: «Alcatraz» (Milano) si aggiunge al catalogo quando salvi; la posizione la cerco su OpenStreetMap.",
+      testo: "Venue nuova: «Alcatraz» (Milano) si aggiunge alle tue venue quando salvi; la posizione la cerco su OpenStreetMap.",
     });
     // senza città, o con un indirizzo al posto del nome: blocca
     expect(tipi(nuovo({ city: "" }), { venueNelCatalogo: false })).toEqual(["citta_manca"]);
@@ -202,7 +202,7 @@ describe("problemiScheda", () => {
     expect(problemiScheda(valoriDaProposta(p({})), CTX).mancano).toBeNull();
     const b = valoriDaProposta(p({ artist: "X", date: "2025-10-18", venue: "Teatro Verdi" }));
     expect(problemiScheda(b, { ...CTX, venueNelCatalogo: false, venueAmbigua: true }).daSistemare).toContainEqual(
-      expect.objectContaining({ tipo: "venue_ambigua", testo: "Scegli la venue: nel catalogo c'è più di un «Teatro Verdi»." }),
+      expect.objectContaining({ tipo: "venue_ambigua", testo: "Scegli la venue: tra le tue c'è più di un «Teatro Verdi»." }),
     );
   });
 

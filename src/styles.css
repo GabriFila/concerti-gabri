@@ -1473,6 +1473,17 @@
   .rt-startbtn:hover{transform:translateY(-2px);filter:brightness(1.06)}
   .rt-startbtn svg{width:18px;height:18px;animation:rt-bob 1.8s ease-in-out infinite}
 
+  /* il proprietario con la pagina ancora vuota: l'invito al primo concerto (ui/PrimoConcerto.tsx) */
+  .primo-concerto{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;
+    margin:0 auto 18px;max-width:46ch}
+  .primo-concerto-testo{color:var(--text);font-size:clamp(.95rem,2.2vw,1.1rem);line-height:1.5}
+  .primo-concerto-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:12px 22px;
+    border-radius:999px;font-weight:700;color:#171106;background:var(--lamp);border:1px solid var(--lamp);text-decoration:none;
+    box-shadow:0 8px 30px var(--lamp-soft);transition:transform .15s ease,filter .2s ease}
+  .primo-concerto-btn:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .primo-concerto-btn:focus-visible{outline:2px solid var(--text);outline-offset:3px}
+  .primo-concerto--hero{margin-bottom:0}
+
   /* shared act typography */
   .rt-head{width:100%;margin-bottom:clamp(14px,3vw,30px);margin-bottom:clamp(14px,min(3vw,3svh),30px);text-align:center}
   .rt-h2{font-family:var(--font-titoli,'Fraunces',Georgia,serif);font-weight:400;letter-spacing:-.02em;color:var(--text);line-height:1;

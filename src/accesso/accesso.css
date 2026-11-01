@@ -60,7 +60,8 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
   cursor:pointer;color:var(--text);transition:border-color .15s,background .15s}
 .acc-scelta:hover,.acc-candidato:hover{border-color:var(--muted)}
 .acc-scelta:has(input:checked),.acc-candidato:has(input:checked){border-color:var(--lamp);background:var(--lamp-faint)}
-.acc-scelta input[type=radio],.acc-candidato input[type=radio]{appearance:none;-webkit-appearance:none;flex-shrink:0;width:18px;height:18px;margin:0;
+/* padding:0 e aspect-ratio: senza, il padding di .acc-campo input allarga il cerchio in un ovale */
+.acc-scelta input[type=radio],.acc-candidato input[type=radio]{appearance:none;-webkit-appearance:none;flex-shrink:0;width:18px;height:18px;margin:0;padding:0;aspect-ratio:1;
   border:1.5px solid var(--line-2);border-radius:50%;background:var(--panel);cursor:pointer;display:grid;place-content:center;transition:border-color .15s}
 .acc-scelta input[type=radio]::before,.acc-candidato input[type=radio]::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lamp);
   transform:scale(0);transition:transform .15s}
@@ -101,6 +102,10 @@ main.acc{display:block;max-width:720px;margin:0 auto;padding:clamp(40px,8vw,88px
 .acc-passo h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:clamp(1.4rem,3vw,1.8rem);color:var(--text)}
 .acc-navigazione{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:12px;margin-top:26px}
 .acc-navigazione .acc-errore{flex-basis:100%}
+/* la barra in fondo allo schermo finché il passo è visibile (passo dell'agente): fino al bordo del riquadro */
+.acc-navigazione--fissa{position:sticky;bottom:0;z-index:1;margin:26px calc(-1 * clamp(20px,3vw,30px)) calc(-1 * clamp(20px,3vw,30px));
+  padding:14px clamp(20px,3vw,30px) calc(14px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line);border-radius:0 0 14px 14px}
+.acc-sottopasso{margin-top:4px;font-size:.8rem;color:var(--dim)}
 .acc-elenco{list-style:none;display:flex;flex-direction:column;gap:10px;margin:14px 0}
 .acc-elenco-voce{padding:12px 14px;border:1px solid var(--line);border-radius:10px}
 .acc-stato{font-size:.75rem;color:var(--dim);margin-left:6px}

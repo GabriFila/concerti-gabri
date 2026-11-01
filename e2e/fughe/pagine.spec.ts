@@ -186,18 +186,16 @@ test.describe("con la sessione del proprietario", { tag: "@sessione" }, () => {
     expect(fughe((await errore.textContent()) ?? "")).toEqual([]);
     await correzione.getByRole("button", { name: "Chiudi" }).click();
 
-    // scritto come venue nuova: sembra un indirizzo, quindi «Usa questa venue» resta spento
-    // (e il server lo rifiuta comunque): niente venue col canarino nel catalogo pubblico
+    // scritto come nome di una venue nuova: sembra un indirizzo, quindi non si cerca nemmeno
+    // (e il server lo rifiuta comunque): niente venue col canarino sulla pagina pubblica
     await vaiA(page, "concerti");
     await page.locator("section#concerti").getByRole("button", { name: "Aggiungi un concerto" }).click();
     const modale = page.getByRole("dialog", { name: "Nuovo concerto" });
     await modale.getByLabel("Cerca una venue").fill(CANARINO.indirizzo);
-    await modale.getByLabel("Città della venue").fill("Genova");
     await expect(modale.getByRole("alert").filter({ hasText: "Sembra un indirizzo" })).toBeVisible();
-    await expect(modale.getByRole("button", { name: "Usa questa venue" })).toBeDisabled();
+    await expect(modale.getByRole("button", { name: /^Cerca/ })).toHaveCount(0);
     expect(fughe((await modale.locator(".mod-venue").textContent()) ?? "")).toEqual([]);
     await modale.getByRole("button", { name: "Chiudi" }).click();
-    expect(fughe(JSON.stringify(convexRun("venues:cercaNelCatalogo", { query: "Canarini" })))).toEqual([]);
 
     // e la pagina pubblica del proprietario resta pulita
     expect(fughe(await queryPubblica("pages:byHandle", { handle }))).toEqual([]);

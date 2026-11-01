@@ -1,7 +1,8 @@
 /* Passo 1 di /benvenuto (PIANO §1.19): handle, forma e nome visualizzato
    → `profiles.completeOnboarding` (profilo `active`: la pagina esiste da
-   qui). L'handle si controlla dal vivo: formato e riservati nel browser
-   (shared/handles.ts), profili e alias presi con `profiles.handleAvailable`.
+   qui). L'handle si controlla quando lasci il campo e poi a ogni modifica
+   (`dopoIlPrimoBlur`): formato e riservati nel browser (shared/handles.ts),
+   profili e alias presi con `profiles.handleAvailable`.
    Riaperto dall'elenco dei passi a pagina già creata (`RivediProfilo`), lo
    stesso form parte dai valori attuali e salva con `profiles.update` solo
    quel che è cambiato (il vecchio handle diventa un alias, come da Modifica). */
@@ -15,7 +16,7 @@ import { api } from "../../convex/_generated/api";
 import { messaggioHandle, motivoFormatoHandle, normalizzaHandle } from "../../shared/handles.ts";
 import { completaOnboardingInput } from "../../shared/schema/onboarding.ts";
 import { messaggioErrore } from "../accesso/errori.ts";
-import { ErroriCampo, Passo, useOrigine } from "./comuni.tsx";
+import { dopoIlPrimoBlur, ErroriCampo, Passo, useOrigine } from "./comuni.tsx";
 
 type Forma = "f" | "m" | "n";
 
@@ -49,6 +50,8 @@ export function PassoProfilo({ attuale, onFatto }: { attuale?: Valori; onFatto?:
 
   const form = useForm({
     defaultValues: attuale ?? ({ handle: "", forma: "", displayName: "" } as Valori),
+    // niente «troppo corto» alla prima lettera: ogni campo si controlla quando lo lasci, poi a ogni modifica
+    validationLogic: dopoIlPrimoBlur,
     onSubmit: async ({ value }) => {
       setErrore(null);
       const v = { handle: normalizzaHandle(value.handle), forma: value.forma as Forma, displayName: value.displayName.trim() };
@@ -87,12 +90,12 @@ export function PassoProfilo({ attuale, onFatto }: { attuale?: Valori; onFatto?:
         <form.Field
           name="handle"
           validators={{
-            onChange: ({ value }) => {
+            onDynamic: ({ value }) => {
               const m = motivoFormatoHandle(normalizzaHandle(value));
               return m ? messaggioHandle(m) : undefined;
             },
-            onChangeAsyncDebounceMs: 400,
-            onChangeAsync: async ({ value }) => {
+            onDynamicAsyncDebounceMs: 400,
+            onDynamicAsync: async ({ value }) => {
               const r = await convex.query(api.profiles.handleAvailable, { handle: normalizzaHandle(value) });
               return r.disponibile ? undefined : messaggioHandle(r.motivo ?? "");
             },
@@ -121,7 +124,7 @@ export function PassoProfilo({ attuale, onFatto }: { attuale?: Valori; onFatto?:
 
         <form.Field
           name="forma"
-          validators={{ onChange: ({ value }) => (campi.forma.safeParse(value).success ? undefined : "Scegli come vuoi che la pagina si riferisca a te.") }}
+          validators={{ onDynamic: ({ value }) => (campi.forma.safeParse(value).success ? undefined : "Scegli come vuoi che la pagina si riferisca a te.") }}
           children={field => (
             <fieldset className="acc-campo acc-scelte">
               <legend>Come vuoi che la pagina si riferisca a te?</legend>
@@ -147,7 +150,7 @@ export function PassoProfilo({ attuale, onFatto }: { attuale?: Valori; onFatto?:
 
         <form.Field
           name="displayName"
-          validators={{ onChange: ({ value }) => (campi.displayName.safeParse(value).success ? undefined : "Scrivi un nome da 1 a 40 caratteri.") }}
+          validators={{ onDynamic: ({ value }) => (campi.displayName.safeParse(value).success ? undefined : "Scrivi un nome da 1 a 40 caratteri.") }}
           children={field => (
             <label className="acc-campo">
               <span>Il tuo nome sulla pagina</span>

@@ -28,6 +28,8 @@ test("passo 3: l'import CSV riempie la pagina dal vivo", { tag: "@sessione" }, a
     // senza partenze il passo 2 offre "Salta per ora" (corsia 3)
     await page.getByRole("button", { name: "Salta per ora" }).click();
     await expect(page.getByRole("heading", { name: "Collega il tuo agente" })).toBeVisible();
+    // il caricamento sta nella seconda parte del passo
+    await page.getByRole("button", { name: "Avanti" }).click();
     const passo = page.locator(".ag-import[data-contesto='onboarding']");
 
     await inputFile(passo).setInputFiles(fileCsv("concerti.csv", csvConcerti("Onboarding e2e", 3)));

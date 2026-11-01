@@ -1,70 +1,43 @@
 /* ──────────────────────────────────────────────────────────────
-   Catalogo venue condiviso (PIANO §5.5.4). Una venue nasce solo da un
-   candidato di geo.searchVenue (POI OSM o, in mancanza, la città); si
-   deduplica per id OSM e per nome+città; le coordinate sono IMMUTABILI:
-   non esiste un modo per modificarle. Il flusso delle partenze non chiama e
-   non alimenta mai questo modulo.
+   Le venue (DECISIONI «Venue per profilo»): ogni profilo ha le sue, con
+   il nome che vuole il proprietario. Una venue nasce:
+   - da un candidato di geo.searchVenue (POI OSM o, in mancanza, la
+     città) o di geo.cercaIndirizzoVenue (l'indirizzo, per un posto che su
+     OSM non c'è): `createFromCandidate`;
+   - per nome e città da un concerto (lib/venueUtente.ts), con la
+     posizione cercata dopo dal server.
+   Si deduplica nel profilo per id OSM e per nome+città; le coordinate
+   sono IMMUTABILI una volta scritte. Il flusso delle partenze non chiama
+   e non alimenta mai questo modulo.
 
    Il candidato NON arriva dal chiamante: arriva il suo `ref` (riga della
-   cache delle ricerche + indice, emesso da geo.searchVenue) e da lì si
-   rileggono coordinate, id OSM, città e tipo, che vengono solo da
-   Nominatim. Il chiamante può scegliere al massimo il nome, e nemmeno
-   quello per un POI (nomeVenueAmmesso, shared/schema/venue.ts).
-
-   Nome+città non basta per riusare una venue: si riusa solo se sta entro
-   STESSO_POSTO_M dal candidato scelto. Un'omonima altrove è un conflitto,
-   mai un riuso silenzioso: altrimenti chi ha occupato per primo il nome
-   con un punto vicino a casa di qualcun altro si vedrebbe consegnare il
-   concerto di quella persona, e con lui il km pubblico casa → quel punto.
-
-   Le venue scritte per nome (source "utente", lib/venueUtente.ts) nascono
-   senza coordinate: `impostaPosizione` le scrive UNA volta, con quelle
-   che geo.posizioneVenue ha trovato per «nome, città», e calcola i km dei
-   concerti rimasti in attesa. Dopo, anche loro sono immutabili.
+   cache delle ricerche + indice) e da lì si rileggono coordinate, id OSM,
+   città e tipo, che vengono solo da Nominatim. Il chiamante sceglie il
+   nome, mai un indirizzo con il numero civico (la pagina è pubblica).
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { aggiungiVenueInput, nomeConDettaglio, nomeVenueAmmesso, type CandidatoVenue } from "../shared/schema/venue.ts";
+import { aggiungiVenueInput, type CandidatoVenue } from "../shared/schema/venue.ts";
 import { CACHE_TTL } from "./geo.ts";
 import { logActivity, nuovoBatch } from "./lib/activity.ts";
 import { internalMutation, internalQuery, ownerMutation } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
-import { campiKm, haversineKm } from "./lib/km.ts";
-import { chiave, venuePerNome } from "./lib/refs.ts";
+import { campiKm, haversineKm, STESSO_POSTO_KM } from "./lib/km.ts";
+import { chiave, venuePerNome, venuesOf } from "./lib/refs.ts";
+import { controllaNomeVenue } from "./lib/venueUtente.ts";
 
-/** Entro questa distanza un'omonima nella stessa città è la stessa venue (POI diversi dello stesso posto, seed). */
-export const STESSO_POSTO_M = 300;
+/** Entro questa distanza una venue omonima del profilo nella stessa città è la stessa (POI diversi dello stesso posto, seed). */
+export const STESSO_POSTO_M = STESSO_POSTO_KM * 1000;
 
 /** Distanza in metri; una venue ancora senza posizione (nata per nome) conta come lo stesso posto. */
 const distanzaM = (v: { lng?: number; lat?: number }, c: { lng: number; lat: number }) =>
   v.lng === undefined || v.lat === undefined ? 0 : haversineKm([v.lng, v.lat], [c.lng, c.lat]) * 1000;
 
-/** Un'omonima (nome+città) del catalogo che NON sta nello stesso punto del candidato. */
-async function omonimaAltrove(ctx: MutationCtx, nome: string, c: CandidatoVenue) {
-  const v = await venuePerNome(ctx, nome, c.city);
-  return v && distanzaM(v, c) > STESSO_POSTO_M ? v : null;
-}
-
 async function cittaNelCatalogo(ctx: MutationCtx, city: string, lng: number, lat: number) {
   const c = await ctx.db.query("cities").withIndex("by_key", q => q.eq("key", chiave(city))).first();
   if (!c) await ctx.db.insert("cities", { name: city, key: chiave(city), lng, lat });
-}
-
-/**
- * Il nome della nuova venue: quello del candidato, oppure quello scelto dal
- * chiamante se nomeVenueAmmesso lo consente. Il dettaglio tra parentesi su un
- * POI vale solo se nella stessa città c'è davvero un'altra venue col nome del POI.
- */
-async function nomeDellaVenue(ctx: MutationCtx, c: CandidatoVenue, name: string | undefined): Promise<string> {
-  if (name === undefined || nomeVenueAmmesso(c, name)) return name ?? c.name;
-  const d = nomeConDettaglio(name);
-  if (d && nomeVenueAmmesso(c, name, { conDettaglio: true }) && ((await omonimaAltrove(ctx, c.name, c)) || (await omonimaAltrove(ctx, d.base, c)))) return name;
-  throw errore(
-    "input_non_valido",
-    "name: un luogo di OpenStreetMap tiene il suo nome (togli name). Un dettaglio tra parentesi, es. «Teatro Verdi (Sestri)», si aggiunge solo se nella stessa città c'è già un'altra venue con quel nome",
-    { campo: "name" },
-  );
 }
 
 /** Il candidato indicato da un `ref`, riletto dalla cache delle ricerche (o not_found). */
@@ -77,31 +50,77 @@ async function candidatoDa(ctx: MutationCtx, ref: string): Promise<CandidatoVenu
   return c;
 }
 
+/** Concerti in attesa ricalcolati per lotto di posizione. */
+const MAX_IN_ATTESA = 500;
+
+type Posizione = { lng: number; lat: number; osm?: string; tipo: "poi" | "citta" | "indirizzo" };
+
+/**
+ * Scrive la posizione di una venue che non ce l'ha ancora (una volta sola) e
+ * calcola i km dei concerti che la aspettavano (attività `sistema`).
+ */
+async function scriviPosizione(ctx: MutationCtx, venueId: Id<"venues">, p: Posizione) {
+  const ven = await ctx.db.get(venueId);
+  if (!ven || ven.lng !== undefined) return;
+  await ctx.db.patch(venueId, {
+    lng: p.lng,
+    lat: p.lat,
+    posizione: p.tipo === "citta" ? "citta" : "poi",
+    ...(p.osm && p.tipo === "poi" ? { osm: p.osm } : {}),
+  });
+  if (p.tipo === "citta") await cittaNelCatalogo(ctx, ven.city, p.lng, p.lat);
+  const batchId = nuovoBatch();
+  for (const e of await ctx.db.query("entries").withIndex("by_venue", q => q.eq("venueId", venueId)).take(MAX_IN_ATTESA)) {
+    if (!e.kmPending || !e.departureId) continue;
+    const km = await campiKm(ctx, { profileId: e.profileId, departureId: e.departureId, venueId });
+    if (km.kmPending) continue;
+    await ctx.db.patch(e._id, { km: km.km, kmSource: km.kmSource, kmPending: undefined });
+    const profile = await ctx.db.get(e.profileId);
+    if (profile) {
+      await logActivity(ctx, { profile, actor: { via: "sistema", label: "Sistema" } }, {
+        op: "update", table: "entries", docId: e._id, batchId, summary: `km calcolati (${ven.name})`,
+      });
+    }
+  }
+}
+
+const tipoDi = (c: CandidatoVenue): Posizione["tipo"] => (c.featureType === "city" ? "citta" : c.featureType === "indirizzo" ? "indirizzo" : "poi");
+
 export const createFromCandidate = ownerMutation({
   catalogOp: "add_venue",
   input: aggiungiVenueInput,
   handler: async (ctx, owner, { ref, name }) => {
+    const profileId = owner.profile._id;
     const candidate = await candidatoDa(ctx, ref);
     // l'id OSM identifica solo un POI: un ripiego sulla città porta l'id del
-    // comune, che più venue diverse della stessa città condividerebbero
+    // comune, un indirizzo quello di una casa o di una via
     const osm = candidate.featureType === "poi" ? candidate.osm : undefined;
+    if (name !== undefined) controllaNomeVenue(name.trim(), "name");
     if (osm) {
-      const perOsm = await ctx.db.query("venues").withIndex("by_osm", q => q.eq("osm", osm)).first();
-      if (perOsm) return { id: perOsm._id as string, esistente: true };
+      const perOsm = await ctx.db.query("venues").withIndex("by_profile_osm", q => q.eq("profileId", profileId).eq("osm", osm)).first();
+      if (perOsm) return { id: perOsm._id as string, esistente: true, name: perOsm.name, city: perOsm.city };
     }
-    const nome = await nomeDellaVenue(ctx, candidate, name);
-    const perNome = await venuePerNome(ctx, nome, candidate.city);
+    if (candidate.featureType === "indirizzo" && !name) {
+      throw errore("input_non_valido", "name: per una venue trovata dall'indirizzo serve il nome del posto", { campo: "name" });
+    }
+    const nome = (name ?? candidate.name).trim();
+    if (name === undefined) controllaNomeVenue(nome, "name");
+    const perNome = await venuePerNome(ctx, profileId, nome, candidate.city);
     if (perNome) {
-      // stessa venue solo se sta nello stesso punto del candidato scelto
-      if (distanzaM(perNome, candidate) <= STESSO_POSTO_M) return { id: perNome._id as string, esistente: true };
+      // nata per nome e ancora senza posizione: la prende da qui
+      if (perNome.lng === undefined) {
+        await scriviPosizione(ctx, perNome._id, { lng: candidate.lng, lat: candidate.lat, osm, tipo: tipoDi(candidate) });
+        return { id: perNome._id as string, esistente: true, name: perNome.name, city: perNome.city };
+      }
+      if (distanzaM(perNome, candidate) <= STESSO_POSTO_M) return { id: perNome._id as string, esistente: true, name: perNome.name, city: perNome.city };
       throw errore(
         "conflitto",
-        "nel catalogo c'è già una venue con questo nome in questa città, ma in un altro punto: se è la stessa sceglila dal catalogo (search_venue la elenca), " +
-          "se è un'altra aggiungi al nome un dettaglio tra parentesi, es. «Teatro Verdi (Sestri)»",
+        "hai già una venue con questo nome in questa città, ma in un altro punto: se è la stessa sceglila tra le tue venue, se è un'altra dalle un nome diverso, es. «Teatro Verdi (Sestri)»",
         { campo: "name" },
       );
     }
     const id = await ctx.db.insert("venues", {
+      profileId,
       name: nome,
       city: candidate.city,
       nameKey: chiave(nome),
@@ -109,13 +128,13 @@ export const createFromCandidate = ownerMutation({
       lng: candidate.lng,
       lat: candidate.lat,
       osm,
-      source: candidate.featureType === "poi" ? "osm" : "citta",
-      createdBy: owner.profile._id,
+      source: candidate.featureType === "poi" ? "osm" : candidate.featureType === "city" ? "citta" : "indirizzo",
+      createdBy: profileId,
     });
     if (candidate.featureType === "city") await cittaNelCatalogo(ctx, candidate.city, candidate.lng, candidate.lat);
-    // catalogo condiviso: la creazione si registra ma non si annulla (niente istantanee)
-    await logActivity(ctx, owner, { op: "create", table: "venues", docId: id, summary: `venue aggiunta al catalogo: ${nome} (${candidate.city})` });
-    return { id: id as string, esistente: false };
+    // la creazione si registra ma non si annulla (niente istantanee); Annulla di un concerto lascia la venue
+    await logActivity(ctx, owner, { op: "create", table: "venues", docId: id, summary: `venue aggiunta: ${nome} (${candidate.city})` });
+    return { id: id as string, esistente: false, name: nome, city: candidate.city };
   },
 });
 
@@ -128,8 +147,6 @@ export const daPosizionare = internalQuery({
   },
 });
 
-/** Concerti in attesa ricalcolati per lotto di posizione. */
-const MAX_IN_ATTESA = 500;
 
 /**
  * La posizione trovata (o no) per una venue nata per nome: si scrive una
@@ -147,33 +164,17 @@ export const impostaPosizione = internalMutation({
       await ctx.db.patch(venueId, { posizione: "non_trovata" });
       return null;
     }
-    await ctx.db.patch(venueId, { lng: trovata.lng, lat: trovata.lat, posizione: trovata.tipo, ...(trovata.osm && trovata.tipo === "poi" ? { osm: trovata.osm } : {}) });
-    if (trovata.tipo === "citta") await cittaNelCatalogo(ctx, ven.city, trovata.lng, trovata.lat);
-    const batchId = nuovoBatch();
-    for (const e of await ctx.db.query("entries").withIndex("by_venue", q => q.eq("venueId", venueId)).take(MAX_IN_ATTESA)) {
-      if (!e.kmPending || !e.departureId) continue;
-      const km = await campiKm(ctx, { profileId: e.profileId, departureId: e.departureId, venueId });
-      if (km.kmPending) continue;
-      await ctx.db.patch(e._id, { km: km.km, kmSource: km.kmSource, kmPending: undefined });
-      const profile = await ctx.db.get(e.profileId);
-      if (profile) {
-        await logActivity(ctx, { profile, actor: { via: "sistema", label: "Sistema" } }, {
-          op: "update", table: "entries", docId: e._id, batchId, summary: `km calcolati (${ven.name})`,
-        });
-      }
-    }
+    await scriviPosizione(ctx, venueId, trovata);
     return null;
   },
 });
 
-/** Ricerca nel catalogo per geo.searchVenue (nome o città che contengono la ricerca). */
+/** Ricerca tra le venue di un profilo per geo.searchVenue (nome o città che contengono la ricerca). */
 export const cercaNelCatalogo = internalQuery({
-  args: { query: v.string() },
-  handler: async (ctx, { query }) => {
-    const k = chiave(query);
-    const parole = k.split(" ").filter(w => w.length > 2);
-    const tutte = await ctx.db.query("venues").take(2000);
-    return tutte
+  args: { profileId: v.id("profiles"), query: v.string() },
+  handler: async (ctx, { profileId, query }) => {
+    const parole = chiave(query).split(" ").filter(w => w.length > 2);
+    return (await venuesOf(ctx, profileId))
       .filter(x => parole.length > 0 && parole.every(w => `${x.nameKey} ${x.cityKey}`.includes(w)))
       .slice(0, 10)
       .map(x => ({ id: x._id as string, name: x.name, city: x.city }));

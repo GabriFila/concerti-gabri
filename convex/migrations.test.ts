@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { internal } from "./_generated/api";
 import { codiceDi } from "./lib/errors.ts";
-import { setup, type T } from "./test.setup";
+import { conProfilo, setup, type T } from "./test.setup";
 import { converti, sha256Hex } from "../scripts/migra-storico-chat.mjs";
 
 const NOW = Date.parse("2026-10-21T20:00:00Z");
@@ -172,5 +172,46 @@ describe("migrations:importChatThreads", () => {
       }
     }
     expect(await threads(t)).toEqual([]);
+  });
+});
+
+describe("migrations:venuePerProfilo", () => {
+  it("una venue condivisa resta a chi la usa di più; gli altri ricevono una copia con concerti, km e registro", async () => {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    const b = await conProfilo(t, "u-b", "utente-b");
+    const ids = await t.run(async ctx => {
+      const comune = { name: "Fabrique", city: "Milano", nameKey: "fabrique", cityKey: "milano", lng: 9.25, lat: 45.45, source: "seed" as const };
+      const ven = await ctx.db.insert("venues", comune);
+      const orfana = await ctx.db.insert("venues", { ...comune, name: "Vuota", nameKey: "vuota" });
+      const entry = (profileId: typeof a.profileId, artist: string) =>
+        ctx.db.insert("entries", { profileId, kind: "concert", date: "01/01/2025", sortKey: 20250101, y: 2025, venueId: ven, artist, with: [], updatedAt: 1 });
+      await entry(a.profileId, "A1");
+      await entry(a.profileId, "A2");
+      const eb = await entry(b.profileId, "B1");
+      const depB = await ctx.db.insert("departures", { profileId: b.profileId, name: "Casa", hasAddress: false, legacy: false, createdAt: 1 });
+      await ctx.db.insert("kmPairs", { profileId: b.profileId, departureId: depB, venueId: ven, km: 42, source: "calcolato", drawnAt: 1 });
+      const voce = await ctx.db.insert("activity", {
+        profileId: b.profileId, at: 1, actor: { via: "dashboard", label: "x" }, op: "delete", table: "entries", docId: eb, summary: "x",
+        before: { profileId: b.profileId, venueId: ven, artist: "B0" },
+      });
+      return { ven, orfana, eb, depB, voce };
+    });
+    // con 2 venue basta un lotto
+    expect(await t.mutation(internal.migrations.venuePerProfilo, { cursor: null })).toEqual({ assegnate: 1, copiate: 1, orfane: 1, finito: true });
+    await t.run(async ctx => {
+      const ven = await ctx.db.get(ids.ven);
+      expect(ven?.profileId).toBe(a.profileId);
+      const copia = (await ctx.db.query("venues").collect()).find(v => v.profileId === b.profileId)!;
+      expect(copia).toMatchObject({ name: "Fabrique", city: "Milano", lng: 9.25, lat: 45.45 });
+      expect((await ctx.db.get(ids.eb))?.venueId).toBe(copia._id);
+      const coppie = await ctx.db.query("kmPairs").collect();
+      expect(coppie).toEqual([expect.objectContaining({ venueId: copia._id, km: 42 })]);
+      expect(((await ctx.db.get(ids.voce))?.before as { venueId: string }).venueId).toBe(copia._id);
+      // nessuno usa l'orfana: resta senza profilo, nessuno la vede
+      expect((await ctx.db.get(ids.orfana))?.profileId).toBeUndefined();
+    });
+    // idempotente
+    expect(await t.mutation(internal.migrations.venuePerProfilo, { cursor: null })).toEqual({ assegnate: 0, copiate: 0, orfane: 1, finito: true });
   });
 });

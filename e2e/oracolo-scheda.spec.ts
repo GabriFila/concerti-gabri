@@ -201,7 +201,7 @@ test.describe("la scheda dell'Oracolo", { tag: "@sessione" }, () => {
 
         await scrivi(page, `Ho visto ${artista} al ${locale}`);
         const card = scheda(page, `Scheda: nuovo concerto ${artista}`);
-        await expect(card.getByRole("list", { name: "Da controllare" })).toContainText(`Venue nuova: «${locale}» (Milano) si aggiunge al catalogo quando salvi`);
+        await expect(card.getByRole("list", { name: "Da controllare" })).toContainText(`Venue nuova: «${locale}» (Milano) si aggiunge alle tue venue quando salvi`);
         await expect(card.getByRole("button", { name: "Salva concerto" })).toBeEnabled();
 
         await card.getByRole("button", { name: "Salva concerto" }).click();

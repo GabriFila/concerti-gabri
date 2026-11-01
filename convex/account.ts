@@ -14,8 +14,8 @@
      scheduler (`cascata`, solo id negli argomenti): concerti, persone,
      "regalato da" con i file dei loghi, wishlist, partenze con indirizzi,
      candidati e coppie km, registro, conversazioni di ogni visibilità,
-     OTP di sviluppo dell'email. Le venue create restano nel catalogo,
-     senza `createdBy`. Nella stessa transazione `cancellaUtenteAuth`
+     OTP di sviluppo dell'email, e per ultime le sue venue (ognuno ha le
+     sue). Nella stessa transazione `cancellaUtenteAuth`
      toglie da Better Auth utente, sessioni, account, API key, token,
      consensi, client OAuth e codici OTP dell'utente.
    - `dettagli`: per #account l'email della sessione e i vecchi handle
@@ -290,8 +290,9 @@ async function lottoDiDati(ctx: MutationCtx, profileId: Id<"profiles">, max: num
 
 /**
  * La cascata a lotti: prima i dati con un indice per profilo, poi le
- * coppie km (scorrendo la tabella), infine le venue create (createdBy
- * tolto). Si riprogramma finché c'è lavoro; argomenti: solo id e cursori.
+ * coppie km (scorrendo la tabella), infine le venue del profilo (e
+ * `createdBy` tolto da quelle orfane). Si riprogramma finché c'è lavoro;
+ * argomenti: solo id e cursori.
  */
 export const cascata = internalMutation({
   args: { profileId: v.id("profiles"), fase: v.union(v.literal("dati"), v.literal("coppie"), v.literal("venue")), cursor: v.union(v.string(), v.null()) },
@@ -307,7 +308,11 @@ export const cascata = internalMutation({
       await prossimo(r.finito ? { fase: "venue", cursor: null } : { fase: "coppie", cursor: r.cursor });
     } else {
       const page = await ctx.db.query("venues").paginate({ cursor, numItems: 500 });
-      for (const ven of page.page) if (ven.createdBy === profileId) await ctx.db.patch(ven._id, { createdBy: undefined });
+      // le venue sono del profilo: se ne vanno con lui (le sue coppie km sono già sparite)
+      for (const ven of page.page) {
+        if (ven.profileId === profileId) await ctx.db.delete(ven._id);
+        else if (ven.createdBy === profileId) await ctx.db.patch(ven._id, { createdBy: undefined });
+      }
       if (!page.isDone) await prossimo({ fase: "venue", cursor: page.continueCursor });
     }
     return null;

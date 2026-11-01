@@ -82,6 +82,29 @@ describe("km per coppia (kmPairs)", () => {
     expect(await coppie(t)).toBe(1);
   });
 
+  it("una seconda venue nello stesso posto (entro 300 m) prende lo stesso km: nessuna estrazione nuova da mediare", async () => {
+    const t = setup();
+    const { a, concerto } = await scenario(t);
+    // lo stesso palco chiamato in un altro modo, ~60 m più in là
+    await venue(t, "Porto Antico", "Genova", 8.9192, 44.4066, a.profileId);
+    const { id: x } = await a.as.mutation(api.entries.add, { input: concerto("A") });
+    const { id: y } = await a.as.mutation(api.entries.add, { input: concerto("B", "Porto Antico", "Genova") });
+    expect((await kmDi(t, y))?.km).toBe((await kmDi(t, x))?.km);
+    // anche dopo la correzione dell'indirizzo: una sola estrazione per posto
+    const dep = (await a.as.query(api.departures.list, {})).departures[0].id;
+    await t.run(async ctx => {
+      const s = await ctx.db.query("departureSecrets").withIndex("by_departure", q => q.eq("departureId", dep as never)).unique();
+      await ctx.db.patch(s!._id, { lng: 9.3, lat: 45.6 });
+    });
+    const { estraiPerPartenza } = await import("./km.ts");
+    await t.run(async ctx => {
+      await estraiPerPartenza(ctx, { profileId: a.profileId, departureId: dep as never, correzione: true });
+    });
+    const km = await t.run(async ctx => (await ctx.db.query("kmPairs").collect()).map(c => c.km));
+    expect(km).toHaveLength(2);
+    expect(km[0]).toBe(km[1]);
+  });
+
   it("senza indirizzo il km resta in attesa, con il link a #partenze", async () => {
     const t = setup();
     const a = await conProfilo(t, "u-a", "utente-a");

@@ -107,7 +107,7 @@ const ETICHETTE: Record<string, [string, string]> = {
   add_departure: ["Aggiungo la partenza…", "Partenza aggiunta"],
   rename_departure: ["Rinomino la partenza…", "Partenza rinominata"],
   delete_departure: ["Cancello la partenza…", "Partenza cancellata"],
-  add_venue: ["Aggiungo la venue…", "Venue aggiunta al catalogo"],
+  add_venue: ["Aggiungo la venue…", "Venue aggiunta"],
   add_gifter: ["Aggiungo il “regalato da”…", "“Regalato da” aggiunto"],
   update_gifter: ["Modifico il “regalato da”…", "“Regalato da” modificato"],
   delete_gifter: ["Cancello il “regalato da”…", "“Regalato da” cancellato"],

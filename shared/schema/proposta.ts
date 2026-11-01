@@ -396,7 +396,7 @@ export function fmtBiglietto(e: Pick<EventoEsterno, "cost" | "gift" | "accredito
   const parti: string[] = [];
   if (e.gift) parti.push("Regalo");
   if (e.accredito) parti.push("Accredito");
-  if (e.cost === "na") parti.push("Pagato, prezzo dimenticato");
+  if (e.cost === "na") parti.push("Non ricordo il prezzo");
   else if (typeof e.cost === "number") parti.push(euro(e.cost));
   return parti.join(" · ") || VUOTO;
 }

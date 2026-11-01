@@ -86,6 +86,7 @@ export const tables = {
     drawnAt: ms("Estrazione (ms)"),
   },
   venues: {
+    profileId: idDi("profiles").optional().describe("Di chi è la venue (ogni profilo ha le sue; assente solo in una venue orfana)"),
     name: nomeVenue,
     city: nomeCitta,
     nameKey: z.string().describe("Nome normalizzato"),
@@ -93,7 +94,9 @@ export const tables = {
     lng: z.number().optional().describe("Longitudine (immutabile; assente finché una venue «utente» non ha la posizione)"),
     lat: z.number().optional().describe("Latitudine (immutabile; assente finché una venue «utente» non ha la posizione)"),
     osm: z.string().optional().describe("Id OpenStreetMap"),
-    source: z.enum(["seed", "osm", "citta", "utente"]).describe("Origine: utente = nome e città scritti dal proprietario, posizione cercata dal server"),
+    source: z
+      .enum(["seed", "osm", "citta", "utente", "indirizzo"])
+      .describe("Origine: utente = nome e città scritti dal proprietario, posizione cercata dal server; indirizzo = posizione dall'indirizzo dato dal proprietario"),
     posizione: z.enum(["attesa", "poi", "citta", "non_trovata"]).optional().describe("Solo venue «utente»: la ricerca della posizione"),
     createdBy: idDi("profiles").optional().describe("Chi l'ha aggiunta"),
   },
@@ -113,11 +116,11 @@ export const tables = {
           city: z.string().describe("Città"),
           lng: z.number().describe("Longitudine"),
           lat: z.number().describe("Latitudine"),
-          featureType: z.enum(["poi", "city"]).describe("Tipo"),
+          featureType: z.enum(["poi", "city", "indirizzo"]).describe("Tipo"),
           label: z.string().describe("Etichetta"),
         }),
       )
-      .describe("Solo risultati POI (o città)"),
+      .describe("Risultati POI (o città), oppure indirizzi cercati per una venue"),
     fetchedAt: ms("Richiesta (ms)"),
   },
   entries: entryDbFields,

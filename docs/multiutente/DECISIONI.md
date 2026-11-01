@@ -675,6 +675,52 @@ quello che dice il proprietario, al massimo con una conferma.
 - La creazione si registra fuori dal lotto della scrittura (il catalogo non
   si annulla): Annulla su quel concerto lo toglie e lascia la venue.
 
+## Venue per profilo (Gabri, 2026-11-01)
+
+Supera il catalogo condiviso di «Venue» e «Venue per nome» qui sopra:
+**ogni profilo ha le sue venue**, le aggiunge lui col nome che vuole; se
+servirà, le uniformeremo dopo. Restano condivise solo le città (`cities`,
+i centri abitati) e la cache delle ricerche (chiavi SHA-256).
+
+- **Dati.** `venues.profileId` (facoltativo nello schema: manca solo in una
+  venue orfana, che nessun profilo vede); indici `by_profile_key`
+  (profilo, nome, città) e `by_profile_osm`. Ogni ricerca per nome è per
+  profilo (`venuePerNome(ctx, profileId, …)`), anche nell'import, nel
+  seed (le venue di `gabrifila` sono sue) e in `search_venue`.
+- **Nel modulo** (`VenueScelta`): si sceglie una delle proprie, oppure si
+  scrive il nome di una nuova e la si cerca su OpenStreetMap (all'invio,
+  come vuole Nominatim); si sceglie il risultato giusto e la venue nasce
+  subito col **nome scritto** e la posizione del risultato
+  (`venues.createFromCandidate {ref, name}`). Se OSM non la trova si
+  chiede l'indirizzo (`geo.cercaIndirizzoVenue`, solo dashboard: qualunque
+  punto con una città, anche una casa, `source: "indirizzo"`); se nemmeno
+  l'indirizzo si trova, nome e città e la posizione la cerca il server come
+  in «Venue per nome». Una venue nata per nome e ancora senza posizione la
+  prende dal risultato scelto.
+- **Il nome è libero**, tranne un indirizzo col numero civico
+  (`sembraIndirizzoCivico`): la pagina è pubblica. Niente più «un POI
+  tiene il nome OSM» né dettagli tra parentesi concessi solo contro
+  un'omonima altrui: erano difese del catalogo condiviso. Nello stesso
+  profilo un'omonima (nome+città) in un altro punto è un `conflitto`.
+- **Km.** Con le venue per profilo lo stesso posto può comparire più volte
+  (nomi diversi, il ripiego sulla città), e ogni venue nuova sarebbe una
+  coppia nuova da mediare. Quindi una coppia nuova riusa il km di una
+  venue della stessa partenza entro 300 m (`STESSO_POSTO_KM`), e la
+  correzione di un indirizzo estrae una volta per posto.
+- **Annulla.** L'aggiunta di una venue resta non annullabile; ripristinare
+  un concerto vuole una venue del profilo (una orfana la prende lui, quella
+  di un altro è un `conflitto`).
+- **Account eliminato:** le sue venue se ne vanno con lui.
+- **Migrazione** `migrations:venuePerProfilo` (idempotente, a lotti che si
+  riprogrammano), una volta per deployment con venue di prima:
+  `npx convex run migrations:venuePerProfilo '{"cursor":null}'`. Ogni
+  venue va al profilo che la usa di più (concerti, poi coppie km e chi
+  l'ha creata); gli altri ricevono una copia (o la loro omonima) e i loro
+  concerti, le coppie km (stesso km) e le istantanee del registro passano
+  lì. Va lanciata su dev (`agile-leopard-908`) e sulla preview
+  `preview/multiutente` dopo il deploy di questo codice, e in produzione
+  prima del seed (SWITCH.md B5).
+
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 
 Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):
@@ -748,9 +794,12 @@ Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):
 - **Il form del concerto** sta in `ConcertoPannello.tsx` (apertura,
   salvataggio, coda, concorrenza) e `ConcertoForm.tsx` (parti e campi), coi
   campi condivisi in `campiConcerto.tsx`; `ConcertoModale.tsx` non c'è più. A
-  parti con i salti in testa; voto, posizione e canzoni note a pastiglie
-  (radio con i `name` di sempre, Transenna per prima); «Com'è andata» chiusa
-  per una serata in programma; riepilogo degli errori ed errori del server sul
+  parti, una sotto l'altra (dal 2026-11-01 senza i salti in testa): «La
+  serata», «Biglietto» (prima un select: non ricordo il prezzo, ricordo il
+  prezzo, accredito, regalato; poi il prezzo o chi l'ha regalato), in fondo
+  «Com'è andata» sempre aperta con voto, posizione e canzoni note a pastiglie
+  (radio con i `name` di sempre, Transenna per prima), «Partito da» e il
+  commento; riepilogo degli errori ed errori del server sul
   loro campo; la partenza non si precompila mai (c'è la scorciatoia «Come
   l'ultimo»); concerto ↔ festival solo in un form nuovo, portando anche voto,
   posizione e canzoni note. Se la riga cambia altrove: form pulito → si

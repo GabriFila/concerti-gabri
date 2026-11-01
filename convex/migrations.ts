@@ -25,10 +25,14 @@
 
 import { v } from "convex/values";
 import { z } from "zod";
+import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { isValidThreadId } from "../shared/chat/ids.ts";
 import { internalMutation } from "./lib/builders.ts";
 import { parseInput } from "./lib/errors.ts";
+import { profiliDelleCoppie, spostaCoppieVenue } from "./lib/km.ts";
+import { venuePerNome } from "./lib/refs.ts";
 import { HANDLE_SEED } from "./seed.ts";
 
 const conversazione = z.strictObject({
@@ -78,5 +82,83 @@ export const importChatThreads = internalMutation({
       }
     }
     return esito;
+  },
+});
+
+/* ──────────────────────────────────────────────────────────────
+   Venue per profilo (DECISIONI «Venue per profilo», 2026-11-01): ogni
+   venue senza `profileId` va al profilo che la usa (concerti, coppie km,
+   chi l'ha creata), quello con più concerti; gli altri profili che la
+   usano ne ricevono una copia (o la loro omonima, se c'è già), e i loro
+   concerti, le coppie km (stesso km: nessuna estrazione nuova) e le
+   istantanee del registro (per Annulla) passano alla copia. Una venue che
+   non usa nessuno resta orfana: nessun profilo la vede.
+   Idempotente, a lotti che si riprogrammano da soli; si lancia una volta
+   per deployment: `npx convex run migrations:venuePerProfilo '{"cursor":null}'`.
+   ────────────────────────────────────────────────────────────── */
+
+const LOTTO_VENUE = 25;
+
+/** Le istantanee del registro di un profilo che citano la venue `da` passano ad `a`. */
+async function rimappaRegistro(ctx: MutationCtx, profileId: Id<"profiles">, da: Id<"venues">, a: Id<"venues">) {
+  const ago = JSON.stringify(da);
+  for (const voce of await ctx.db.query("activity").withIndex("by_profile_at", q => q.eq("profileId", profileId)).collect()) {
+    const patch: { before?: unknown; after?: unknown } = {};
+    for (const k of ["before", "after"] as const) {
+      const json = voce[k] === undefined ? undefined : JSON.stringify(voce[k]);
+      if (json?.includes(ago)) patch[k] = JSON.parse(json.split(ago).join(JSON.stringify(a)));
+    }
+    if (Object.keys(patch).length) await ctx.db.patch(voce._id, patch);
+  }
+}
+
+export const venuePerProfilo = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ assegnate: v.number(), copiate: v.number(), orfane: v.number(), finito: v.boolean() }),
+  handler: async (ctx, { cursor }) => {
+    const pagina = await ctx.db.query("venues").paginate({ cursor, numItems: LOTTO_VENUE });
+    const esito = { assegnate: 0, copiate: 0, orfane: 0 };
+    for (const ven of pagina.page) {
+      if (ven.profileId) continue;
+      const concerti = await ctx.db.query("entries").withIndex("by_venue", q => q.eq("venueId", ven._id)).collect();
+      const conta = new Map<Id<"profiles">, number>();
+      for (const e of concerti) conta.set(e.profileId, (conta.get(e.profileId) ?? 0) + 1);
+      for (const p of await profiliDelleCoppie(ctx, ven._id)) if (!conta.has(p)) conta.set(p, 0);
+      if (ven.createdBy && !conta.has(ven.createdBy) && (await ctx.db.get(ven.createdBy))) conta.set(ven.createdBy, 0);
+      // prima chi ha più concerti; a parità chi l'ha creata
+      const profili = [...conta.entries()]
+        .sort((a, b) => b[1] - a[1] || Number(b[0] === ven.createdBy) - Number(a[0] === ven.createdBy))
+        .map(([p]) => p);
+      if (!profili.length) {
+        esito.orfane++;
+        continue;
+      }
+      let assegnata = false;
+      for (const p of profili) {
+        const omonima = await venuePerNome(ctx, p, ven.name, ven.city);
+        if (!omonima && !assegnata) {
+          await ctx.db.patch(ven._id, { profileId: p });
+          assegnata = true;
+          esito.assegnate++;
+          continue;
+        }
+        let a = omonima?._id;
+        if (!a) {
+          const { _id, _creationTime, ...campi } = ven;
+          void _id;
+          void _creationTime;
+          a = await ctx.db.insert("venues", { ...campi, profileId: p, createdBy: ven.createdBy === p ? p : undefined });
+          if (ven.lng === undefined && ven.posizione === "attesa") await ctx.scheduler.runAfter(0, internal.geo.posizioneVenue, { venueId: a, tentativo: 0 });
+        }
+        for (const e of concerti) if (e.profileId === p) await ctx.db.patch(e._id, { venueId: a });
+        await spostaCoppieVenue(ctx, p, ven._id, a);
+        await rimappaRegistro(ctx, p, ven._id, a);
+        esito.copiate++;
+      }
+      // tutti avevano già la loro omonima: questa non la usa più nessuno
+      if (!assegnata) await ctx.db.delete(ven._id);
+    }
+    if (!pagina.isDone) await ctx.scheduler.runAfter(0, internal.migrations.venuePerProfilo, { cursor: pagina.continueCursor });
+    return { ...esito, finito: pagina.isDone };
   },
 });

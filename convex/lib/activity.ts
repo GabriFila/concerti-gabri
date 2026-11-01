@@ -7,8 +7,7 @@
      `after`, ignorando km, kmPending, kmSource (e i campi di sistema);
      altrimenti "modificato dopo". I lotti (`batchId`) si annullano insieme.
      Annullare è a sua volta un'attività: annullarla rifà l'operazione.
-     Le attività `sistema` e il catalogo condiviso delle venue non si
-     annullano.
+     Le attività `sistema` e l'aggiunta di una venue non si annullano.
    - Annulla rispetta le stesse regole delle funzioni: niente persone,
      partenze o "regalato da" cancellati mentre un concerto li usa (`in_uso`),
      nomi unici, handle solo se disponibile (con gli alias, lib/handles.ts).
@@ -109,9 +108,15 @@ async function corrente(ctx: MutationCtx, a: Doc<"activity">) {
   return id ? await ctx.db.get(id) : null;
 }
 
-/** Ricalcola i campi km di un concerto ripristinato: arrivano dalle coppie salvate (lib/km.ts), quindi identici. */
+/**
+ * Ricalcola i campi km di un concerto ripristinato: arrivano dalle coppie salvate (lib/km.ts), quindi identici.
+ * La venue dev'essere del profilo (ognuno ha le sue): una orfana la prende lui, quella di un altro è un conflitto.
+ */
 async function conKm(ctx: MutationCtx, doc: Record<string, unknown>) {
   if (!doc.venueId) return doc;
+  const venue = await ctx.db.get(doc.venueId as Id<"venues">);
+  if (!venue || (venue.profileId && venue.profileId !== doc.profileId)) throw errore("conflitto", "la venue di questo concerto non c'è più");
+  if (!venue.profileId) await ctx.db.patch(venue._id, { profileId: doc.profileId as Id<"profiles"> });
   const km = await campiKm(ctx, {
     profileId: doc.profileId as Id<"profiles">,
     departureId: doc.departureId as Id<"departures"> | undefined,
@@ -194,7 +199,7 @@ export async function annulla(ctx: MutationCtx, owner: Owner, activityId: Id<"ac
     : [voce];
   if (lotto.some(a => a.undoneBy)) throw errore("conflitto", "già annullata");
   if (lotto.some(a => a.actor.via === "sistema")) throw errore("conflitto", "i ricalcoli di sistema non si annullano");
-  if (lotto.some(a => !annullabile(a))) throw errore("conflitto", "il catalogo condiviso delle venue non si annulla");
+  if (lotto.some(a => !annullabile(a))) throw errore("conflitto", "l'aggiunta di una venue non si annulla");
 
   // 1. controllo dei conflitti su tutto il lotto, prima di scrivere
   for (const a of lotto) {
@@ -274,6 +279,6 @@ export async function annulla(ctx: MutationCtx, owner: Owner, activityId: Id<"ac
   return create;
 }
 
-/** Una voce che si può annullare: non di sistema, non già annullata, non del catalogo condiviso. */
+/** Una voce che si può annullare: non di sistema, non già annullata, non l'aggiunta di una venue. */
 export const annullabile = (a: Pick<Doc<"activity">, "actor" | "undoneBy" | "table">) =>
   !a.undoneBy && a.actor.via !== "sistema" && a.table !== "venues";

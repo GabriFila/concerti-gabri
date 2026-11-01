@@ -166,7 +166,10 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
 
 ### B5. Seed di produzione
 - **Chi:** Gabri.
-- **Come:** `pnpm exec convex run --prod seed:ensure`.
+- **Come:** prima le venue per profilo (idempotente, su un deployment vuoto
+  non fa niente: DECISIONI «Venue per profilo»), poi il seed:
+  - `pnpm exec convex run --prod migrations:venuePerProfilo '{"cursor":null}'`
+  - `pnpm exec convex run --prod seed:ensure`
 - **Verifica:** `https://concerti-gabri.vercel.app/gabrifila` e `/gabrifila/dati`
   hanno gli stessi numeri del sito Netlify; mappa viva con
   `node scripts/preview-shot.mjs https://concerti-gabri.vercel.app/gabrifila`.

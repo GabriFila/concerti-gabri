@@ -165,6 +165,8 @@ test.describe("chi è entrato", () => {
 
     await page.getByRole("button", { name: "Avanti" }).click();
     await expect(page.getByText("Passo 3 di 4")).toBeVisible();
+    // il passo dell'agente ha due parti
+    await page.getByRole("button", { name: "Avanti" }).click();
     await page.getByRole("button", { name: "Avanti" }).click();
     await expect(page.getByRole("heading", { name: "La tua pagina è pronta" })).toBeVisible();
 

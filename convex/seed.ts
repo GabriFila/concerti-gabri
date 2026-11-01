@@ -22,7 +22,7 @@ import { isFestival } from "../shared/model/concert.ts";
 import { ALLDATA, CITY_COORDS, DEPARTURES, GIFTERS, PEOPLE, VENUE_COORDS, WISHLIST } from "../shared/seed/gabrifila.ts";
 import { internalMutation } from "./lib/builders.ts";
 import { salvaCoppiaLegacy } from "./lib/km.ts";
-import { chiave } from "./lib/refs.ts";
+import { chiave, venuePerNome } from "./lib/refs.ts";
 
 export const HANDLE_SEED = "gabrifila";
 export const EXTRA_SEED = {
@@ -35,31 +35,13 @@ let cid = 0;
 export async function seedGabrifila(ctx: MutationCtx) {
   const conteggi = { venues: 0, cities: 0, people: 0, gifters: 0, wishlist: 0, departures: 0, entries: 0, coppie: 0 };
 
-  /* città e venue (catalogo condiviso) */
+  /* città (catalogo comune dei centri abitati) */
   for (const [name, [lng, lat]] of Object.entries(CITY_COORDS)) {
     if (!(await ctx.db.query("cities").withIndex("by_key", q => q.eq("key", chiave(name))).first())) {
       await ctx.db.insert("cities", { name, key: chiave(name), lng, lat });
       conteggi.cities++;
     }
   }
-  const venueId = new Map<string, Id<"venues">>();
-  for (const e of ALLDATA) {
-    const k = `${e.venue}\u0000${e.city}`;
-    if (venueId.has(k)) continue;
-    let ven = await ctx.db.query("venues").withIndex("by_key", q => q.eq("nameKey", chiave(e.venue)).eq("cityKey", chiave(e.city))).first();
-    if (!ven) {
-      const coords = VENUE_COORDS[e.venue] ?? CITY_COORDS[e.city];
-      if (!coords) throw new Error(`seed: coordinate mancanti per una venue (${e.venue})`);
-      const id = await ctx.db.insert("venues", {
-        name: e.venue, city: e.city, nameKey: chiave(e.venue), cityKey: chiave(e.city),
-        lng: coords[0], lat: coords[1], source: VENUE_COORDS[e.venue] ? "seed" : "citta",
-      });
-      ven = (await ctx.db.get(id))!;
-      conteggi.venues++;
-    }
-    venueId.set(k, ven._id);
-  }
-
   /* profilo */
   let profile = await ctx.db.query("profiles").withIndex("by_handle", q => q.eq("handle", HANDLE_SEED)).first();
   if (!profile) {
@@ -76,6 +58,26 @@ export async function seedGabrifila(ctx: MutationCtx) {
     profile = (await ctx.db.get(id))!;
   }
   const pid = profile._id;
+
+  /* le venue di gabrifila (ognuno ha le sue) */
+  const venueId = new Map<string, Id<"venues">>();
+  for (const e of ALLDATA) {
+    const k = `${e.venue}\u0000${e.city}`;
+    if (venueId.has(k)) continue;
+    let ven = await venuePerNome(ctx, pid, e.venue, e.city);
+    if (!ven) {
+      const coords = VENUE_COORDS[e.venue] ?? CITY_COORDS[e.city];
+      if (!coords) throw new Error(`seed: coordinate mancanti per una venue (${e.venue})`);
+      const id = await ctx.db.insert("venues", {
+        profileId: pid, name: e.venue, city: e.city, nameKey: chiave(e.venue), cityKey: chiave(e.city),
+        lng: coords[0], lat: coords[1], source: VENUE_COORDS[e.venue] ? "seed" : "citta",
+      });
+      ven = (await ctx.db.get(id))!;
+      conteggi.venues++;
+    }
+    venueId.set(k, ven._id);
+  }
+
 
   /* persone */
   const persone = new Map<string, Id<"people">>();

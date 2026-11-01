@@ -736,11 +736,11 @@ export interface ContestoScheda {
   persone?: readonly string[];
   partenze?: readonly { name: string; stato: "impostato" | "mancante" }[];
   regali?: readonly string[];
-  /** La venue è nel catalogo condiviso (undefined: non si sa ancora). */
+  /** La venue è tra quelle del proprietario (undefined: non si sa ancora). */
   venueNelCatalogo?: boolean;
-  /** Senza città, nel catalogo ci sono più venue con quel nome: si sceglie quale. */
+  /** Senza città, tra le sue venue ce n'è più d'una con quel nome: si sceglie quale. */
   venueAmbigua?: boolean;
-  /** Fuori catalogo: una venue del catalogo dal nome simile nella stessa città, da proporre. */
+  /** Non tra le sue: una sua venue dal nome simile nella stessa città, da proporre. */
   venueSimile?: { name: string; city: string };
   /** Chiavi (chiaveNome) dei nomi nuovi confermati così come sono. */
   nomiOk?: readonly string[];
@@ -849,7 +849,7 @@ export function problemiScheda(b: Bozza, ctx: ContestoScheda): ProblemiScheda {
     }
   }
   // la venue: fuori catalogo con la città è nuova (la crea il Salva, lib/venueUtente.ts); blocca solo
-  // se manca, se è ambigua senza città, se manca la città o se sembra un indirizzo (il catalogo è pubblico)
+  // se manca, se è ambigua senza città, se manca la città o se sembra un indirizzo (le venue sono pubbliche)
   const nomeVenue = v.venue.trim();
   const cittaVenue = v.city.trim();
   let venueBloccata = !nomeVenue;
@@ -857,16 +857,16 @@ export function problemiScheda(b: Bozza, ctx: ContestoScheda): ProblemiScheda {
     daSistemare.push({ chiave: "venue", tipo: "venue_manca", campo: "venue", testo: "Manca la venue." });
   } else if (ctx.venueNelCatalogo === false) {
     venueBloccata = true;
-    if (ctx.venueAmbigua) daSistemare.push({ chiave: "venue", tipo: "venue_ambigua", campo: "venue", testo: `Scegli la venue: nel catalogo c'è più di un «${nomeVenue}».` });
+    if (ctx.venueAmbigua) daSistemare.push({ chiave: "venue", tipo: "venue_ambigua", campo: "venue", testo: `Scegli la venue: tra le tue c'è più di un «${nomeVenue}».` });
     else if (sembraIndirizzoCivico(nomeVenue)) {
-      daSistemare.push({ chiave: "venue", tipo: "venue_indirizzo", campo: "venue", testo: `«${nomeVenue}» sembra un indirizzo: il catalogo delle venue è pubblico, scrivi il nome del locale.` });
+      daSistemare.push({ chiave: "venue", tipo: "venue_indirizzo", campo: "venue", testo: `«${nomeVenue}» sembra un indirizzo: le venue si vedono sulla pagina pubblica, scrivi il nome del posto.` });
     } else if (!cittaVenue) daSistemare.push({ chiave: "venue", tipo: "citta_manca", campo: "venue", testo: `Manca la città di «${nomeVenue}».` });
     else {
       venueBloccata = false;
       daControllare.push({
         chiave: "venue",
         tipo: "venue_nuova",
-        testo: `Venue nuova: «${nomeVenue}» (${cittaVenue}) si aggiunge al catalogo quando salvi; la posizione la cerco su OpenStreetMap.`,
+        testo: `Venue nuova: «${nomeVenue}» (${cittaVenue}) si aggiunge alle tue venue quando salvi; la posizione la cerco su OpenStreetMap.`,
         ...(ctx.venueSimile ? { venueSimile: ctx.venueSimile } : {}),
       });
     }

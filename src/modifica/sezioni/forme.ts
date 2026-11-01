@@ -298,7 +298,7 @@ export function campiMancanti(v: ValoriConcerto | ValoriFestival, oggi: number):
   return out;
 }
 
-/** Le etichette dei campi, per il riepilogo degli errori e «Mancano: …». */
+/** Le etichette dei campi, per il riepilogo degli errori e «Mancano: …», nell'ordine del form (ConcertoForm.tsx). */
 const ETICHETTE: Record<string, string> = {
   name: "Nome del festival",
   artist: "Artista",
@@ -306,14 +306,14 @@ const ETICHETTE: Record<string, string> = {
   venue: "Venue",
   city: "Venue",
   with: "Con chi",
-  voto: "Voto",
-  vicinanza: "Posizione",
-  canzoniNote: "Canzoni note",
   concerts: "Concerti del festival",
   cost: "Prezzo",
   gift: "Regalato",
   giftFrom: "Regalato da",
   accredito: "Accredito",
+  voto: "Voto",
+  vicinanza: "Posizione",
+  canzoniNote: "Canzoni note",
   from: "Partito da",
   comments: "Commento",
 };

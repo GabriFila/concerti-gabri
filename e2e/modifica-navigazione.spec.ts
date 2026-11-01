@@ -534,7 +534,7 @@ test.describe("navigazione di /modifica", { tag: "@sessione" }, () => {
     await expect(nuovo.locator('input[name="artist"]')).toHaveValue("Canarino Wish");
     await nuovo.locator('input[name="date"]').fill("2025-04-12");
     await nuovo.getByLabel("Cerca una venue").fill("Fabrique");
-    await nuovo.getByRole("list", { name: "Venue del catalogo" }).getByRole("button", { name: /^Fabrique/ }).first().click();
+    await nuovo.getByRole("list", { name: "Le tue venue" }).getByRole("button", { name: /^Fabrique/ }).first().click();
     await nuovo.getByRole("button", { name: "Salva", exact: true }).click();
     const aggiunto = page.getByRole("status").filter({ hasText: "Concerto aggiunto." });
     await aggiunto.getByRole("button", { name: "Togli Canarino Wish dalla wishlist" }).click();

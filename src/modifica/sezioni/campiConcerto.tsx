@@ -8,17 +8,17 @@
      «Modulo completo» della scheda dell'Oracolo) la persona nuova resta
      un chip segnato «nuova» e non si crea: la crea il salvataggio della
      scheda. Sotto, le scorciatoie «Frequenti».
-   - Venue: dal catalogo condiviso, oppure nuova con nome e città così
-     come li scrivi: la crea il salvataggio e il server ne cerca la
-     posizione (lib/venueUtente.ts, DECISIONI «Venue per nome»). Il nome
-     del locale, mai un indirizzo. Le scorciatoie «Usate di recente» sono
-     le venue degli ultimi concerti.
+   - Venue: una delle tue (ognuno ha le sue, DECISIONI «Venue per
+     profilo»), oppure nuova col nome che scrivi: la si cerca su
+     OpenStreetMap e si sceglie tra i risultati, o se non c'è se ne cerca
+     l'indirizzo. Il nome del posto, mai un indirizzo. Le scorciatoie
+     «Usate di recente» sono le venue degli ultimi concerti.
    - Suggerimenti ed errori stanno fuori dalle etichette, indicati da
      aria-describedby; `segno` va accanto all'etichetta (il punto
      «proposto dall'Oracolo»).
    ────────────────────────────────────────────────────────────── */
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
 import { api } from "../../../convex/_generated/api";
 import { concertoInput } from "../../../shared/schema/entry.ts";
@@ -28,7 +28,7 @@ import { chiaveNome, descrizione } from "./forme.ts";
 
 const C = concertoInput.shape;
 
-/** Il prezzo: un numero, oppure "pagato ma dimenticato" ("na"); vuoto = non si sa. */
+/** Il prezzo, quando nel biglietto c'è «Ricordo il prezzo» («Non ricordo il prezzo» è `"na"`, ConcertoForm.tsx); vuoto = non si sa. */
 export function CampoCosto({ f, segno }: { f: AnyFieldApi; segno?: ReactNode }) {
   const v = f.state.value as number | "na" | undefined;
   const d = useDescrizione(f, true);
@@ -38,26 +38,19 @@ export function CampoCosto({ f, segno }: { f: AnyFieldApi; segno?: ReactNode }) 
         Prezzo (€)
         {segno}
       </label>
-      <div className="mod-riga">
-        <input
-          id={d.id}
-          type="number"
-          inputMode="decimal"
-          min={0}
-          step={0.01}
-          value={typeof v === "number" ? v : ""}
-          disabled={v === "na"}
-          onChange={e => f.handleChange(e.target.value === "" ? undefined : Number(e.target.value))}
-          onBlur={f.handleBlur}
-          aria-invalid={d.invalido}
-          aria-describedby={d.descritto}
-        />
-        <label className="mod-spunta">
-          <input type="checkbox" checked={v === "na"} onChange={e => f.handleChange(e.target.checked ? "na" : undefined)} />
-          Pagato, prezzo dimenticato
-        </label>
-      </div>
-      {/* la descrizione per gli agenti spiega "na"; qui lo dice la casella accanto */}
+      <input
+        id={d.id}
+        type="number"
+        inputMode="decimal"
+        min={0}
+        step={0.01}
+        value={typeof v === "number" ? v : ""}
+        onChange={e => f.handleChange(e.target.value === "" ? undefined : Number(e.target.value))}
+        onBlur={f.handleBlur}
+        aria-invalid={d.invalido}
+        aria-describedby={d.descritto}
+      />
+      {/* la descrizione per gli agenti spiega "na"; qui è la scelta «Non ricordo il prezzo» del biglietto */}
       <span id={d.idAiuto} className="mod-hint">{descrizione(C.cost)?.replace(/,?\s*oppure "na".*$/, ".")}</span>
       <ErroriCampo f={f} id={d.idErrore} />
     </div>
@@ -189,10 +182,15 @@ export function PersoneScelte({ f, persone, creaSubito = true, frequenti = [], s
 }
 
 
+type Candidato = { ref: string; name: string; city: string; label: string };
+
 /**
- * La venue: dal catalogo condiviso, oppure nuova con nome e città così come li scrivi (la crea il
- * salvataggio, lib/venueUtente.ts). `recenti` sono le scorciatoie «Usate di recente»; `iniziale`
- * riempie la ricerca e la città della venue nuova (la scheda dell'Oracolo).
+ * La venue: una delle tue (ognuno ha le sue), oppure una nuova col nome che scrivi. Per una nuova si
+ * cerca il nome su OpenStreetMap (geo.searchVenue) e si sceglie tra i risultati; se non c'è, si cerca il
+ * suo indirizzo (geo.cercaIndirizzoVenue). La venue nasce subito (venues.createFromCandidate) col nome
+ * scritto e la posizione scelta. Ultima spiaggia, nome e città: la crea il salvataggio e la posizione la
+ * cerca il server (lib/venueUtente.ts). `recenti` sono le scorciatoie «Usate di recente»; `iniziale`
+ * riempie il nome e la città (la scheda dell'Oracolo).
  */
 export function VenueScelta({ venue, city, onScegli, errore, recenti = [], segno, iniziale }: {
   venue: string;
@@ -203,35 +201,83 @@ export function VenueScelta({ venue, city, onScegli, errore, recenti = [], segno
   segno?: ReactNode;
   iniziale?: { venue: string; city: string };
 }) {
+  const convex = useConvex();
+  const op = useOperazione();
   const catalogo = useDati(api.entries.venueCatalogo);
   const idEtichetta = useId();
-  const idCitta = useId();
   const [aperta, setAperta] = useState(!venue);
   const [testo, setTesto] = useState(iniziale?.venue ?? "");
+  // i risultati di OpenStreetMap per il nome cercato (null: non ancora cercato)
+  const [trovate, setTrovate] = useState<{ per: string; candidati: Candidato[] } | null>(null);
+  const [chiediIndirizzo, setChiediIndirizzo] = useState(false);
+  const [indirizzo, setIndirizzo] = useState("");
+  const [perIndirizzo, setPerIndirizzo] = useState<Candidato[] | null>(null);
   const [citta, setCitta] = useState(iniziale?.city ?? "");
 
   const venues = catalogo.data?.venues ?? [];
+  const nome = testo.trim();
   const parole = chiaveNome(testo).split(" ").filter(w => w.length > 1);
-  const locali = parole.length
-    ? venues.filter(v => parole.every(w => chiaveNome(`${v.name} ${v.city}`).includes(w))).slice(0, 8)
-    : [];
+  const mie = parole.length ? venues.filter(v => parole.every(w => chiaveNome(`${v.name} ${v.city}`).includes(w))).slice(0, 8) : [];
   const rapide = recenti.filter(r => !(chiaveNome(r.venue) === chiaveNome(venue) && chiaveNome(r.city) === chiaveNome(city)));
-  // già nel catalogo con questo nome e questa città: si usa quella
-  const esistente = venues.find(v => chiaveNome(v.name) === chiaveNome(testo) && chiaveNome(v.city) === chiaveNome(citta));
+  // le venue sono pubbliche sulla pagina: un indirizzo non diventa il nome di una venue (lo rifiuta anche il server)
+  const nomeIndirizzo = sembraIndirizzoCivico(nome);
+  const cercabile = nome.length >= 2 && !nomeIndirizzo;
+  const cercato = trovate?.per === nome ? trovate.candidati : null;
 
+  const azzera = () => {
+    setTesto("");
+    setTrovate(null);
+    setChiediIndirizzo(false);
+    setIndirizzo("");
+    setPerIndirizzo(null);
+    setCitta("");
+    op.setErrore(null);
+  };
   const scegli = (name: string, c: string) => {
     onScegli(name, c);
     setAperta(false);
-    setTesto("");
-    setCitta("");
+    azzera();
   };
-  // il catalogo è pubblico: un indirizzo non diventa una venue (lo rifiuta anche il server)
-  const indirizzo = !esistente && sembraIndirizzoCivico(testo);
-  const nuova = testo.trim().length >= 2 && citta.trim().length >= 1 && !indirizzo;
-  const usaNuova = () => {
-    if (!nuova) return;
-    scegli(esistente?.name ?? testo.trim(), esistente?.city ?? citta.trim());
+  const cercaNome = async () => {
+    if (!cercabile || op.inCorso) return;
+    const r = await op.esegui(() => convex.action(api.geo.searchVenue, { query: nome }));
+    if (!r) return;
+    setTrovate({ per: nome, candidati: r.candidati });
+    setPerIndirizzo(null);
+    // niente su OpenStreetMap: si passa subito all'indirizzo
+    setChiediIndirizzo(r.candidati.length === 0);
   };
+  const cercaIndirizzo = async () => {
+    if (indirizzo.trim().length < 3 || op.inCorso) return;
+    const r = await op.esegui(() => convex.action(api.geo.cercaIndirizzoVenue, { address: indirizzo.trim() }));
+    if (r) setPerIndirizzo(r.candidati);
+  };
+  // la venue nasce adesso, col nome scritto e la posizione del candidato scelto
+  const usaCandidato = async (c: Candidato) => {
+    const r = await op.esegui(() => convex.mutation(api.venues.createFromCandidate, { ref: c.ref, name: nome }));
+    if (r) scegli(r.name, r.city);
+  };
+  const usaSoloCitta = () => {
+    if (cercabile && citta.trim()) scegli(nome, citta.trim());
+  };
+  const invio = (f: () => void) => (e: KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      f();
+    }
+  };
+  const elenco = (candidati: Candidato[], etichetta: string) => (
+    <ul className="mod-opzioni" aria-label={etichetta}>
+      {candidati.map(c => (
+        <li key={c.ref}>
+          <button type="button" disabled={op.inCorso} onClick={() => void usaCandidato(c)}>
+            {c.name} <span>· {c.city}</span>
+            <small>{c.label}</small>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <div className="mod-campo mod-venue" role="group" aria-labelledby={idEtichetta} data-campo="venue">
@@ -249,20 +295,18 @@ export function VenueScelta({ venue, city, onScegli, errore, recenti = [], segno
           <div className="mod-riga">
             <input
               value={testo}
-              placeholder="Nome del locale"
+              placeholder="Il nome del posto"
               aria-label="Cerca una venue"
               maxLength={120}
-              onChange={e => setTesto(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  usaNuova();
-                }
+              onChange={e => {
+                setTesto(e.target.value);
+                op.setErrore(null);
               }}
+              onKeyDown={invio(() => (mie.length === 1 && chiaveNome(mie[0].name) === chiaveNome(nome) ? scegli(mie[0].name, mie[0].city) : void cercaNome()))}
             />
-            {venue && <button type="button" className="mod-btn" onClick={() => setAperta(false)}>Tieni {venue}</button>}
+            {venue && <button type="button" className="mod-btn" onClick={() => { setAperta(false); azzera(); }}>Tieni {venue}</button>}
           </div>
-          {!testo.trim() && rapide.length > 0 && (
+          {!nome && rapide.length > 0 && (
             <Rapidi titolo="Usate di recente">
               {rapide.map(r => (
                 <button key={`${r.venue}|${r.city}`} type="button" className="mf-rapido" onClick={() => scegli(r.venue, r.city)}>
@@ -271,44 +315,64 @@ export function VenueScelta({ venue, city, onScegli, errore, recenti = [], segno
               ))}
             </Rapidi>
           )}
-          {locali.length > 0 && (
-            <ul className="mod-opzioni" aria-label="Venue del catalogo">
-              {locali.map(v => (
+          {mie.length > 0 && (
+            <ul className="mod-opzioni" aria-label="Le tue venue">
+              {mie.map(v => (
                 <li key={v.id}><button type="button" onClick={() => scegli(v.name, v.city)}>{v.name} <span>· {v.city}</span></button></li>
               ))}
             </ul>
           )}
-          {testo.trim().length >= 2 && (
-            <div className="mod-venue-nuova">
-              {indirizzo ? (
-                <span className="mod-campo-errore" role="alert">Sembra un indirizzo: scrivi il nome del locale, il catalogo delle venue è pubblico.</span>
-              ) : (
-                <span className="mod-hint">{locali.length ? "Non è nessuna di queste? " : ""}Scrivi la città e usala così com'è.</span>
-              )}
-              <div className="mod-riga">
-                <input
-                  id={idCitta}
-                  value={citta}
-                  placeholder="Città"
-                  aria-label="Città della venue"
-                  maxLength={80}
-                  onChange={e => setCitta(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      usaNuova();
-                    }
-                  }}
-                />
-                <button type="button" className="mod-btn mod-primario" disabled={!nuova} onClick={usaNuova}>
-                  {esistente ? `Usa ${esistente.name}` : "Usa questa venue"}
-                </button>
-              </div>
+          {nomeIndirizzo && <span className="mod-campo-errore" role="alert">Sembra un indirizzo: scrivi il nome del posto, le venue si vedono sulla pagina pubblica.</span>}
+          {cercabile && !cercato && (
+            <div className="mod-riga">
+              <button type="button" className="mod-btn mod-primario" disabled={op.inCorso} onClick={() => void cercaNome()}>
+                {op.inCorso ? "Cerco…" : mie.length ? `Nessuna di queste: cerca «${nome}»` : `Cerca «${nome}»`}
+              </button>
             </div>
           )}
+          {cercato && cercato.length > 0 && (
+            <div className="mod-venue-nuova">
+              <span className="mod-hint">Su OpenStreetMap: scegli quella giusta, si aggiunge alle tue venue come «{nome}».</span>
+              {elenco(cercato, "Risultati su OpenStreetMap")}
+              {!chiediIndirizzo && (
+                <button type="button" className="mf-link-testo mod-hint" onClick={() => setChiediIndirizzo(true)}>Non è nessuna di queste? Scrivi l'indirizzo</button>
+              )}
+            </div>
+          )}
+          {cercato && chiediIndirizzo && (
+            <div className="mod-venue-nuova">
+              <span className="mod-hint">
+                {cercato.length ? "" : `«${nome}» non è su OpenStreetMap. `}Scrivi l'indirizzo e la posizione la prendiamo da lì.
+              </span>
+              <div className="mod-riga">
+                <input
+                  value={indirizzo}
+                  placeholder="Via, numero e città"
+                  aria-label="Indirizzo della venue"
+                  maxLength={200}
+                  autoFocus
+                  onChange={e => setIndirizzo(e.target.value)}
+                  onKeyDown={invio(() => void cercaIndirizzo())}
+                />
+                <button type="button" className="mod-btn mod-primario" disabled={indirizzo.trim().length < 3 || op.inCorso} onClick={() => void cercaIndirizzo()}>
+                  Cerca
+                </button>
+              </div>
+              {perIndirizzo && perIndirizzo.length > 0 && elenco(perIndirizzo, "Indirizzi trovati")}
+              {perIndirizzo && perIndirizzo.length === 0 && (
+                <>
+                  <span className="mod-hint">Indirizzo non trovato. Controlla com'è scritto, oppure usa solo la città: la posizione la cerchiamo noi.</span>
+                  <div className="mod-riga">
+                    <input value={citta} placeholder="Città" aria-label="Città della venue" maxLength={80} onChange={e => setCitta(e.target.value)} onKeyDown={invio(usaSoloCitta)} />
+                    <button type="button" className="mod-btn" disabled={!citta.trim() || !cercabile} onClick={usaSoloCitta}>Usa «{nome}»</button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <Errore errore={op.errore} />
           <span className="mod-hint">
-            Il nome del locale, mai un indirizzo: il catalogo delle venue è condiviso tra tutte le pagine. Una venue nuova
-            si aggiunge quando salvi, e la sua posizione la cerchiamo su OpenStreetMap.
+            Scegli una delle tue venue o scrivi il nome di una nuova: la cerchiamo su OpenStreetMap per metterla sulla mappa.
           </span>
         </div>
       )}

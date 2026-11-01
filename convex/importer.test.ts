@@ -19,8 +19,8 @@ const concerto = (i: number, extra: Record<string, unknown> = {}): EntryInput =>
 
 async function profilo(extra: Record<string, unknown> = {}) {
   const t = setup();
-  await venue(t, "Fabrique", "Milano", 9.25, 45.45);
   const a = await conProfilo(t, "u-a", "utente-a", extra);
+  await venue(t, "Fabrique", "Milano", 9.25, 45.45);
   await a.as.mutation(api.departures.add, { input: { name: "Casa" } });
   return { t, a };
 }

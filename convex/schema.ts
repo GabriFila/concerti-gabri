@@ -91,6 +91,8 @@ export const fields = {
     drawnAt: v.number(),
   },
   venues: {
+    // di chi è: ogni profilo ha le sue venue (assente solo in una venue orfana, mai usata da nessun profilo)
+    profileId: v.optional(v.id("profiles")),
     name: v.string(),
     city: v.string(),
     nameKey: v.string(),
@@ -99,8 +101,9 @@ export const fields = {
     lng: v.optional(v.number()),
     lat: v.optional(v.number()),
     osm: v.optional(v.string()),
-    // utente: nome e città come li ha scritti il proprietario, posizione cercata dal server (geo.posizioneVenue)
-    source: v.union(v.literal("seed"), v.literal("osm"), v.literal("citta"), v.literal("utente")),
+    // utente: nome e città come li ha scritti il proprietario, posizione cercata dal server (geo.posizioneVenue);
+    // indirizzo: nome del proprietario, posizione dall'indirizzo che ha dato (geo.cercaIndirizzoVenue)
+    source: v.union(v.literal("seed"), v.literal("osm"), v.literal("citta"), v.literal("utente"), v.literal("indirizzo")),
     posizione: v.optional(v.union(v.literal("attesa"), v.literal("poi"), v.literal("citta"), v.literal("non_trovata"))),
     createdBy: v.optional(v.id("profiles")),
   },
@@ -119,7 +122,7 @@ export const fields = {
         city: v.string(),
         lng: v.number(),
         lat: v.number(),
-        featureType: v.union(v.literal("poi"), v.literal("city")),
+        featureType: v.union(v.literal("poi"), v.literal("city"), v.literal("indirizzo")),
         label: v.string(),
       }),
     ),
@@ -208,8 +211,11 @@ export default defineSchema({
   departures: defineTable(fields.departures).index("by_profile", ["profileId"]),
   departureSecrets: defineTable(fields.departureSecrets).index("by_departure", ["departureId"]),
   geocodeDrafts: defineTable(fields.geocodeDrafts).index("by_departure", ["departureId"]).index("by_expires", ["expiresAt"]),
-  kmPairs: defineTable(fields.kmPairs).index("by_pair", ["departureId", "venueId"]).index("by_departure", ["departureId"]),
-  venues: defineTable(fields.venues).index("by_key", ["nameKey", "cityKey"]).index("by_osm", ["osm"]),
+  kmPairs: defineTable(fields.kmPairs).index("by_pair", ["departureId", "venueId"]).index("by_departure", ["departureId"]).index("by_venue", ["venueId"]),
+  venues: defineTable(fields.venues)
+    .index("by_key", ["nameKey", "cityKey"])
+    .index("by_profile_key", ["profileId", "nameKey", "cityKey"])
+    .index("by_profile_osm", ["profileId", "osm"]),
   cities: defineTable(fields.cities).index("by_key", ["key"]),
   venueSearchCache: defineTable(fields.venueSearchCache).index("by_keyHash", ["keyHash"]),
   entries: defineTable(fields.entries)

@@ -1,6 +1,7 @@
 /* Pezzi comuni dei passi di /benvenuto. */
 
 import { useState, type ReactNode } from "react";
+import { revalidateLogic, type ValidationLogicFn } from "@tanstack/react-form";
 import { useHydrated } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -13,6 +14,18 @@ export type PassoDb = (typeof PASSI_ONBOARDING)[number];
 export function useOrigine(): string {
   return useHydrated() ? window.location.origin : "";
 }
+
+/**
+ * Quando si controllano i validatori `onDynamic` di un campo (la `validationLogic` di TanStack Form,
+ * sopra `revalidateLogic`): mentre si scrive la prima volta niente errori, si controlla quando si
+ * lascia il campo; da lì a ogni modifica, così l'errore sparisce appena è corretto. Dopo un invio,
+ * tutti i campi a ogni modifica.
+ */
+export const dopoIlPrimoBlur: ValidationLogicFn = props => {
+  // handleBlur segna il campo come lasciato prima di validare: il blur stesso controlla sempre
+  const lasciato = props.event.type !== "blur" && !!props.event.fieldName && !!props.form.getFieldMeta(props.event.fieldName)?.isBlurred;
+  return revalidateLogic({ mode: lasciato ? "change" : "blur", modeAfterSubmission: "change" })(props);
+};
 
 /** I primi errori di un campo di TanStack Form, solo dopo che è stato toccato. */
 export function ErroriCampo({ meta }: { meta: { isTouched: boolean; errors: unknown[] } }) {
@@ -43,28 +56,35 @@ export function Copia({ testo, etichetta = "Copia" }: { testo: string; etichetta
   );
 }
 
-/** Indietro / Avanti tra i passi 2–4: avanzano `onboardingStep` sul server. Avanti è l'azione
- *  principale del passo, tranne con `avantiSecondario` (es. "Salta per ora" quando la principale è un'altra). */
+/** Dove porta un bottone di Navigazione: un passo sul server, oppure una parte dello stesso passo. */
+type Meta = PassoDb | (() => void);
+
+/** Indietro / Avanti tra i passi 2–4: avanzano `onboardingStep` sul server (o cambiano parte del passo, con una
+ *  funzione). Avanti è l'azione principale del passo, tranne con `avantiSecondario` (es. "Salta per ora" quando la
+ *  principale è un'altra). `fissa`: la barra resta in fondo allo schermo, così Avanti si vede senza scorrere. */
 export function Navigazione({
   indietro,
   avanti,
   etichettaAvanti = "Avanti",
   avantiSecondario = false,
+  fissa = false,
 }: {
-  indietro?: PassoDb;
-  avanti: PassoDb;
+  indietro?: Meta;
+  avanti: Meta;
   etichettaAvanti?: string;
   avantiSecondario?: boolean;
+  fissa?: boolean;
 }) {
   const imposta = useMutation(api.profiles.setOnboardingStep);
   const [attesa, setAttesa] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   // me.profile cambia dal vivo e /benvenuto mostra il passo nuovo
-  const vai = async (passo: PassoDb) => {
+  const vai = async (meta: Meta) => {
+    if (typeof meta === "function") return meta();
     setErrore(null);
     setAttesa(true);
     try {
-      await imposta({ input: { passo } });
+      await imposta({ input: { passo: meta } });
     } catch (e) {
       setErrore(messaggioErrore(e));
     } finally {
@@ -72,7 +92,7 @@ export function Navigazione({
     }
   };
   return (
-    <div className="acc-navigazione">
+    <div className={fissa ? "acc-navigazione acc-navigazione--fissa" : "acc-navigazione"}>
       {errore && (
         <p className="acc-errore" role="alert">
           {errore}

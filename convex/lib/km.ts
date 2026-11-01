@@ -8,6 +8,10 @@
    riusa per sempre: cancellare e riaggiungere un concerto, Annulla e Rifai,
    danno sempre lo stesso km, e nessuno può accumulare estrazioni per
    mediare via il jitter. Solo la correzione di un indirizzo estrae di nuovo.
+   Ogni profilo ha le sue venue, quindi uno stesso posto può comparire con
+   più venue (nomi diversi, la città come ripiego): una coppia nuova riusa
+   il km di una venue della stessa partenza entro STESSO_POSTO_KM, così per
+   ogni posto e partenza c'è sempre UNA sola estrazione.
 
    `kmPairs` e `departureSecrets` compaiono solo qui e in convex/departures.ts
    (convex/privacy.test.ts lo verifica).
@@ -41,6 +45,9 @@ export function estraiJitter(): number {
   return J_MIN + u * (J_MAX - J_MIN);
 }
 
+/** Entro questa distanza due venue sono lo stesso posto: per una partenza hanno lo stesso km. */
+export const STESSO_POSTO_KM = 0.3;
+
 export type KmEsito = { km: number; source: "legacy" | "calcolato" } | { pending: true };
 
 async function coppia(ctx: QueryCtx | MutationCtx, departureId: Id<"departures">, venueId: Id<"venues">) {
@@ -58,9 +65,20 @@ async function coordinatePartenza(ctx: QueryCtx | MutationCtx, departureId: Id<"
   return s ? ([s.lng, s.lat] as [number, number]) : null;
 }
 
+/** Una coppia della stessa partenza con una venue nello stesso posto (entro STESSO_POSTO_KM), se c'è. */
+async function coppiaVicina(ctx: QueryCtx | MutationCtx, departureId: Id<"departures">, punto: [number, number]) {
+  for (const c of await ctx.db.query("kmPairs").withIndex("by_departure", q => q.eq("departureId", departureId)).collect()) {
+    const v = await ctx.db.get(c.venueId);
+    if (v?.lng === undefined || v.lat === undefined) continue;
+    if (haversineKm(punto, [v.lng, v.lat]) <= STESSO_POSTO_KM) return c;
+  }
+  return null;
+}
+
 /**
- * Il km di una coppia: riusato da `kmPairs` se c'è; altrimenti, se la partenza
- * ha l'indirizzo, estratto ora e salvato per sempre; altrimenti in attesa.
+ * Il km di una coppia: riusato da `kmPairs` se c'è (o da una venue nello
+ * stesso posto); altrimenti, se la partenza ha l'indirizzo, estratto ora e
+ * salvato per sempre; altrimenti in attesa.
  */
 export async function kmPerCoppia(
   ctx: MutationCtx,
@@ -73,6 +91,12 @@ export async function kmPerCoppia(
   const venue = await ctx.db.get(venueId);
   // una venue nata per nome aspetta la sua posizione (geo.posizioneVenue)
   if (venue?.lng === undefined || venue.lat === undefined) return { pending: true };
+  // lo stesso posto con un'altra venue: stesso km, nessuna estrazione in più da mediare
+  const vicina = await coppiaVicina(ctx, departureId, [venue.lng, venue.lat]);
+  if (vicina) {
+    await ctx.db.insert("kmPairs", { profileId, departureId, venueId, km: vicina.km, source: vicina.source, drawnAt: Date.now() });
+    return { km: vicina.km, source: vicina.source };
+  }
   const km = kmDaDistanza(haversineKm(casa, [venue.lng, venue.lat]), estraiJitter());
   await ctx.db.insert("kmPairs", { profileId, departureId, venueId, km, source: "calcolato", drawnAt: Date.now() });
   return { km, source: "calcolato" };
@@ -116,10 +140,15 @@ export async function estraiPerPartenza(
   const toccate: Id<"venues">[] = [];
   if (correzione) {
     const coppie = await ctx.db.query("kmPairs").withIndex("by_departure", q => q.eq("departureId", departureId)).collect();
+    // un'estrazione per posto: le venue nello stesso posto prendono lo stesso km
+    const estratti: { punto: [number, number]; km: number }[] = [];
     for (const c of coppie) {
       const venue = await ctx.db.get(c.venueId);
       if (venue?.lng === undefined || venue.lat === undefined) continue;
-      const km = kmDaDistanza(haversineKm(casa, [venue.lng, venue.lat]), estraiJitter());
+      const punto: [number, number] = [venue.lng, venue.lat];
+      const gia = estratti.find(x => haversineKm(x.punto, punto) <= STESSO_POSTO_KM);
+      const km = gia?.km ?? kmDaDistanza(haversineKm(casa, punto), estraiJitter());
+      if (!gia) estratti.push({ punto, km });
       await ctx.db.patch(c._id, { km, source: "calcolato", drawnAt: Date.now() });
       toccate.push(c.venueId);
     }
@@ -179,4 +208,22 @@ export async function rimappaCoppie(ctx: MutationCtx, da: Id<"departures">, a: I
   for (const c of await ctx.db.query("kmPairs").withIndex("by_departure", q => q.eq("departureId", da)).collect()) {
     await ctx.db.patch(c._id, { departureId: a });
   }
+}
+
+/**
+ * Migrazione alle venue per profilo (convex/migrations.ts): le coppie di un
+ * profilo passano dalla venue `da` alla sua copia `a`, con lo stesso km.
+ */
+export async function spostaCoppieVenue(ctx: MutationCtx, profileId: Id<"profiles">, da: Id<"venues">, a: Id<"venues">) {
+  for (const c of await ctx.db.query("kmPairs").withIndex("by_venue", q => q.eq("venueId", da)).collect()) {
+    if (c.profileId !== profileId) continue;
+    if (await coppia(ctx, c.departureId, a)) await ctx.db.delete(c._id);
+    else await ctx.db.patch(c._id, { venueId: a });
+  }
+}
+
+/** Migrazione: i profili che hanno coppie km con questa venue. */
+export async function profiliDelleCoppie(ctx: QueryCtx | MutationCtx, venueId: Id<"venues">): Promise<Id<"profiles">[]> {
+  const coppie = await ctx.db.query("kmPairs").withIndex("by_venue", q => q.eq("venueId", venueId)).collect();
+  return [...new Set(coppie.map(c => c.profileId))];
 }

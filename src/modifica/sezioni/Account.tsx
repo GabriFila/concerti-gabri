@@ -217,7 +217,7 @@ function Elimina({ handle }: { handle: string }) {
   return (
     <section className="mod-gruppo mf-impostazione mod-zona-pericolo" aria-labelledby="account-elimina">
       <TestaImpostazione id="account-elimina" titolo="Elimina l'account" />
-      <p className="mod-hint">Cancella la tua pagina e tutti i suoi dati, per sempre. Le venue che hai aggiunto restano nel catalogo comune.</p>
+      <p className="mod-hint">Cancella la tua pagina e tutti i suoi dati, venue comprese, per sempre.</p>
       <button type="button" className="mod-btn mod-pericolo" onClick={() => setAperto(true)}>Elimina l'account…</button>
       {aperto && <EliminaModale handle={handle} onChiudi={chiudi} />}
     </section>

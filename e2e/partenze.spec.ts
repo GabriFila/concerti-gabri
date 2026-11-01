@@ -107,14 +107,19 @@ test.describe("il proprietario", { tag: "@sessione" }, () => {
     const modale = page.getByRole("dialog", { name: "Nuovo concerto" });
     await modale.locator('input[name="artist"]').fill(ARTISTA);
     await modale.locator('input[name="date"]').fill("2025-05-10");
+    // una proprietaria nuova non ha venue: il nome si cerca su OpenStreetMap (lo stub) e si sceglie il risultato
     await modale.getByLabel("Cerca una venue").fill("Fabrique");
-    await modale.getByRole("list", { name: "Venue del catalogo" }).getByRole("button", { name: /^Fabrique/ }).first().click();
+    await modale.getByRole("button", { name: "Cerca «Fabrique»" }).click();
+    await modale.getByRole("list", { name: "Risultati su OpenStreetMap" }).getByRole("button").first().click();
+    // scelta (la venue nasce subito): al posto dei risultati, la venue con «Cambia»
+    await expect(modale.locator(".mod-venue-scelta")).toHaveText(/^Fabrique · /);
     await modale.locator('select[name="from"]').selectOption(PARTENZA);
     await modale.getByRole("button", { name: "Salva", exact: true }).click();
     await expect(page.getByRole("status").filter({ hasText: "Concerto aggiunto" })).toBeVisible();
     await expect(page.locator("section#concerti").getByRole("list", { name: "Concerti e festival" }).getByRole("listitem").filter({ hasText: ARTISTA })).toContainText(/da Casa canarino · \d+ km/);
 
-    await expect(rigaArchivio(visitatore, ARTISTA).locator("td.km")).toHaveText(/~\d{3} km da Casa canarino/, { timeout: 20_000 });
+    // la venue sta dove la mette lo stub (non al Fabrique vero): conta che il km arrivi dal vivo
+    await expect(rigaArchivio(visitatore, ARTISTA).locator("td.km")).toHaveText(/~\d+ km da Casa canarino/, { timeout: 20_000 });
     expect(await visitatore.evaluate(() => performance.getEntriesByType("navigation").length)).toBe(1);
     expect(fughe(await visitatore.content())).toEqual([]);
     expect(fughe(frames.join("\n"))).toEqual([]);

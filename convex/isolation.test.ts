@@ -38,6 +38,7 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "wishlist:set": null,
     "venues:createFromCandidate": null,
     "geo:searchVenue": null,
+    "geo:cercaIndirizzoVenue": null,
     "geo:geocodeDeparture": { departureId: ids.departure, address: "Via dei Canarini 7, Genova" },
     "entries:list": null,
     "entries:get": { id: ids.entry },

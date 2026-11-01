@@ -74,8 +74,7 @@ function Privacy() {
       <p>
         Dalla tua pagina, in <b>Modifica → Account</b>, puoi scaricare tutti i tuoi dati in un file (lo stesso formato
         dell'import) ed eliminare l'account: la pagina, i concerti, le persone, le partenze con i loro indirizzi, il
-        registro e le conversazioni con l'Oracolo e con il Tour manager spariscono subito. Restano solo le venue del catalogo condiviso,
-        senza il tuo nome.
+        registro, le venue e le conversazioni con l'Oracolo e con il Tour manager spariscono subito.
       </p>
     </main>
   );

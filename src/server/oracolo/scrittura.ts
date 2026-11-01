@@ -26,8 +26,9 @@
      senza chiamarsi "delete": undo (annullare un'aggiunta la cancella),
      merge_person (la prima persona sparisce) e set_wishlist (sostituisce
      la lista intera); e ogni scheda (propose_concert). Il modello legge
-     anche testo scritto da altri (i nomi del catalogo condiviso delle
-     venue): quello che toglie dati passa sempre dal sì del proprietario.
+     anche testo che non viene dal proprietario (i risultati di
+     OpenStreetMap): quello che toglie dati passa sempre dal sì del
+     proprietario.
    - Thread `proprietario`: li legge solo il proprietario (chat.myThreads),
      mai lo storico pubblico.
    ────────────────────────────────────────────────────────────── */
