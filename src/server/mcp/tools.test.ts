@@ -177,6 +177,22 @@ describe("HTTP", () => {
     expect((await post(rpc("tools/list"), { headers: { "x-api-key": CHIAVE, origin: "http://localhost:3100" } })).status).toBe(200);
   });
 
+  it("subscriptions/listen → subito -32601 in JSON, mai uno stream aperto fino al timeout di Vercel", async () => {
+    const { client, chiamate } = clientFinto();
+    // con l'involucro 2026-07-28 completo: senza, l'SDK risponde già 400 e il test non proverebbe niente
+    const _meta = { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": { name: "test", version: "1" }, "io.modelcontextprotocol/clientCapabilities": {} };
+    const listen = rpc("subscriptions/listen", { notifications: { toolsListChanged: true }, _meta }, 7);
+    const res = await post(listen, { headers: { "x-api-key": CHIAVE, "mcp-protocol-version": "2026-07-28", "mcp-method": "subscriptions/listen" }, client });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.json()).toEqual({ jsonrpc: "2.0", id: 7, error: { code: -32601, message: expect.any(String) } });
+    expect(chiamate).toEqual([]);
+    // gli altri metodi passano come prima
+    const lista = await post(rpc("tools/list", { _meta }), { headers: { "x-api-key": CHIAVE, "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list" } });
+    expect(lista.status).toBe(200);
+    expect((await messaggio(lista)).result.tools.length).toBeGreaterThan(0);
+  }, 5000);
+
   it("Convex irraggiungibile → 503 {code, messaggio}", async () => {
     const giu: ClientConvex = { query: async () => { throw new Error("fetch failed"); }, mutation: async () => null, action: async () => null };
     const res = await post(rpc("tools/list"), { headers: { "x-api-key": CHIAVE }, client: giu });

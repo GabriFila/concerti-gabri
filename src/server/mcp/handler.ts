@@ -3,11 +3,15 @@
 
    1. solo POST: GET e DELETE (sessioni del 2025) → 405, come ogni altro metodo;
    2. Origin: se c'è, deve essere un'origine ammessa nell'ambiente (§1.8);
-   3. `x-api-key: cgk_…` → `Authorization: Bearer cgk_…`;
-   4. requireBearerAuth con `agents:introspect` (API key o token OAuth,
+   3. `subscriptions/listen` (2026-07-28) → subito -32601: l'SDK lo serve
+      sempre in SSE con un keepalive e non lo chiude mai, quindi su Vercel
+      ogni listen restava aperto 300 s fino al timeout. Il server non manda
+      notifiche (stateless, catalogo fisso): non c'è niente da ascoltare;
+   4. `x-api-key: cgk_…` → `Authorization: Bearer cgk_…`;
+   5. requireBearerAuth con `agents:introspect` (API key o token OAuth,
       scope `concerti`); senza token valido 401 con `WWW-Authenticate` e il
       link ai metadati della risorsa, così il client scopre il login OAuth;
-   5. handler stateless (`legacy: 'stateless'` serve anche i client 2025):
+   6. handler stateless (`legacy: 'stateless'` serve anche i client 2025):
       un server MCP nuovo per richiesta, con gli strumenti del catalogo che
       chiamano Convex col token dell'agente. Convex riverifica il token a
       ogni chiamata.
@@ -105,6 +109,16 @@ function rifiuto(res: Response): Response {
   return rispostaErrore(400, "input_non_valido", "intestazione Authorization non valida", headers);
 }
 
+/** La risposta a `subscriptions/listen`: metodo non supportato, in JSON, senza aprire uno stream. */
+function richiestaListen(corpo: string): Response | null {
+  let msg: unknown;
+  try { msg = JSON.parse(corpo); } catch { return null; }
+  if (!msg || typeof msg !== "object" || (msg as { method?: unknown }).method !== "subscriptions/listen") return null;
+  const id = (msg as { id?: unknown }).id ?? null;
+  const errore = { jsonrpc: "2.0", id, error: { code: -32601, message: "subscriptions/listen non supportato: questo server non manda notifiche" } };
+  return new Response(JSON.stringify(errore), { status: 200, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
+}
+
 export async function handleMcp(request: Request, dip: DipendenzeMcp = predefinite()): Promise<Response> {
   if (request.method !== "POST") {
     return rispostaErrore(405, "non_disponibile", "metodo non ammesso: /mcp risponde solo a POST (server stateless)", { Allow: "POST" });
@@ -116,6 +130,8 @@ export async function handleMcp(request: Request, dip: DipendenzeMcp = predefini
   if (lunghezza > MAX_CORPO) return rispostaErrore(413, "input_non_valido", "richiesta troppo grande");
   const corpo = await request.text();
   if (corpo.length > MAX_CORPO) return rispostaErrore(413, "input_non_valido", "richiesta troppo grande");
+  const listen = richiestaListen(corpo);
+  if (listen) return listen;
 
   // x-api-key → Bearer (gli script e i client con un header fisso)
   const headers = new Headers(request.headers);
