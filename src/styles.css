@@ -132,7 +132,7 @@
   .theme-toggle:hover{transform:translateY(-1px);border-color:var(--lamp);color:var(--lamp)}
   .theme-toggle:active{transform:translateY(0)}
   .theme-toggle svg{width:20px;height:20px;display:block}
-  @media (max-width:560px){ .theme-toggle{top:12px;right:12px;width:38px;height:38px} }
+  @media (max-width:560px){ .theme-toggle{top:calc(20px + env(safe-area-inset-top));right:12px;width:38px;height:38px} }
 
   /* ── Barra fissa in basso: Filtri a sinistra, Chat al centro, Indice a destra.
      La barra è trasparente e non intercetta i click: solo i figli "veri" lo fanno. ── */
@@ -1364,7 +1364,7 @@
     transition:color .22s ease;
   }
   .ms-btn.on{color:#171106}
-  @media(max-width:560px){ .modeswitch{top:12px} .ms-btn{padding:7px 16px;font-size:.82rem} }
+  @media(max-width:560px){ .modeswitch{top:calc(20px + env(safe-area-inset-top))} .ms-btn{padding:7px 16px;font-size:.82rem} }
   /* tre segmenti per il proprietario (Sul palco · I dati · Modifica): stessi
      bottoni uguali, il cursore copre un terzo esatto del contenuto (100% − i
      4px di padding per lato); sui telefoni stretti più compatto, così non
@@ -1600,7 +1600,7 @@
   .chatdock--corner .chatbtn{height:42px;width:42px;padding:0;gap:0;justify-content:center;border-radius:999px}
   .chatdock--corner .chatbtn .filterbtn-lbl{display:none}
   @media(max-width:560px){
-    .chatdock--corner{top:12px;left:12px}
+    .chatdock--corner{top:calc(20px + env(safe-area-inset-top));left:12px}
     .chatdock--corner .chatbtn{height:38px;width:38px}
   }
 

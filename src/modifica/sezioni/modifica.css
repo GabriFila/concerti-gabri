@@ -248,7 +248,8 @@ dialog.mod-modale::backdrop{background:rgba(8,8,10,.55);-webkit-backdrop-filter:
     --mf-testo:none;--mf-breve:block;--mf-titoli:none;--mf-lato:none;--mf-sulicona:block;--mf-gruppi-gap:8px;--mf-gruppi-bordo:1px}
 }
 @media (max-width:767px){ .mf-app{--mf-nav-w:0px;--mf-schede-h:calc(64px + env(safe-area-inset-bottom))} }
-@media (max-width:560px){ .mf-app{--mf-barra-h:60px} }
+/* su telefono la barra scende un poco dal bordo dello schermo: 8 px (più la tacca, se c'è) sopra i 60 dei controlli */
+@media (max-width:560px){ .mf-app{--mf-barra-alto:calc(8px + env(safe-area-inset-top));--mf-barra-h:calc(60px + var(--mf-barra-alto))} }
 .mf-app[data-nav="barra"]{--mf-nav-w:232px;--mf-nav-pad:14px 12px;--mf-voce-dir:row;--mf-voce-gap:12px;--mf-voce-pad:0 12px;--mf-voce-h:40px;--mf-voce-allinea:flex-start;
   --mf-testo:inline;--mf-breve:none;--mf-titoli:block;--mf-lato:inline-flex;--mf-sulicona:none;--mf-gruppi-gap:18px;--mf-gruppi-bordo:0px}
 .mf-app[data-nav="binario"]{--mf-nav-w:72px;--mf-nav-pad:10px 6px;--mf-voce-dir:column;--mf-voce-gap:4px;--mf-voce-pad:8px 2px;--mf-voce-h:58px;--mf-voce-allinea:center;
@@ -283,7 +284,7 @@ dialog.mod-modale::backdrop{background:rgba(8,8,10,.55);-webkit-backdrop-filter:
 .mf-app[data-nav="binario"] .mf-marchio-handle{display:none}
 .mf-app[data-nav="barra"] .mf-marchio-handle{display:inline}
 @media (max-width:767px){
-  .mf-barra-app{padding:0}
+  .mf-barra-app{padding:var(--mf-barra-alto,0px) 0 0}
   .mf-marchio,.mf-barra-azioni{display:none}
 }
 
@@ -942,6 +943,6 @@ dialog.mf-pannello[data-subito]{animation:none}
 html:has(.mf-app) .theme-toggle{top:calc((var(--mf-barra-h-shell,64px) - 42px) / 2)}
 html:has(.mf-app) .modeswitch{top:calc((var(--mf-barra-h-shell,64px) - 46px) / 2)}
 @media (max-width:560px){
-  html:has(.mf-app) .theme-toggle{top:calc((60px - 38px) / 2)}
-  html:has(.mf-app) .modeswitch{top:7px}
+  html:has(.mf-app) .theme-toggle{top:calc(8px + env(safe-area-inset-top) + (60px - 38px) / 2)}
+  html:has(.mf-app) .modeswitch{top:calc(8px + env(safe-area-inset-top) + 7px)}
 }
