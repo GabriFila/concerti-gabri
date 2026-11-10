@@ -716,6 +716,8 @@ dialog.mf-pannello[data-subito]{animation:none}
 .mf-tipo .mf-segmento{min-height:30px;padding:0 16px;border:none;border-radius:999px;background:none;font-weight:600}
 .mf-tipo .mf-segmento:has(input:checked){border:none;background:var(--panel);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.28)}
 [data-theme="light"] .mf-tipo .mf-segmento:has(input:checked){box-shadow:0 1px 4px rgba(42,39,34,.18)}
+/* «Nuova partenza…» di «Partito da»: il nome sotto la tendina */
+.mf-nuova-partenza{display:flex;flex-direction:column;gap:6px}
 /* scorciatoie a un tocco (Usate di recente, Frequenti, Come l'ultimo) */
 .mf-rapidi{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .mf-rapidi-titolo{margin-right:2px;font-size:.78rem;color:var(--muted)}

@@ -21,6 +21,10 @@
    - Scorciatoie a un tocco: «Usate di recente» per la venue, «Frequenti»
      per i compagni, «Come l'ultimo: X» per la partenza di un concerto
      nuovo (la partenza non si precompila mai).
+   - «Partito da» ha in fondo «Nuova partenza…»: un nome (mai l'indirizzo,
+     che è privato e si imposta dopo in «Partenze») che si crea subito
+     con departures.add; nel «Modulo completo» della scheda resta «nuova»
+     e la crea il salvataggio della scheda, come le persone.
    - I campi proposti dall'Oracolo (`evidenzia` del ponte, editor.tsx)
      hanno un punto ambra e «proposto dall'Oracolo» per lo screen reader.
    - Gli errori del server con un `campo` stanno sotto quel campo.
@@ -28,15 +32,17 @@
    il contesto del modulo.
    ────────────────────────────────────────────────────────────── */
 
-import { createContext, useContext, type ComponentType, type ReactNode } from "react";
+import { createContext, useContext, useState, type ComponentType, type ReactNode } from "react";
 import type { AnyFieldApi } from "@tanstack/react-form";
+import { api } from "../../../convex/_generated/api";
+import { sembraIndirizzo } from "../../../shared/lib/nomi.ts";
 import { CN_LABELS, CN_ORDER, VIC_LABELS, VIC_ORDER } from "../../../shared/model/scale.ts";
 import { concertoInput, festivalInput } from "../../../shared/schema/entry.ts";
 import { Icon } from "../../ui/Icon.tsx";
 import { CampoSegmenti } from "../ui/campi.tsx";
 import type { IdVista, Parametri } from "../vista.ts";
 import { CampoCosto, PersoneScelte, VenueScelta, type useNomi } from "./campiConcerto.tsx";
-import { CampoTesto, Errore, ErroriCampo, useDescrizione, type ErroreUi } from "./comuni.tsx";
+import { CampoTesto, Errore, ErroriCampo, useConvex, useDescrizione, useOperazione, type ErroreUi } from "./comuni.tsx";
 import {
   chiaveNome, compagniFrequenti, descrizione, etichettaCampo, nuovoSet, type EventoUi, type ValoriConcerto, type ValoriFestival, type ValoriSet,
 } from "./forme.ts";
@@ -436,28 +442,104 @@ function Biglietto() {
   );
 }
 
-/** «Partito da»: mai precompilata (vuota = «—»); per un concerto nuovo la scorciatoia «Come l'ultimo: X». */
+/** Il valore della voce «Nuova partenza…» della tendina (mai un nome: i nomi non iniziano con un a capo). */
+const NUOVA_PARTENZA = "\n nuova";
+
+/**
+ * «Partito da»: mai precompilata (vuota = «—»); per un concerto nuovo la scorciatoia «Come l'ultimo: X».
+ * «Nuova partenza…» apre un campo per il nome: la partenza si crea subito (nella scheda dell'Oracolo la crea il salvataggio).
+ */
 function CampoPartenza({ f }: { f: AnyFieldApi }) {
   const m = useModulo();
   const d = useDescrizione(f, true);
+  const convex = useConvex();
+  const op = useOperazione();
+  const [nuova, setNuova] = useState<string | null>(null);
   const v = String(f.state.value ?? "");
   const p = m.nomi.partenze.find(x => chiaveNome(x.name) === chiaveNome(v));
   const ultima = m.ultima && m.nomi.partenze.some(x => chiaveNome(x.name) === chiaveNome(m.ultima!)) ? m.ultima : null;
   const e = m.evento;
   // i km di adesso, se la partenza è quella salvata; altrimenti si ricalcolano al salvataggio
   const km = !e || !v ? null : chiaveNome(e.from ?? "") !== chiaveNome(v) ? "I km si ricalcolano al salvataggio." : e.kmPending ? "km in attesa" : e.km !== undefined ? `Ora: ${e.km} km` : null;
+
+  const nome = (nuova ?? "").trim();
+  const esistente = m.nomi.partenze.find(x => chiaveNome(x.name) === chiaveNome(nome));
+  const indirizzo = nome !== "" && sembraIndirizzo(nome);
+  const chiudiNuova = () => {
+    setNuova(null);
+    op.setErrore(null);
+  };
+  const aggiungi = async () => {
+    if (!nome || indirizzo) return;
+    if (!esistente && !m.scheda) {
+      const r = await op.esegui(() => convex.mutation(api.departures.add, { name: nome }));
+      if (!r) return;
+    }
+    f.handleChange(esistente?.name ?? nome);
+    chiudiNuova();
+  };
+
   return (
     <div className="mod-campo" data-campo={f.name}>
       <label className="mod-etichetta" htmlFor={d.id}>
         Partito da
         <Segno campo={f.name} />
       </label>
-      <select id={d.id} name={f.name} value={v} onChange={e => f.handleChange(e.target.value)} onBlur={f.handleBlur} aria-describedby={d.descritto} aria-invalid={d.invalido}>
+      <select
+        id={d.id}
+        name={f.name}
+        value={nuova !== null ? NUOVA_PARTENZA : v}
+        onChange={e => {
+          if (e.target.value === NUOVA_PARTENZA) return setNuova("");
+          chiudiNuova();
+          f.handleChange(e.target.value);
+        }}
+        onBlur={f.handleBlur}
+        aria-describedby={d.descritto}
+        aria-invalid={d.invalido}
+      >
         <option value="">—</option>
         {m.nomi.partenze.map(x => <option key={x.id} value={x.name}>{x.name}</option>)}
         {v && !p && <option value={v}>{v} (nuova)</option>}
+        <option value={NUOVA_PARTENZA}>+ Nuova partenza…</option>
       </select>
-      {!v && ultima && (
+      {nuova !== null && (
+        <div className="mf-nuova-partenza">
+          <div className="mod-riga">
+            <input
+              value={nuova}
+              placeholder="Es. Casa, Ufficio, Casa dei miei"
+              aria-label="Nome della nuova partenza"
+              maxLength={40}
+              autoFocus
+              aria-invalid={indirizzo}
+              onChange={e => setNuova(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void aggiungi();
+                } else if (e.key === "Escape") {
+                  e.preventDefault();
+                  chiudiNuova();
+                }
+              }}
+            />
+            <button type="button" className="mod-btn mod-primario" disabled={!nome || indirizzo || op.inCorso} onClick={() => void aggiungi()}>
+              {esistente ? "Scegli" : "Aggiungi"}
+            </button>
+            <button type="button" className="mod-btn mf-btn-fantasma" onClick={chiudiNuova}>Annulla</button>
+          </div>
+          <span className="mod-hint">
+            {indirizzo
+              ? "Sembra un indirizzo: il nome della partenza è pubblico. Usa un nome come «Casa»; l'indirizzo lo imposti dopo in «Partenze» e resta privato."
+              : esistente
+                ? `«${esistente.name}» c'è già: «Scegli» la usa.`
+                : "Solo un nome, visibile sulla pagina. L'indirizzo, che resta privato, lo imposti dopo in «Partenze»: fino ad allora i km restano in attesa."}
+          </span>
+          <Errore errore={op.errore} />
+        </div>
+      )}
+      {!v && nuova === null && ultima && (
         <div className="mf-rapidi">
           <button type="button" className="mf-rapido" onClick={() => f.handleChange(ultima)}>Come l'ultimo: {ultima}</button>
         </div>

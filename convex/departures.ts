@@ -37,6 +37,10 @@ export const CORREZIONE_OGNI_MS = 24 * 3600_000;
 export const STESSO_PUNTO_KM = 0.05;
 
 async function nomeLibero(ctx: MutationCtx, profileId: Id<"profiles">, name: string, self?: Id<"departures">) {
+  // il nome è pubblico: uno che sembra un indirizzo non passa (l'indirizzo si imposta a parte e resta privato)
+  if (sembraIndirizzo(name)) {
+    throw errore("input_non_valido", "il nome della partenza è pubblico: usa un nome come «Casa», l'indirizzo si imposta in Partenze", { campo: "name" });
+  }
   if ((await departuresOf(ctx, profileId)).some(d => d._id !== self && chiave(d.name) === chiave(name))) {
     throw errore("conflitto", "esiste già una partenza con questo nome", { campo: "name" });
   }
