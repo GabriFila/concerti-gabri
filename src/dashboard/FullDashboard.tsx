@@ -2,6 +2,7 @@ import React from "react";
 import { concertsOf } from "../../shared/model/concert.ts";
 import { counter, multiCounter } from "../../shared/lib/aggregate.ts";
 import { hasComment } from "../../shared/lib/predicates.ts";
+import { haTour } from "../../shared/lib/tour.ts";
 import { sezioniDelProfilo, type SectionId } from "../../shared/sections.ts";
 import { useData } from "../filters/FilterContext.tsx";
 import { useIsOwner } from "../lib/viewer.ts";
@@ -14,6 +15,7 @@ import { ArchiveTable } from "./ArchiveTable.tsx";
 import { Months, Weekdays } from "./CalendarBars.tsx";
 import { ChartCard } from "./ChartCard.tsx";
 import { CommentsCard } from "./Comments.tsx";
+import { TourCard } from "./TourCard.tsx";
 import { CostCard, PriceDistribution, TopSpend } from "./CostCards.tsx";
 import { KPIs } from "./KPIs.tsx";
 import { CanzoniNoteCard, VenueCard, VicinanzaCard } from "./LevelCards.tsx";
@@ -63,6 +65,7 @@ function useSezioni(): Record<IdCorpo, [Impaginazione, () => React.ReactNode]> {
     "sec-spesa-dettaglio": ["piena", () => <TopSpend/>],
     "sec-spesa-distribuzione": ["piena", () => <PriceDistribution/>],
     "sec-trend": ["piena", () => <TrendCard/>],
+    "sec-tour": ["piena", () => <TourCard/>],
     "sec-commenti": ["piena", () => <CommentsCard/>],
     "sec-archivio": ["piena", () => <ArchiveTable/>],
   };
@@ -77,9 +80,9 @@ export function FullDashboard(){
   const isOwner=useIsOwner(profile.handle);
   const SEZ=useSezioni();
   const visibili=sezioniDelProfilo(forma,profile.layout);
-  // comments are optional: with none written (or none left by the filters)
-  // the whole section disappears, and the TOC drops it with it
-  const presenti=visibili.map(s=>s.id).filter((id):id is IdCorpo=>id!=="sec-kpis"&&(id!=="sec-commenti"||DATA.some(hasComment)));
+  // comments and tours are optional: with none written (or none left by the
+  // filters) the whole section disappears, and the TOC drops it with it
+  const presenti=visibili.map(s=>s.id).filter((id):id is IdCorpo=>id!=="sec-kpis"&&(id!=="sec-commenti"||DATA.some(hasComment))&&(id!=="sec-tour"||DATA.some(haTour)));
   const blocco=(id:IdCorpo,full?:boolean)=>(
     <div key={id} id={id} className={"tocsec"+(full?" full":"")}><SezioneCorrente id={id}>{SEZ[id][1]()}</SezioneCorrente></div>
   );

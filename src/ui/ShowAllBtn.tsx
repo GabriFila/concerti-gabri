@@ -23,4 +23,5 @@ export const ENT_PEOPLE={one:"un'altra",noun1:"persona",other:"altre",noun:"pers
 export const ENT_VENUE={one:"un'altra",noun1:"venue",other:"altre",noun:"venue"};
 export const ENT_CONCERT={one:"un altro",noun1:"concerto",other:"altri",noun:"concerti"};
 export const ENT_BIGLIETTO={one:"un altro",noun1:"biglietto",other:"altri",noun:"biglietti"};
+export const ENT_TOUR={one:"un altro",noun1:"tour",other:"altri",noun:"tour"};
 export const ENT_COMMENTO={one:"un altro",noun1:"commento",other:"altri",noun:"commenti"};

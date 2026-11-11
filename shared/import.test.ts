@@ -16,15 +16,37 @@ const csv = (...righe: string[]) => [INTESTAZIONE, ...righe].join("\n");
 
 const ENTRIES: EntryInput[] = [
   entryInput.parse({
-    kind: "concert", date: "2026-07-24", artist: "Caparezza", venue: "Arena del Mare", city: "Genova", with: ["Cami <3", "Lu"],
+    kind: "concert", date: "2026-07-24", artist: "Caparezza", tour: "Orbit Orbit Tour 2026", venue: "Arena del Mare", city: "Genova", with: ["Cami <3", "Lu"],
     voto: 5, vicinanza: 6, canzoniNote: "na", cost: 60.99, from: "Genova", comments: 'Serata "pazzesca", con virgole; e punti e virgola',
   }),
   entryInput.parse({
     kind: "festival", name: "MI AMI 2026", date: "21–24/05/2026", venue: "Idroscalo", city: "Milano", cost: 147.25, gift: true, giftFrom: "Amici",
-    concerts: [{ artist: "Rares", date: "22/05/2026", with: [] }, { artist: "Patagarri", with: ["Perla"], voto: 4, vicinanza: 3, canzoniNote: 2 }],
+    concerts: [{ artist: "Rares", date: "22/05/2026", with: [] }, { artist: "Patagarri", tour: "Estate 2026", with: ["Perla"], voto: 4, vicinanza: 3, canzoniNote: 2 }],
   }),
   entryInput.parse({ kind: "concert", date: "01/01/2027", artist: "Futuro", venue: "Fabrique", city: "Milano", accredito: true }),
 ];
+
+describe("colonna tour", () => {
+  it("un CSV senza la colonna tour (di prima del 2026-11-11) si importa ancora", () => {
+    const vecchie = COLONNE_CSV.filter(c => c !== "tour");
+    const testo = [vecchie.join(","), vecchie.map(c => ({ tipo: "concerto", data: "2025-03-01", artista: "Verdena", venue: "Alcatraz", citta: "Milano" })[c as "tipo"] ?? "").join(",")].join("\n");
+    const a = analizzaCsv(testo);
+    expect(a.errori).toEqual([]);
+    expect(a.voci[0].entry).not.toHaveProperty("tour");
+  });
+
+  it("il tour va su ogni concerto, anche dentro un festival", () => {
+    const a = analizzaCsv(csv(
+      riga({ tipo: "concerto", data: "2025-03-01", artista: "Verdena", venue: "Alcatraz", citta: "Milano", tour: " Volevo magia tour " }),
+      riga({ tipo: "festival", festival: "F", data: "2025-06-01", artista: "A", venue: "V", citta: "C", tour: "Tour A" }),
+      riga({ tipo: "festival", festival: "F", data: "2025-06-01", artista: "B", venue: "V", citta: "C" }),
+    ));
+    expect(a.errori).toEqual([]);
+    expect(a.voci[0].entry).toMatchObject({ tour: "Volevo magia tour" });
+    const f = a.voci[1].entry as Extract<EntryInput, { kind: "festival" }>;
+    expect(f.concerts.map(c => c.tour)).toEqual(["Tour A", undefined]);
+  });
+});
 
 describe("export reimportato", () => {
   it("CSV: stesso risultato", () => {

@@ -2,10 +2,11 @@
    I campi del form di un concerto o di un festival (#concerti, spec
    ux-modifica §6.2), dentro il pannello di ConcertoPannello.tsx. Il form
    è diviso in parti con la loro legenda, una sotto l'altra:
-   - «La serata»: artista, data (con «in programma»), venue, con chi; per
-     un festival nome, data (anche più giorni) e venue, poi «Concerti del
-     festival»: le schede dei suoi concerti, ognuna con artista, giorno,
-     compagni e voti;
+   - «La serata»: artista, tour, data (con «in programma»), venue, con
+     chi; per un festival nome, data (anche più giorni) e venue, poi
+     «Concerti del festival»: le schede dei suoi concerti, ognuna con
+     artista, tour, giorno, compagni e voti. Il tour propone quelli già
+     scritti per lo stesso artista;
    - «Biglietto»: prima com'è andata col biglietto (non ricordo il prezzo,
      ricordo il prezzo, accredito, regalato), poi il prezzo o chi l'ha
      regalato;
@@ -70,6 +71,8 @@ export interface ContestoModulo {
   scheda: boolean;
   nomi: ReturnType<typeof useNomi>;
   recenti: { venue: string; city: string }[];
+  /** I tour già scritti per un artista (i suggerimenti del campo «Tour»). */
+  tourDi: (artista: string) => string[];
   /** La partenza dell'ultimo concerto, solo per un concerto nuovo. */
   ultima: string | null;
   /** La data è oggi o dopo. */
@@ -219,6 +222,21 @@ function CampoCompagni({ f }: { f: AnyFieldApi }) {
   );
 }
 
+/** Il tour (facoltativo), con i tour già scritti per lo stesso artista. */
+function CampoTour({ f, artista }: { f: AnyFieldApi; artista: string }) {
+  const m = useModulo();
+  return (
+    <CampoTesto
+      f={f}
+      etichetta="Tour"
+      segno={<Segno campo={f.name} />}
+      aiuto="Facoltativo: il nome del tour come in locandina; vuoto per una data fuori tour"
+      maxLength={120}
+      suggerimenti={m.tourDi(artista)}
+    />
+  );
+}
+
 /* ── le parti del concerto ────────────────────────────────────── */
 
 function SerataConcerto() {
@@ -234,6 +252,7 @@ function SerataConcerto() {
           {(f: AnyFieldApi) => <CampoTesto f={f} etichetta="Data" tipo="date" segno={<Segno campo="date" />} aiuto={m.inProgramma ? <InProgramma /> : undefined} />}
         </form.Field>
       </div>
+      <form.Field name="tour">{(f: AnyFieldApi) => <CampoTour f={f} artista={(m.valori as ValoriConcerto).artist} />}</form.Field>
       <CampoVenue />
       <form.Field name="with">{(f: AnyFieldApi) => <CampoCompagni f={f} />}</form.Field>
     </Parte>
@@ -329,6 +348,7 @@ function SetFestival({ f, i }: { f: AnyFieldApi; i: number }) {
           <form.Field name={`concerts[${i}].artist`}>{(c: AnyFieldApi) => <CampoTesto f={c} etichetta="Artista" segno={<Segno campo={c.name} />} maxLength={120} />}</form.Field>
           <form.Field name={`concerts[${i}].date`}>{(c: AnyFieldApi) => <CampoTesto f={c} etichetta="Giorno (se diverso)" tipo="date" segno={<Segno campo={c.name} />} />}</form.Field>
         </div>
+        <form.Field name={`concerts[${i}].tour`}>{(c: AnyFieldApi) => <CampoTour f={c} artista={s.artist} />}</form.Field>
         <form.Field name={`concerts[${i}].with`}>{(c: AnyFieldApi) => <CampoCompagni f={c} />}</form.Field>
         <Mancano campi={mancano} />
         <Voti prefisso={`concerts[${i}].`} />

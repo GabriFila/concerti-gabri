@@ -16,7 +16,7 @@
      «Mostra gli altri campi» apre le altre, e cambiarne una la aggiunge.
    - La lineup di un festival: una riga compatta per concerto («1 ·
      Verdena · sab 30 · con Lu · ★★★★★»), che si apre nel suo editor
-     (artista, giorno, con, voto, posizione, canzoni note); «Aggiungi un
+     (artista, tour, giorno, con, voto, posizione, canzoni note); «Aggiungi un
      concerto»; ↑ ↓ per riordinare (solo schede nuove) e × per togliere
      (spento a due concerti). In una modifica sopra la lineup ci sono le
      sue differenze («+ Afterhours», «− Calcutta», «Verdena: voto …»).
@@ -92,7 +92,7 @@ export function focusSet(id: string, i: number) {
 export function righeDi(tipo: VoceScheda["tipo"]): CampoScheda[] {
   return tipo === "festival"
     ? ["name", "date", "venue", "concerts", "biglietto", "from", "comments"]
-    : ["artist", "date", "venue", "with", "voto", "vicinanza", "canzoniNote", "biglietto", "from", "comments"];
+    : ["artist", "tour", "date", "venue", "with", "voto", "vicinanza", "canzoniNote", "biglietto", "from", "comments"];
 }
 
 /** Il valore mostrato in una riga; null = vuoto («+ aggiungi»). */
@@ -102,6 +102,8 @@ function valoreDi(campo: CampoScheda, voce: VoceScheda, nomi: NomiScheda): React
   switch (campo) {
     case "artist":
       return c.artist.trim() || null;
+    case "tour":
+      return c.tour.trim() || null;
     case "name":
       return (v as ValoriFestival).name.trim() || null;
     case "date":
@@ -262,11 +264,11 @@ function RigaPersone({ id, voce, nomi, sola, diff, muta }: {
 
 /* ── editor ───────────────────────────────────────────────────── */
 
-/** Invio conferma e apre la prossima riga vuota (o torna alla riga). */
+/** Invio conferma e apre la prossima riga vuota (o torna alla riga); il tour, facoltativo, si salta. */
 function useAvanti(id: string, voce: VoceScheda, nomi: NomiScheda, campo: CampoScheda) {
   return () => {
     const righe = righeDi(voce.tipo);
-    const dopo = righe.slice(righe.indexOf(campo) + 1).find(c => c !== "concerts" && valoreDi(c, voce, nomi) === null);
+    const dopo = righe.slice(righe.indexOf(campo) + 1).find(c => c !== "concerts" && c !== "tour" && valoreDi(c, voce, nomi) === null);
     if (dopo) apriEditor(id, dopo);
     else {
       apriEditor(id, null);
@@ -275,9 +277,9 @@ function useAvanti(id: string, voce: VoceScheda, nomi: NomiScheda, campo: CampoS
   };
 }
 
-function EditorTesto({ id, voce, nomi, campo, max, placeholder }: { id: string; voce: VoceScheda; nomi: NomiScheda; campo: "artist" | "name"; max: number; placeholder: string }) {
+function EditorTesto({ id, voce, nomi, campo, max, placeholder }: { id: string; voce: VoceScheda; nomi: NomiScheda; campo: "artist" | "tour" | "name"; max: number; placeholder: string }) {
   const avanti = useAvanti(id, voce, nomi, campo);
-  const valore = campo === "artist" ? (voce.valori as ValoriConcerto).artist : (voce.valori as ValoriFestival).name;
+  const valore = campo === "name" ? (voce.valori as ValoriFestival).name : (voce.valori as ValoriConcerto)[campo];
   return (
     <input
       className="scheda-input"
@@ -696,6 +698,8 @@ function EditorCampo({ campo, id, voce, nomi, oggi, fuoriCatalogo }: { campo: Ca
   switch (campo) {
     case "artist":
       return <EditorTesto id={id} voce={voce} nomi={nomi} campo="artist" max={120} placeholder="Artista o gruppo" />;
+    case "tour":
+      return <EditorTesto id={id} voce={voce} nomi={nomi} campo="tour" max={120} placeholder="Es. Nome del tour 2025 (facoltativo)" />;
     case "name":
       return <EditorTesto id={id} voce={voce} nomi={nomi} campo="name" max={120} placeholder="Es. MI AMI 2026" />;
     case "date":
@@ -753,7 +757,7 @@ function rigaSet(s: ValoriSet, i: number): string {
 const cambiaSet = (id: string, i: number, f: (s: ValoriSet) => Partial<ValoriSet>) =>
   cambia(id, "concerts", v => ({ concerts: (v.valori as ValoriFestival).concerts.map((s, j) => (j === i ? { ...s, ...f(s) } : s)) }));
 
-/** L'editor di un concerto del festival: artista, giorno, con, voto, posizione, canzoni note. */
+/** L'editor di un concerto del festival: artista, tour, giorno, con, voto, posizione, canzoni note. */
 function EditorSet({ id, voce, nomi, i }: { id: string; voce: VoceScheda; nomi: NomiScheda; i: number }) {
   const s = (voce.valori as ValoriFestival).concerts[i];
   const idCampo = useId();
@@ -778,6 +782,17 @@ function EditorSet({ id, voce, nomi, i }: { id: string; voce: VoceScheda; nomi: 
               focusSet(id, i);
             }
           }}
+        />
+      </div>
+      <div className="mod-campo">
+        <label className="scheda-etichetta" htmlFor={`${idCampo}-t`}>Tour</label>
+        <input
+          id={`${idCampo}-t`}
+          className="scheda-input"
+          value={s.tour}
+          maxLength={120}
+          placeholder="Facoltativo"
+          onChange={e => cambiaSet(id, i, () => ({ tour: e.target.value }))}
         />
       </div>
       <div className="mod-campo">

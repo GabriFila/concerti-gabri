@@ -132,6 +132,7 @@ export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInp
       ...base,
       kind: "concert" as const,
       artist: input.artist,
+      tour: input.tour,
       with: personeDa(refs, input.with, "with"),
       voto: input.voto,
       vicinanza: input.vicinanza,
@@ -145,6 +146,7 @@ export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInp
     concerts: input.concerts.map((c, i) => ({
       cid: nuovoCid(),
       artist: c.artist,
+      tour: c.tour,
       with: personeDa(refs, c.with, `concerts.${i}.with`),
       voto: c.voto,
       vicinanza: c.vicinanza,
@@ -177,8 +179,8 @@ export function esterno(
     comments: e.comments,
   };
   return e.kind === "festival"
-    ? { ...base, name: e.name, concerts: (e.concerts ?? []).map(c => ({ artist: c.artist, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date })) }
-    : { ...base, artist: e.artist, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote };
+    ? { ...base, name: e.name, concerts: (e.concerts ?? []).map(c => ({ artist: c.artist, tour: c.tour, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date })) }
+    : { ...base, artist: e.artist, tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote };
 }
 
 export async function nomiPerEsterno(ctx: Ctx, profileId: Id<"profiles">, entries: Doc<"entries">[]) {

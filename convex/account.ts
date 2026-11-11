@@ -72,14 +72,14 @@ export function perImport(e: Doc<"entries">, n: Nomi) {
       name: e.name ?? "",
       ...base,
       concerts: (e.concerts ?? []).map(c =>
-        senzaVuoti({ artist: c.artist, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date }),
+        senzaVuoti({ artist: c.artist, tour: c.tour, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date }),
       ),
     };
   }
   return {
     kind: "concert" as const,
     ...base,
-    ...senzaVuoti({ artist: e.artist ?? "", with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote }),
+    ...senzaVuoti({ artist: e.artist ?? "", tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote }),
   };
 }
 

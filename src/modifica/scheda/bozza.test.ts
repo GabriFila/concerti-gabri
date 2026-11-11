@@ -276,7 +276,7 @@ describe("le mosse della scheda", () => {
     expect(f.tipo).toBe("festival");
     const v = f.valori as ValoriFestival;
     expect(v).toMatchObject({ name: "", date: "30/05/2026", venue: "Magnolia", cost: 30 });
-    expect(v.concerts).toEqual([{ artist: "Verdena", with: ["Lu"], voto: 5, vicinanza: undefined, canzoniNote: undefined, date: "" }, { artist: "", with: [], date: "" }]);
+    expect(v.concerts).toEqual([{ artist: "Verdena", tour: "", with: ["Lu"], voto: 5, vicinanza: undefined, canzoniNote: undefined, date: "" }, { artist: "", tour: "", with: [], date: "" }]);
     expect(tipi(f)).toEqual(["manca", "set_senza_artista"]);
     expect(singoloPossibile(f)).toBe(true);
     const c = inConcerto(f);
@@ -295,7 +295,7 @@ describe("le mosse della scheda", () => {
     expect(tre.concerts).toHaveLength(3);
     expect(senzaSet(f, 0)).toBe(f);
     expect(senzaSet(tre, 0).concerts.map(c => c.artist)).toEqual(["", ""]);
-    const giu = spostaSet({ ...f, concerts: [{ artist: "A", with: [], date: "" }, { artist: "B", with: [], date: "" }] }, 0, 1);
+    const giu = spostaSet({ ...f, concerts: [{ artist: "A", tour: "", with: [], date: "" }, { artist: "B", tour: "", with: [], date: "" }] }, 0, 1);
     expect(giu.concerts.map(c => c.artist)).toEqual(["B", "A"]);
     expect(spostaSet(giu, 1, 1)).toBe(giu);
   });
@@ -313,7 +313,7 @@ describe("le mosse della scheda", () => {
 
   it("una modifica che toglie un concerto dal festival: blocca finché non si sceglie «Tienilo» o «Toglilo»", () => {
     const b = valoriDaProposta(p({ id: "e2", remove_concerts: ["Calcutta"] }), MIAMI);
-    expect(b.rimozioni).toEqual([{ set: { artist: "Calcutta", with: [], voto: undefined, vicinanza: undefined, canzoniNote: undefined, date: "" }, indice: 1 }]);
+    expect(b.rimozioni).toEqual([{ set: { artist: "Calcutta", tour: "", with: [], voto: undefined, vicinanza: undefined, canzoniNote: undefined, date: "" }, indice: 1 }]);
     const r = problemiScheda(b, CTX).daSistemare;
     expect(r).toMatchObject([{ tipo: "set_rimosso", indice: 0, testo: "Questa modifica toglie Calcutta dal festival." }]);
     // Toglilo: si salva la rimozione
@@ -382,5 +382,21 @@ describe("date leggibili", () => {
     expect(distanza("2026-11-02", OGGI)).toBe("tra 12 giorni");
     expect(distanza("2026-07-21", OGGI)).toBe("3 mesi fa");
     expect(distanza("2024-10-01", OGGI)).toBe("2 anni fa");
+  });
+});
+
+describe("tour nella scheda", () => {
+  it("andata e ritorno: nuovo, cambiato, tolto (anche in un concerto del festival)", () => {
+    const b = valoriDaProposta(p({ artist: "Verdena", date: "2025-10-18", venue: "Alcatraz", city: "Milano", tour: "Volevo magia tour" }));
+    expect((b.valori as ValoriConcerto).tour).toBe("Volevo magia tour");
+    expect(propostaDaValori(b)).toMatchObject({ tour: "Volevo magia tour" });
+    const con = { ...VERDENA, tour: "Volevo magia tour" };
+    const m = valoriDaProposta(p({ id: "e1" }), con);
+    expect(propostaDaValori({ ...m, valori: { ...m.valori, tour: "" } as ValoriConcerto })).toEqual({ id: "e1", remove: ["tour"] });
+    expect(propostaDaValori({ ...m, valori: { ...m.valori, tour: "Altro" } as ValoriConcerto })).toEqual({ id: "e1", tour: "Altro" });
+    const f = valoriDaProposta(p({ id: "e2", concerts: [{ artist: "Calcutta", tour: "Relax tour" }] }), MIAMI);
+    expect((f.valori as ValoriFestival).concerts[1].tour).toBe("Relax tour");
+    expect(propostaDaValori(f)).toEqual({ id: "e2", concerts: [{ artist: "Calcutta", tour: "Relax tour" }] });
+    expect(evidenziaDi(f)).toContain("concerts[1].tour");
   });
 });

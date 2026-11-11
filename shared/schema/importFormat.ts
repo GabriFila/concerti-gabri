@@ -6,8 +6,11 @@
    CSV, colonne in quest'ordine:
      tipo,data,data_concerto,artista,festival,venue,citta,con,voto,
      vicinanza,canzoni_note,costo,regalo,regalato_da,accredito,partenza,
-     commento
+     commento,tour
    - `tipo`: concerto | festival
+   - `tour` (aggiunta il 2026-11-11, facoltativa come tutte tranne tipo,
+     data, artista, venue e citta: i CSV di prima restano validi): il tour
+     dell'artista, per ogni riga (anche nei festival)
    - `con`: nomi separati da `;`
    - `canzoni_note`: 1–5 oppure `na`
    - le righe `tipo=festival` con stessi `festival`, `venue` e `data`
@@ -25,6 +28,7 @@ import { entryInput } from "./entry.ts";
 export const COLONNE_CSV = [
   "tipo", "data", "data_concerto", "artista", "festival", "venue", "citta", "con", "voto",
   "vicinanza", "canzoni_note", "costo", "regalo", "regalato_da", "accredito", "partenza", "commento",
+  "tour",
 ] as const;
 export type ColonnaCsv = (typeof COLONNE_CSV)[number];
 
@@ -58,6 +62,7 @@ export const DESCRIZIONE_COLONNE: Record<ColonnaCsv, string> = {
   accredito: "si se l'ingresso era con accredito",
   partenza: "nome di una partenza esistente",
   commento: "ricordo libero della serata",
+  tour: "il tour dell'artista di cui faceva parte il concerto, vuoto se fuori tour",
 };
 
 /** Una riga CSV grezza (tutte stringhe, vuoto = assente). */

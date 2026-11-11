@@ -37,27 +37,30 @@ const testo = (max: number) => z.string().trim().min(1).max(max);
 const votoP = z.number().int().min(1).max(5).describe("Voto da 1 (pessimo) a 5 (indimenticabile); più alto = meglio");
 const vicP = z.number().int().min(1).max(6).describe(`Quanto vicino al palco, più alto = più vicino: ${vicinanzaScale()}`);
 const cnP = z.enum(["1", "2", "3", "4", "5", "na"]).describe(`Quante canzoni della scaletta conoscevi: ${canzoniNoteScale()}; "na" = non ricordo`);
+const tourP = z.string().trim().max(120).describe("Il tour dell'artista di cui faceva parte il concerto, solo se lo dice il proprietario o è certo; mai inventato");
 const personeP = z.array(testo(40)).max(30).describe(`Compagni, elenco completo (in una modifica sostituisce quello di prima). ${REGOLA_SOPRANNOMI}`);
 
 /** I campi che una modifica può togliere (`remove`). */
-export const CAMPI_RIMOVIBILI = ["with", "voto", "vicinanza", "canzoniNote", "cost", "gift", "giftFrom", "accredito", "from", "comments"] as const;
+export const CAMPI_RIMOVIBILI = ["tour", "with", "voto", "vicinanza", "canzoniNote", "cost", "gift", "giftFrom", "accredito", "from", "comments"] as const;
 /** I campi che una modifica può togliere a un concerto del festival (`concerts[].remove`). */
-export const CAMPI_RIMOVIBILI_CONCERTO = ["with", "voto", "vicinanza", "canzoniNote", "date"] as const;
+export const CAMPI_RIMOVIBILI_CONCERTO = ["tour", "with", "voto", "vicinanza", "canzoniNote", "date"] as const;
 
 const concertoDiProposta = z.object({
   artist: testo(120).describe("Artista di questo concerto del festival, come in locandina"),
+  tour: tourP.optional(),
   date: z.string().trim().max(10).optional().describe("Solo festival su più giorni: il giorno di questo concerto, AAAA-MM-GG"),
   with: personeP.optional(),
   voto: votoP.optional(),
   vicinanza: vicP.optional(),
   canzoniNote: cnP.optional(),
-  remove: z.array(z.enum(CAMPI_RIMOVIBILI_CONCERTO)).max(5).optional().describe("Solo per modificare: i campi di questo concerto da togliere"),
+  remove: z.array(z.enum(CAMPI_RIMOVIBILI_CONCERTO)).max(6).optional().describe("Solo per modificare: i campi di questo concerto da togliere"),
 });
 
 export const propostaConcertoInput = z
   .object({
     id: z.string().trim().max(64).optional().describe("Solo per modificare: l'id da list_concerts. Senza id è un evento nuovo"),
     artist: z.string().trim().max(120).optional().describe("Concerto singolo: l'artista, come in locandina"),
+    tour: tourP.optional(),
     name: z.string().trim().max(120).optional().describe("Solo festival: il nome, es. MI AMI 2026. Allora i concerti vanno in concerts"),
     concerts: z.array(concertoDiProposta).max(60).optional().describe("Festival nuovo: la lineup (almeno 2). Modifica: solo i concerti da cambiare o aggiungere, riconosciuti dall'artista"),
     remove_concerts: z.array(testo(120)).max(60).optional().describe("Solo per modificare un festival: gli artisti da togliere dalla lineup"),
@@ -75,7 +78,7 @@ export const propostaConcertoInput = z
     accredito: z.boolean().optional().describe("true se l'ingresso era con accredito o lista ospiti"),
     from: z.string().trim().max(40).optional().describe("Nome della partenza del viaggio (mai un indirizzo)"),
     comments: z.string().max(2000).optional().describe("Il ricordo della serata, solo con le parole del proprietario"),
-    remove: z.array(z.enum(CAMPI_RIMOVIBILI)).max(10).optional().describe("Solo per modificare: i campi da togliere"),
+    remove: z.array(z.enum(CAMPI_RIMOVIBILI)).max(11).optional().describe("Solo per modificare: i campi da togliere"),
   })
   .describe("Scheda di un concerto o festival");
 export type PropostaConcerto = z.infer<typeof propostaConcertoInput>;
@@ -101,6 +104,7 @@ export const salvaSchedaInput = z.object({ proposta: propostaConcertoInput }).de
 /** Un concerto di festival nella forma esterna. */
 export interface SetEsterno {
   artist: string;
+  tour?: string;
   with: string[];
   voto?: number;
   vicinanza?: number;
@@ -124,6 +128,7 @@ export interface EventoEsterno {
   kmPending?: boolean;
   comments?: string;
   artist?: string;
+  tour?: string;
   with?: string[];
   voto?: number;
   vicinanza?: number;
@@ -197,7 +202,11 @@ const unici = (nomi: readonly string[]) => nomi.filter((n, i) => nomi.findIndex(
 const prezzo = (p: PropostaConcerto) => p.cost ?? (p.costForgotten ? ("na" as const) : undefined);
 
 /** I fatti di un concerto della proposta (singolo o del festival). */
-const fattiNuovi = (c: Pick<ConcertoDiProposta, "voto" | "vicinanza" | "canzoniNote">) => ({
+/** Il tour detto, senza spazi; "" = nessuno (undefined). */
+const tourDi = (s: string | undefined) => (s !== undefined && s.trim() ? s.trim() : undefined);
+
+const fattiNuovi = (c: Pick<ConcertoDiProposta, "tour" | "voto" | "vicinanza" | "canzoniNote">) => ({
+  tour: tourDi(c.tour),
   voto: c.voto,
   vicinanza: c.vicinanza,
   canzoniNote: canzoni(c.canzoniNote),
@@ -220,7 +229,7 @@ function nuovo(p: PropostaConcerto): EsitoDaProposta {
   const ignorati: string[] = [];
   if (festival) {
     // in un festival artista e voti stanno nei singoli concerti: quelli generali si ignorano
-    for (const k of ["artist", "voto", "vicinanza", "canzoniNote"] as const) if (p[k] !== undefined) ignorati.push(k);
+    for (const k of ["artist", "tour", "voto", "vicinanza", "canzoniNote"] as const) if (p[k] !== undefined) ignorati.push(k);
     input = senzaVuoti({
       kind: "festival",
       name: p.name,
@@ -235,7 +244,7 @@ function nuovo(p: PropostaConcerto): EsitoDaProposta {
   return { ok: true, azione: "aggiungi", input: r.data, ignorati };
 }
 
-const FATTI_DEL_CONCERTO = ["artist", "with", "voto", "vicinanza", "canzoniNote"] as const;
+const FATTI_DEL_CONCERTO = ["artist", "tour", "with", "voto", "vicinanza", "canzoniNote"] as const;
 
 /** La lineup dopo la modifica: i concerti della proposta uniti a quelli esistenti per artista (e giorno). */
 function unisciLineup(p: PropostaConcerto, esistenti: SetEsterno[], errori: ErroreProposta[]): SetEsterno[] {
@@ -253,7 +262,7 @@ function unisciLineup(p: PropostaConcerto, esistenti: SetEsterno[], errori: Erro
     if (c.with !== undefined) s.with = unici(c.with);
     else if (togli.has("with")) s.with = [];
     const fatti = fattiNuovi(c);
-    for (const f of ["voto", "vicinanza", "canzoniNote"] as const) {
+    for (const f of ["tour", "voto", "vicinanza", "canzoniNote"] as const) {
       if (fatti[f] !== undefined) (s as Record<string, unknown>)[f] = fatti[f];
       else if (togli.has(f)) delete s[f];
     }
@@ -297,7 +306,7 @@ function modifica(p: PropostaConcerto & { id: string }, e: EventoEsterno): Esito
     if (p.with !== undefined) patch.with = unici(p.with);
     else if (togli.has("with")) patch.with = [];
     const fatti = fattiNuovi(p);
-    for (const k of ["voto", "vicinanza", "canzoniNote"] as const) imposta(k, fatti[k]);
+    for (const k of ["tour", "voto", "vicinanza", "canzoniNote"] as const) imposta(k, fatti[k]);
   } else {
     for (const k of FATTI_DEL_CONCERTO) {
       if (p[k] !== undefined || togli.has(k)) {
@@ -357,7 +366,7 @@ export function nomiDa(n: Extract<EsitoDaProposta, { ok: true }>): { persone: st
 
 /* ── anteprima e differenze ───────────────────────────────────── */
 
-const CAMPI_SEMPLICI = ["date", "venue", "city", "artist", "name", "voto", "vicinanza", "canzoniNote", "cost", "gift", "giftFrom", "accredito", "from", "comments"] as const;
+const CAMPI_SEMPLICI = ["date", "venue", "city", "artist", "tour", "name", "voto", "vicinanza", "canzoniNote", "cost", "gift", "giftFrom", "accredito", "from", "comments"] as const;
 
 /** L'evento come sarà dopo la patch (per l'anteprima: i km si sanno solo al salvataggio). */
 export function applica(e: EventoEsterno, patch: EntryPatch): EventoEsterno {
@@ -413,6 +422,7 @@ function riga(out: Differenza[], campo: string, prima: string, dopo: string) {
 
 const CAMPI_DEL_SET: [keyof SetEsterno, string, (c: SetEsterno) => string][] = [
   ["date", "giorno", c => fmtTesto(c.date)],
+  ["tour", "tour", c => fmtTesto(c.tour)],
   ["with", "con", c => fmtPersone(c.with)],
   ["voto", "voto", c => fmtVoto(c.voto)],
   ["vicinanza", "posizione", c => fmtPosizione(c.vicinanza)],
@@ -445,7 +455,10 @@ function differenzeLineup(prima: SetEsterno[], dopo: SetEsterno[], out: Differen
 export function differenze(prima: EventoEsterno, dopo: EventoEsterno): Differenza[] {
   const out: Differenza[] = [];
   if (dopo.kind === "festival") riga(out, "Festival", fmtTesto(prima.name), fmtTesto(dopo.name));
-  else riga(out, "Artista", fmtTesto(prima.artist), fmtTesto(dopo.artist));
+  else {
+    riga(out, "Artista", fmtTesto(prima.artist), fmtTesto(dopo.artist));
+    riga(out, "Tour", fmtTesto(prima.tour), fmtTesto(dopo.tour));
+  }
   riga(out, "Data", prima.date, dopo.date);
   riga(out, "Venue", fmtLuogo(prima), fmtLuogo(dopo));
   if (dopo.kind === "festival") differenzeLineup(prima.concerts ?? [], dopo.concerts ?? [], out);

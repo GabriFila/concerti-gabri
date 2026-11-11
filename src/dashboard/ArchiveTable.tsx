@@ -23,7 +23,7 @@ function festMatches(ev:Festival,q:string){
   const n=q.trim().toLowerCase();
   if(!n) return true;
   if(ev.name.toLowerCase().includes(n)||ev.venue.toLowerCase().includes(n)||ev.city.toLowerCase().includes(n)||commentOf(ev).toLowerCase().includes(n)) return true;
-  return ev.concerts.some(c=>c.artist.toLowerCase().includes(n)||(c.with||[]).some(p=>p.toLowerCase().includes(n)));
+  return ev.concerts.some(c=>c.artist.toLowerCase().includes(n)||!!c.tour?.toLowerCase().includes(n)||(c.with||[]).some(p=>p.toLowerCase().includes(n)));
 }
 
 /* Viaggio senza km: con la partenza ma senza indirizzo i km arrivano dopo
@@ -43,11 +43,11 @@ export function ArchiveTable(){
 
   // The archive is an archive of CONCERTS: every row is one concert, festival
   // sets included as first-class rows. Fuse also indexes the festival name
-  // (ev.name) and the event's comment, so searching "mi ami" surfaces its
-  // concerts and a word written in a comment surfaces the evening it belongs to.
+  // (ev.name), the tour and the event's comment, so searching "mi ami" surfaces
+  // its concerts and a word written in a comment surfaces the evening it belongs to.
   const CONC=useMemo(()=>flatConcerts(DATA),[DATA]);
   const fuse=useMemo(()=>new Fuse(CONC,{
-    keys:["artist","venue","city","with","ev.name","ev.comments"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
+    keys:["artist","tour","venue","city","with","ev.name","ev.comments"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
   }),[CONC]);
 
   const searching=!!q.trim();
@@ -119,7 +119,7 @@ export function ArchiveTable(){
           <tbody>
             {rows.map((c,i)=>{const pl=isPlanned(c);const fest=isFestival(c.ev);return (
               <tr key={i}>
-                <td className="artist">{hl(c.artist,q)}{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}</td>
+                <td className="artist">{hl(c.artist,q)}{c.tour&&<span className="ctour" title={"Tour: "+c.tour}>{hl(c.tour,q)}</span>}{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}</td>
                 <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
                 <td>{hl(c.venue,q)}</td>
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>

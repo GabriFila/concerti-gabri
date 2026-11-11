@@ -721,6 +721,36 @@ i centri abitati) e la cache delle ricerche (chiavi SHA-256).
   `preview/multiutente` dopo il deploy di questo codice, e in produzione
   prima del seed (SWITCH.md B5).
 
+## Tour (Gabri, 2026-11-11)
+
+Ogni concerto può dire il **tour** dell'artista di cui faceva parte la
+data (facoltativo, testo breve fino a 120 caratteri).
+
+- **Dove sta.** Nei fatti del concerto (`ConcertFacts.tour`), quindi anche
+  su ogni concerto di un festival (un set estivo fa spesso parte del tour),
+  mai sull'evento. Cambio additivo dello schema (`entries.tour`,
+  `entries.concerts[].tour`): niente migrazione, i concerti di prima non
+  ne hanno.
+- **Identità.** Un tour è la coppia (artista, nome del tour) confrontata con
+  `chiaveNome`: «Tour 2025» di due artisti sono due tour. Testo e non un
+  id: i tour sono pochi per artista e non si rinominano; contro i doppioni
+  il modulo propone i tour già scritti per quell'artista. Una tabella
+  `tours` si aggiunge solo se i doppioni diventano un problema.
+- **Non è «da completare».** Molte date sono fuori tour: niente avviso né
+  voce in `mancano`.
+- **Card «I tour visti»** (`sec-tour`): solo l'elenco dei tour visti, dal
+  più recente; vedere più date dello stesso tour è raro, e in quel caso il
+  tour resta una voce con le sue date. Sparisce, con la voce del TOC,
+  quando nei filtri attivi nessun concerto ha un tour. Un layout salvato
+  prima la mette in fondo (come ogni sezione nuova): si sposta da
+  `/<handle>/modifica#stile`.
+- **Agenti.** MCP e import per nome come gli altri campi; colonna CSV
+  `tour` in fondo (i CSV di prima restano validi). Il Tour manager lo
+  mette nella scheda solo se il proprietario lo dice o è stampato sul
+  biglietto. Cambiare `propostaConcertoInput` rende scadute le schede in
+  sospeso al deploy (accettato). L'Oracolo pubblico filtra e raggruppa per
+  tour (`query_concerts`: `tour`, `groupBy: "tour"`).
+
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 
 Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):

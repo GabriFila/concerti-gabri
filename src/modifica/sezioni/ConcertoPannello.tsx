@@ -49,7 +49,7 @@ import { Conferma, Errore, useConvex } from "./comuni.tsx";
 import {
   campiMancanti, campoDaServer, chiaveNome, daConcertoAFestival, daFestivalAConcerto, eFestival, eValoriFestival, erroriSchema, etichettaCampo,
   inProgrammaValori, inputConcerto, inputFestival, ordinaCampi, patchConcerto, patchFestival, titoloDi, ultimaPartenza, valoriConcerto,
-  valoriDuplicati, valoriFestival, venueRecenti, type EventoUi, type ValoriConcerto, type ValoriFestival,
+  valoriDuplicati, valoriFestival, tourDiArtista, venueRecenti, type EventoUi, type ValoriConcerto, type ValoriFestival,
 } from "./forme.ts";
 
 const FORM = "mod-form-evento";
@@ -489,6 +489,7 @@ function ModuloEvento(p: PropsModulo) {
     nomi,
     recenti,
     ultima,
+    tourDi: (artista: string) => tourDiArtista(p.eventi, artista),
     inProgramma: inProgrammaValori(valori, oggi),
     mancanti,
     evidenzia: new Set(apertura?.evidenzia ?? []),

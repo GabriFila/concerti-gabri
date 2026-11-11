@@ -63,10 +63,11 @@ export interface SetTolto {
 
 /** Le righe della scheda: una per campo (il biglietto comprende prezzo, regalo e accredito). */
 export type CampoScheda =
-  | "artist" | "name" | "date" | "venue" | "with" | "voto" | "vicinanza" | "canzoniNote" | "biglietto" | "from" | "comments" | "concerts";
+  | "artist" | "tour" | "name" | "date" | "venue" | "with" | "voto" | "vicinanza" | "canzoniNote" | "biglietto" | "from" | "comments" | "concerts";
 
 export const ETICHETTE: Record<CampoScheda, string> = {
   artist: "Artista",
+  tour: "Tour",
   name: "Festival",
   date: "Data",
   venue: "Venue",
@@ -83,6 +84,7 @@ export const ETICHETTE: Record<CampoScheda, string> = {
 /** La riga di una differenza (`differenze` di shared/schema/proposta.ts). */
 export const CAMPO_DI_DIFFERENZA: Record<string, CampoScheda> = {
   Artista: "artist",
+  Tour: "tour",
   Festival: "name",
   Data: "date",
   Venue: "venue",
@@ -131,11 +133,12 @@ export function valoriVuoti(tipo: "festival"): ValoriFestival;
 export function valoriVuoti(tipo: TipoScheda): Valori;
 export function valoriVuoti(tipo: TipoScheda): Valori {
   const evento = { date: "", venue: "", city: "", cost: undefined, gift: false, giftFrom: "", accredito: false, from: "", comments: "" };
-  return tipo === "concert" ? { ...evento, artist: "", with: [] } : { ...evento, name: "", concerts: [] };
+  return tipo === "concert" ? { ...evento, artist: "", tour: "", with: [] } : { ...evento, name: "", concerts: [] };
 }
 
 const setDaEsterno = (c: SetEsterno): ValoriSet => ({
   artist: c.artist,
+  tour: c.tour ?? "",
   with: [...(c.with ?? [])],
   voto: c.voto as ValoriSet["voto"],
   vicinanza: c.vicinanza as ValoriSet["vicinanza"],
@@ -160,6 +163,7 @@ export function valoriDaEsterno(e: EventoEsterno): Valori {
     ...evento,
     date: giornoIso(e.date),
     artist: e.artist ?? "",
+    tour: e.tour ?? "",
     with: [...(e.with ?? [])],
     voto: e.voto as ValoriConcerto["voto"],
     vicinanza: e.vicinanza as ValoriConcerto["vicinanza"],
@@ -187,12 +191,12 @@ export function esternoDaValori(tipo: TipoScheda, v: Valori): EventoEsterno {
       ...evento,
       name: f.name.trim(),
       concerts: f.concerts.map(c =>
-        senzaVuoti({ artist: c.artist.trim(), with: unici(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date ? isoInGiorno(c.date) : undefined }),
+        senzaVuoti({ artist: c.artist.trim(), tour: testo(c.tour), with: unici(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date ? isoInGiorno(c.date) : undefined }),
       ),
     };
   }
   const c = v as ValoriConcerto;
-  return senzaVuoti({ kind: "concert" as const, ...evento, artist: c.artist.trim(), with: unici(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote });
+  return senzaVuoti({ kind: "concert" as const, ...evento, artist: c.artist.trim(), tour: testo(c.tour), with: unici(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote });
 }
 
 /* ── proposta → bozza ─────────────────────────────────────────── */
@@ -202,8 +206,10 @@ type ConcertoDiProposta = NonNullable<PropostaConcerto["concerts"]>[number];
 const stessoGiorno = (a?: string, b?: string) => !a || !b || isoInGiorno(a) === isoInGiorno(b);
 
 /** I fatti detti di un concerto (singolo o del festival), con `remove` per toglierli. */
-function fatti(s: { voto?: number; vicinanza?: number; canzoniNote?: Canzoni }, p: Pick<ConcertoDiProposta, "voto" | "vicinanza" | "canzoniNote">, togli: ReadonlySet<string>) {
+function fatti(s: { tour: string; voto?: number; vicinanza?: number; canzoniNote?: Canzoni }, p: Pick<ConcertoDiProposta, "tour" | "voto" | "vicinanza" | "canzoniNote">, togli: ReadonlySet<string>) {
   const cn = canzoni(p.canzoniNote);
+  if (p.tour !== undefined) s.tour = p.tour.trim();
+  else if (togli.has("tour")) s.tour = "";
   if (p.voto !== undefined) s.voto = p.voto;
   else if (togli.has("voto")) s.voto = undefined;
   if (p.vicinanza !== undefined) s.vicinanza = p.vicinanza;
@@ -213,7 +219,7 @@ function fatti(s: { voto?: number; vicinanza?: number; canzoniNote?: Canzoni }, 
 }
 
 const setNuovo = (c: ConcertoDiProposta, conGenerale?: string[]): ValoriSet => {
-  const s: ValoriSet = { artist: c.artist.trim(), with: unici(c.with ?? conGenerale ?? []), date: c.date ? giornoIso(c.date) : "" };
+  const s: ValoriSet = { artist: c.artist.trim(), tour: "", with: unici(c.with ?? conGenerale ?? []), date: c.date ? giornoIso(c.date) : "" };
   fatti(s, c, new Set());
   return s;
 };
@@ -277,11 +283,12 @@ export function valoriDaProposta(p: PropostaConcerto, esistente?: EventoEsterno)
       f.concerts = (p.concerts ?? []).map(c => setNuovo(c, p.with));
       if (p.voto !== undefined || p.vicinanza !== undefined || p.canzoniNote !== undefined) ignorati.push("Voto generale ignorato: in un festival si vota ogni concerto.");
       if (p.artist !== undefined) ignorati.push("Artista generale ignorato: in un festival ogni concerto ha il suo.");
+      if (p.tour !== undefined) ignorati.push("Tour generale ignorato: in un festival ogni concerto ha il suo.");
     } else {
       if (p.concerts !== undefined || p.remove_concerts !== undefined) f.concerts = unisciLineup(f.concerts, p, ignorati, tolti);
-      const soloConcerto = ["artist", "with", "voto", "vicinanza", "canzoniNote"] as const;
+      const soloConcerto = ["artist", "tour", "with", "voto", "vicinanza", "canzoniNote"] as const;
       if (soloConcerto.some(k => p[k] !== undefined || togli.has(k))) {
-        ignorati.push("In un festival artista, compagni e voti stanno nei singoli concerti: quelli generali non si salvano.");
+        ignorati.push("In un festival artista, tour, compagni e voti stanno nei singoli concerti: quelli generali non si salvano.");
       }
     }
   }
@@ -326,6 +333,7 @@ function propostaNuova(tipo: TipoScheda, v: Valori): PropostaConcerto {
       concerts: f.concerts.map(c =>
         senzaVuoti({
           artist: c.artist.trim(),
+          tour: testo(c.tour),
           date: testo(c.date),
           with: c.with.length ? unici(c.with) : undefined,
           voto: c.voto,
@@ -338,6 +346,7 @@ function propostaNuova(tipo: TipoScheda, v: Valori): PropostaConcerto {
   const c = v as ValoriConcerto;
   return senzaVuoti({
     artist: testo(c.artist),
+    tour: testo(c.tour),
     ...comune,
     with: c.with.length ? unici(c.with) : undefined,
     voto: c.voto,
@@ -363,7 +372,7 @@ function lineupProposta(prima: SetEsterno[], dopo: SetEsterno[]): Pick<PropostaC
   for (const s of dopo) {
     const i = prima.findIndex((x, j) => !presi.has(j) && chiaveNome(x.artist) === chiaveNome(s.artist) && stessoGiorno(x.date, s.date));
     if (i === -1) {
-      concerts.push(senzaVuoti({ artist: s.artist, date: s.date, with: s.with.length ? s.with : undefined, voto: s.voto, vicinanza: s.vicinanza, canzoniNote: cnProposta(s.canzoniNote) }));
+      concerts.push(senzaVuoti({ artist: s.artist, tour: s.tour, date: s.date, with: s.with.length ? s.with : undefined, voto: s.voto, vicinanza: s.vicinanza, canzoniNote: cnProposta(s.canzoniNote) }));
       continue;
     }
     presi.add(i);
@@ -371,6 +380,11 @@ function lineupProposta(prima: SetEsterno[], dopo: SetEsterno[]): Pick<PropostaC
     const c: ConcertoDiProposta = { artist: s.artist, ...(s.date ? { date: s.date } : {}) };
     const remove: RimovibileConcerto[] = [];
     let cambia = false;
+    if ((s.tour ?? "") !== (x.tour ?? "")) {
+      cambia = true;
+      if (s.tour) c.tour = s.tour;
+      else remove.push("tour");
+    }
     if (!stessiNomi(s.with, x.with ?? [])) {
       cambia = true;
       if (s.with.length) c.with = [...s.with];
@@ -411,6 +425,10 @@ function propostaModifica(tipo: TipoScheda, v: Valori, id: string, e: EventoEste
   if (dopo.venue !== e.venue || dopo.city !== e.city) Object.assign(p, { venue: dopo.venue, city: dopo.city });
   if (tipo === "concert") {
     if ((dopo.artist ?? "") !== (e.artist ?? "")) p.artist = dopo.artist;
+    if ((dopo.tour ?? "") !== (e.tour ?? "")) {
+      if (dopo.tour) p.tour = dopo.tour;
+      else remove.push("tour");
+    }
     if (!stessiNomi(dopo.with, e.with)) {
       if (dopo.with?.length) p.with = [...dopo.with];
       else remove.push("with");
@@ -481,7 +499,7 @@ export function validaScheda(b: Bozza): { ok: true; proposta: PropostaConcerto }
 
 /* ── le mosse della scheda ─────────────────────────────────────── */
 
-const setVuoto = (): ValoriSet => ({ artist: "", with: [], date: "" });
+const setVuoto = (): ValoriSet => ({ artist: "", tour: "", with: [], date: "" });
 
 /** Il primo giorno di una data di festival ("30–31/05/2026" → "2026-05-30"), ISO; "" se non si legge. */
 function primoGiornoIso(data: string): string {
@@ -550,7 +568,7 @@ export function tieniSet(b: Bozza, k: number): Pick<Bozza, "valori" | "rimozioni
 export const toglieSet = (b: Bozza, k: number): Pick<Bozza, "rimozioni"> => ({ rimozioni: b.rimozioni?.filter((_, j) => j !== k) });
 
 const CAMPI_FORM: Record<string, string> = {
-  artist: "artist", name: "name", date: "date", venue: "venue", city: "venue", with: "with", voto: "voto", vicinanza: "vicinanza",
+  artist: "artist", tour: "tour", name: "name", date: "date", venue: "venue", city: "venue", with: "with", voto: "voto", vicinanza: "vicinanza",
   canzoniNote: "canzoniNote", cost: "cost", costForgotten: "cost", gift: "gift", giftFrom: "giftFrom", accredito: "accredito",
   from: "from", comments: "comments",
 };
@@ -570,7 +588,7 @@ export function evidenziaDi(b: Bozza): string[] {
       const i = sets.findIndex(s => chiaveNome(s.artist) === chiaveNome(c.artist) && stessoGiorno(s.date, c.date));
       if (i === -1) continue;
       if (!b.id) out.add(`concerts[${i}].artist`);
-      for (const k of ["with", "voto", "vicinanza", "canzoniNote", "date"] as const) if (c[k] !== undefined) out.add(`concerts[${i}].${k}`);
+      for (const k of ["tour", "with", "voto", "vicinanza", "canzoniNote", "date"] as const) if (c[k] !== undefined) out.add(`concerts[${i}].${k}`);
     }
   }
   return [...out];
@@ -762,12 +780,12 @@ export interface ProblemiScheda {
 }
 
 const ETICHETTE_ERRORE: Record<string, string> = {
-  artist: "Artista", name: "Festival", date: "Data", venue: "Venue", city: "Città", with: "Con", voto: "Voto", vicinanza: "Posizione",
+  artist: "Artista", tour: "Tour", name: "Festival", date: "Data", venue: "Venue", city: "Città", with: "Con", voto: "Voto", vicinanza: "Posizione",
   canzoniNote: "Canzoni note", cost: "Prezzo", giftFrom: "Regalato da", from: "Partenza", comments: "Commento", concerts: "Concerti",
   remove_concerts: "Concerti", id: "Scheda", scheda: "Scheda",
 };
 const CAMPO_ERRORE: Record<string, CampoScheda> = {
-  artist: "artist", name: "name", date: "date", venue: "venue", city: "venue", with: "with", voto: "voto", vicinanza: "vicinanza",
+  artist: "artist", tour: "tour", name: "name", date: "date", venue: "venue", city: "venue", with: "with", voto: "voto", vicinanza: "vicinanza",
   canzoniNote: "canzoniNote", cost: "biglietto", gift: "biglietto", giftFrom: "biglietto", accredito: "biglietto", from: "from", comments: "comments",
   concerts: "concerts", remove_concerts: "concerts",
 };

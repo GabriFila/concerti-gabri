@@ -140,7 +140,8 @@ export async function seedGabrifila(ctx: MutationCtx) {
         ...(e.comments ? { comments: e.comments } : {}),
         updatedAt: Date.now(),
       };
-      const fatti = (c: { voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na" }) => ({
+      const fatti = (c: { tour?: string; voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na" }) => ({
+        ...(c.tour ? { tour: c.tour } : {}),
         ...(c.voto !== undefined ? { voto: c.voto } : {}),
         ...(c.vicinanza !== undefined ? { vicinanza: c.vicinanza } : {}),
         ...(c.canzoniNote !== undefined ? { canzoniNote: c.canzoniNote } : {}),

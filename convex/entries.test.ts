@@ -47,3 +47,28 @@ describe("entries.list", () => {
     expect(daFare.map(per).sort()).toEqual(["MI AMI", "Senza partenza", "Senza voto"]);
   });
 });
+
+describe("tour", () => {
+  it("si scrive, si cambia e si toglie; in un festival sta nei concerti; la pagina pubblica lo vede", async () => {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    await venue(t, "Fabrique", "Milano", 9.25, 45.45);
+    const { id } = await a.as.mutation(api.entries.add, {
+      input: { kind: "concert", artist: "Verdena", tour: "Volevo magia tour", date: "01/03/2025", venue: "Fabrique", city: "Milano", with: [] } as never,
+    });
+    const leggi = async () => (await a.as.query(api.entries.list, {})).concerts.find(e => e.id === id) as { tour?: string };
+    expect((await leggi()).tour).toBe("Volevo magia tour");
+    await a.as.mutation(api.entries.update, { input: { id, patch: { tour: "Altro tour" } } as never });
+    expect((await leggi()).tour).toBe("Altro tour");
+    await a.as.mutation(api.entries.update, { input: { id, patch: { tour: null } } as never });
+    expect(await leggi()).not.toHaveProperty("tour");
+
+    const f = await a.as.mutation(api.entries.add, {
+      input: { kind: "festival", name: "MI AMI", date: "21–24/05/2025", venue: "Fabrique", city: "Milano", concerts: [{ artist: "Rares", tour: "Tour R", with: [] }, { artist: "Patagarri", with: [] }] } as never,
+    });
+    await expect(a.as.mutation(api.entries.update, { input: { id: f.id, patch: { tour: "x" } } as never })).rejects.toThrow(/concerts/);
+    const pagina = await t.query(api.pages.byHandle, { handle: "utente-a" });
+    const fest = (pagina as { entries: { kind: string; concerts?: { tour?: string }[] }[] }).entries.find(e => e.kind === "festival");
+    expect(fest?.concerts?.map(c => c.tour)).toEqual(["Tour R", undefined]);
+  });
+});

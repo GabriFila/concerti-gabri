@@ -70,19 +70,21 @@ async function modificaEntry(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, 
   if (e.kind === "concert") {
     if (patch.name !== undefined || patch.concerts !== undefined) throw errore("input_non_valido", "name e concerts valgono solo per i festival", { campo: "patch" });
     togli("artist", patch.artist);
+    togli("tour", patch.tour);
     if (patch.with !== undefined) next.with = personeDa(refs, patch.with, "patch.with");
     togli("voto", patch.voto);
     togli("vicinanza", patch.vicinanza);
     togli("canzoniNote", patch.canzoniNote);
   } else {
-    if (patch.artist !== undefined || patch.with !== undefined || patch.voto !== undefined || patch.vicinanza !== undefined || patch.canzoniNote !== undefined) {
-      throw errore("input_non_valido", "in un festival artista, compagni e voti stanno in concerts", { campo: "patch" });
+    if (patch.artist !== undefined || patch.tour !== undefined || patch.with !== undefined || patch.voto !== undefined || patch.vicinanza !== undefined || patch.canzoniNote !== undefined) {
+      throw errore("input_non_valido", "in un festival artista, tour, compagni e voti stanno in concerts", { campo: "patch" });
     }
     togli("name", patch.name);
     if (patch.concerts !== undefined) {
       next.concerts = patch.concerts.map((c, i) => ({
         cid: e.concerts?.[i]?.cid ?? nuovoCid(),
         artist: c.artist,
+        ...(c.tour !== undefined ? { tour: c.tour } : {}),
         with: personeDa(refs, c.with, `patch.concerts.${i}.with`),
         ...(c.voto !== undefined ? { voto: c.voto } : {}),
         ...(c.vicinanza !== undefined ? { vicinanza: c.vicinanza } : {}),

@@ -243,3 +243,25 @@ describe("esitoDa", () => {
     expect(e).not.toHaveProperty("kmInAttesa");
   });
 });
+
+describe("tour", () => {
+  it("un concerto nuovo lo porta (senza spazi); vuoto non c'è; in un festival sta su ogni concerto", () => {
+    expect(nuovo({ ...LUOGO, artist: "Verdena", tour: "  Volevo magia tour " }).input).toMatchObject({ tour: "Volevo magia tour" });
+    expect(nuovo({ ...LUOGO, artist: "Verdena", tour: " " }).input).not.toHaveProperty("tour");
+    const f = nuovo({ ...LUOGO, name: "F", tour: "generale", concerts: [{ artist: "A", tour: "Tour A" }, { artist: "B" }] });
+    expect(f.ignorati).toContain("tour");
+    expect((f.input as Extract<typeof f.input, { kind: "festival" }>).concerts.map(c => c.tour)).toEqual(["Tour A", undefined]);
+  });
+
+  it("una modifica lo cambia o lo toglie, con la riga «Tour» nelle differenze", () => {
+    const con = { ...VERDENA, tour: "Volevo magia tour" };
+    expect(modifica({ id: "e1", tour: "Altro tour" }, con).patch).toEqual({ tour: "Altro tour" });
+    expect(modifica({ id: "e1", remove: ["tour"] }, con).patch).toEqual({ tour: null });
+    expect(differenze(con, applica(con, { tour: null }))).toEqual([{ campo: "Tour", prima: "Volevo magia tour", dopo: "tolto" }]);
+    // in un festival il tour sta nei concerti, non sull'evento
+    expect(campiErrati(daProposta(p({ id: "e2", tour: "x" }), MIAMI))).toEqual(["tour"]);
+    const r = modifica({ id: "e2", concerts: [{ artist: "Calcutta", tour: "Relax tour" }] }, MIAMI);
+    expect(r.patch.concerts?.[1]).toMatchObject({ artist: "Calcutta", tour: "Relax tour" });
+    expect(differenze(MIAMI, applica(MIAMI, r.patch))).toEqual([{ campo: "Concerti", prima: "", dopo: "Calcutta: tour — → Relax tour" }]);
+  });
+});

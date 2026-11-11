@@ -53,7 +53,7 @@ export const serveConferma = (righe: number) => righe > CONFIRM_IMPORT_ROWS;
 
 /** Il campo di entryInput → la colonna CSV, per gli errori. */
 const COLONNA_DI: Record<string, ColonnaCsv> = {
-  kind: "tipo", date: "data", artist: "artista", name: "festival", venue: "venue", city: "citta", with: "con",
+  kind: "tipo", date: "data", artist: "artista", tour: "tour", name: "festival", venue: "venue", city: "citta", with: "con",
   voto: "voto", vicinanza: "vicinanza", canzoniNote: "canzoni_note", cost: "costo", gift: "regalo",
   giftFrom: "regalato_da", accredito: "accredito", from: "partenza", comments: "commento",
 };
@@ -207,6 +207,7 @@ function concertoDaRiga(r: RigaLetta, colonne: readonly ColonnaCsv[], errori: Er
     venue: valori.venue,
     city: valori.citta,
     artist: valori.artista,
+    tour: valori.tour,
     with: valori.con ?? [],
     voto: valori.voto,
     vicinanza: valori.vicinanza,
@@ -261,6 +262,7 @@ function festivalDaGruppo(gruppo: RigaLetta[], colonne: readonly ColonnaCsv[], e
     concerts: convertite.map(({ valori }) =>
       def({
         artist: valori.artista,
+        tour: valori.tour,
         with: valori.con ?? [],
         voto: valori.voto,
         vicinanza: valori.vicinanza,
@@ -324,8 +326,8 @@ export function versoCsv(entries: EntryInput[]): string {
       data: e.date, venue: e.venue, citta: e.city, costo: testoCosto(e.cost), regalo: si(e.gift),
       regalato_da: e.giftFrom ?? "", accredito: si(e.accredito), partenza: e.from ?? "", commento: e.comments ?? "",
     };
-    const fatti = (c: { artist: string; with: string[]; voto?: number; vicinanza?: number; canzoniNote?: number | "na" }) => ({
-      artista: c.artist, con: c.with.join(SEPARATORE_CON), voto: c.voto === undefined ? "" : String(c.voto),
+    const fatti = (c: { artist: string; tour?: string; with: string[]; voto?: number; vicinanza?: number; canzoniNote?: number | "na" }) => ({
+      artista: c.artist, tour: c.tour ?? "", con: c.with.join(SEPARATORE_CON), voto: c.voto === undefined ? "" : String(c.voto),
       vicinanza: c.vicinanza === undefined ? "" : String(c.vicinanza), canzoni_note: c.canzoniNote === undefined ? "" : String(c.canzoniNote),
     });
     if (e.kind === "concert") righe.push({ tipo: "concerto", data_concerto: "", festival: "", ...evento, ...fatti(e) });

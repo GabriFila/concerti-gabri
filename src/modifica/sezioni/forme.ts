@@ -141,6 +141,8 @@ interface ValoriEvento {
 /** I fatti di un concerto (singolo o set di un festival). */
 interface ValoriFatti {
   artist: string;
+  /** "" = nessun tour. */
+  tour: string;
   with: string[];
   voto?: Voto;
   vicinanza?: Vicinanza;
@@ -157,7 +159,7 @@ export interface ValoriFestival extends ValoriEvento {
   concerts: ValoriSet[];
 }
 
-const setVuoto = (): ValoriSet => ({ artist: "", with: [], date: "" });
+const setVuoto = (): ValoriSet => ({ artist: "", tour: "", with: [], date: "" });
 
 function valoriEvento(e?: EventoUi): ValoriEvento {
   return {
@@ -173,8 +175,9 @@ function valoriEvento(e?: EventoUi): ValoriEvento {
   };
 }
 
-const fatti = (c?: { artist?: string; with?: string[]; voto?: number; vicinanza?: number; canzoniNote?: number | string }): ValoriFatti => ({
+const fatti = (c?: { artist?: string; tour?: string; with?: string[]; voto?: number; vicinanza?: number; canzoniNote?: number | string }): ValoriFatti => ({
   artist: c?.artist ?? "",
+  tour: c?.tour ?? "",
   with: [...(c?.with ?? [])],
   voto: c?.voto as Voto | undefined,
   vicinanza: c?.vicinanza as Vicinanza | undefined,
@@ -203,6 +206,7 @@ export const nuovoSet = setVuoto;
 function fattiInput(v: ValoriFatti) {
   return {
     artist: v.artist,
+    ...(v.tour.trim() ? { tour: v.tour.trim() } : {}),
     with: v.with,
     ...(v.voto !== undefined ? { voto: v.voto } : {}),
     ...(v.vicinanza !== undefined ? { vicinanza: v.vicinanza } : {}),
@@ -256,6 +260,7 @@ function patchEvento(v: ValoriEvento) {
 export const patchConcerto = (v: ValoriConcerto) => ({
   ...patchEvento(v),
   artist: v.artist,
+  tour: v.tour.trim() ? v.tour.trim() : null,
   with: v.with,
   voto: v.voto ?? null,
   vicinanza: v.vicinanza ?? null,
@@ -302,6 +307,7 @@ export function campiMancanti(v: ValoriConcerto | ValoriFestival, oggi: number):
 const ETICHETTE: Record<string, string> = {
   name: "Nome del festival",
   artist: "Artista",
+  tour: "Tour",
   date: "Data",
   venue: "Venue",
   city: "Venue",
@@ -380,8 +386,8 @@ export function valoriDuplicati(e: EventoUi): ValoriConcerto | ValoriFestival {
  * diventano il primo concerto del festival.
  */
 export function daConcertoAFestival(v: ValoriConcerto): ValoriFestival {
-  const { artist, with: con, voto, vicinanza, canzoniNote, date, ...evento } = v;
-  return { ...evento, date: daIso(date), name: "", concerts: [{ artist, with: [...con], voto, vicinanza, canzoniNote, date: "" }, setVuoto()] };
+  const { artist, tour, with: con, voto, vicinanza, canzoniNote, date, ...evento } = v;
+  return { ...evento, date: daIso(date), name: "", concerts: [{ artist, tour, with: [...con], voto, vicinanza, canzoniNote, date: "" }, setVuoto()] };
 }
 
 /** Da festival a concerto: il primo concerto del festival diventa il concerto (gli altri si perdono). */
@@ -393,6 +399,7 @@ export function daFestivalAConcerto(v: ValoriFestival): ValoriConcerto {
     ...evento,
     date: inIso(date) || primo.date,
     artist: primo.artist,
+    tour: primo.tour,
     with: [...primo.with],
     voto: primo.voto,
     vicinanza: primo.vicinanza,
@@ -425,6 +432,28 @@ export function compagniFrequenti(persone: { name: string; concerti: number }[],
     .map(p => p.name);
 }
 
+/**
+ * I tour già scritti per un artista (anche nei concerti dei festival), dal
+ * più recente e senza doppioni: i suggerimenti del campo «Tour», così lo
+ * stesso tour non nasce scritto in due modi.
+ */
+export function tourDiArtista(eventi: EventoUi[], artista: string): string[] {
+  const k = chiaveNome(artista);
+  if (!k) return [];
+  const out: string[] = [];
+  const visti = new Set<string>();
+  for (const e of ordinaEventi(eventi)) {
+    const concerti: { artist?: string; tour?: string }[] = eFestival(e) ? e.concerts : [e];
+    for (const c of concerti) {
+      const t = c.tour?.trim();
+      if (!t || chiaveNome(c.artist ?? "") !== k || visti.has(chiaveNome(t))) continue;
+      visti.add(chiaveNome(t));
+      out.push(t);
+    }
+  }
+  return out;
+}
+
 /** La partenza dell'ultimo concerto che ne ha una (per «Come l'ultimo: …»), o null. */
 export function ultimaPartenza(eventi: EventoUi[]): string | null {
   return ordinaEventi(eventi).find(e => !!e.from)?.from ?? null;
@@ -436,12 +465,12 @@ export function ultimaPartenza(eventi: EventoUi[]): string | null {
 export const ordinaEventi = (eventi: EventoUi[]): EventoUi[] =>
   eventi.map((e, i) => ({ e, i, k: sortKey(e) })).sort((a, b) => b.k - a.k || b.i - a.i).map(x => x.e);
 
-/** Ricerca libera: artista, festival, venue, città, compagni (senza maiuscole). */
+/** Ricerca libera: artista, tour, festival, venue, città, compagni (senza maiuscole). */
 export function cercaEventi(eventi: EventoUi[], testo: string): EventoUi[] {
   const q = testo.trim().toLowerCase();
   if (!q) return eventi;
   return eventi.filter(e => {
-    const parti = [e.venue, e.city, e.date, titoloDi(e), ...(eFestival(e) ? e.concerts.flatMap(c => [c.artist, ...c.with]) : (e.with ?? []))];
+    const parti = [e.venue, e.city, e.date, titoloDi(e), ...(eFestival(e) ? e.concerts.flatMap(c => [c.artist, c.tour ?? "", ...c.with]) : [e.tour ?? "", ...(e.with ?? [])])];
     return parti.some(p => (p ?? "").toLowerCase().includes(q));
   });
 }

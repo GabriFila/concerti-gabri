@@ -146,6 +146,7 @@ export const fields = {
     comments: v.optional(v.string()),
     updatedAt: v.number(),
     artist: v.optional(v.string()),
+    tour: v.optional(v.string()),
     with: v.optional(v.array(v.id("people"))),
     voto: v.optional(voto),
     vicinanza: v.optional(vicinanza),
@@ -156,6 +157,7 @@ export const fields = {
         v.object({
           cid: v.string(),
           artist: v.string(),
+          tour: v.optional(v.string()),
           with: v.array(v.id("people")),
           voto: v.optional(voto),
           vicinanza: v.optional(vicinanza),

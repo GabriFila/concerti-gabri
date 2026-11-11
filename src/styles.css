@@ -1055,6 +1055,8 @@
      cue that this row was one set of a festival. Consistent muted amber tag. */
   .cfest{display:block;font-size:.66rem;letter-spacing:.04em;color:var(--lamp);font-weight:500;margin-top:3px;opacity:.85}
   .cfest mark{background:none;color:inherit;padding:0}
+  .ctour{display:block;font-size:.72rem;color:var(--muted);font-weight:400;margin-top:2px}
+  .ctour mark{background:none;color:inherit;padding:0}
   /* cost/viaggio on a festival set: no per-concert value — it's on the event.
      A muted "festival" marker points there instead of a misleading "—". */
   .cfestmark{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);opacity:.7}
@@ -1115,6 +1117,11 @@
   .notehead .n-art{font-weight:600;color:var(--text)}
   .notehead .n-date{font-size:.82rem;font-variant-numeric:tabular-nums}
   .notehead .n-meta{font-size:.82rem;color:var(--muted)}
+  .tourlist{margin:4px 0 0;padding:0;list-style:none}
+  .touritem{padding:13px 0;border-bottom:1px solid var(--line)}
+  .touritem:last-child{border-bottom:none;padding-bottom:0}
+  .touritem .t-artist{font-size:.88rem;color:var(--muted)}
+  .touritem .t-data{margin-top:4px}
   .commenttext{margin:7px 0 0;color:var(--muted);font-size:.92rem;line-height:1.6;white-space:pre-line}
   .resn{font-size:.8rem;color:var(--muted);margin-top:16px}
   .ordn{color:var(--lamp)}

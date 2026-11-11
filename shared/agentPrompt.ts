@@ -56,6 +56,7 @@ export function agentPrompt(d: DatiPrompt): string {
     `- Vicinanza al palco, più alto = più vicino: ${vicinanzaScale()}.`,
     `- Canzoni note della scaletta: ${canzoniNoteScale()}; "na" se non me lo ricordo.`,
     '- Costo in euro del biglietto (0 = gratis), "na" se l\'ho pagato ma non ricordo quanto. Regalo e accredito sono sì/no.',
+    "- Tour: il nome del tour dell'artista di cui faceva parte la data, come in locandina (es. \"Nome del tour 2025\"); vuoto per una data fuori tour. Se non lo trovi sul biglietto puoi cercarlo, ma se non sei sicuro lascialo vuoto.",
     "- Un festival è un solo biglietto con almeno due concerti: prezzo, viaggio e commento stanno sul festival, non sui singoli concerti.",
     `- Partenze del viaggio: ${partenze}. Usa solo questi nomi e mai indirizzi: i km li calcola il sito. Se una partenza non ha ancora l'indirizzo, i km restano in attesa: dimmi di impostarlo da ${modifica}#partenze.`,
     "",

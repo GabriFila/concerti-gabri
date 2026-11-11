@@ -24,6 +24,7 @@ export type CanzoniNote = 1 | 2 | 3 | 4 | 5 | "na";
 // I fatti di un concerto, indipendenti da biglietto, viaggio e luogo.
 export interface ConcertFacts<P extends string = string> {
   artist: string;
+  tour?: string; // il tour di cui faceva parte la serata (assente = fuori tour o non detto)
   with: P[];
   voto?: Voto;
   vicinanza?: Vicinanza; // assente = non ancora definita (eventi futuri)
@@ -90,8 +91,8 @@ export interface FlatConcert extends ConcertFacts {
 
 export const concertsOf = (e: Entry): FlatConcert[] =>
   isFestival(e)
-    ? e.concerts.map(c => ({ y: e.y, date: c.date || e.date, artist: c.artist, venue: e.venue, city: e.city, with: c.with, voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, ev: e }))
-    : [{ y: e.y, date: e.date, artist: e.artist, venue: e.venue, city: e.city, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, giftFrom: e.giftFrom, accredito: e.accredito, from: e.from, km: e.km, ev: e }];
+    ? e.concerts.map(c => ({ y: e.y, date: c.date || e.date, artist: c.artist, ...(c.tour ? { tour: c.tour } : {}), venue: e.venue, city: e.city, with: c.with, voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, ev: e }))
+    : [{ y: e.y, date: e.date, artist: e.artist, ...(e.tour ? { tour: e.tour } : {}), venue: e.venue, city: e.city, with: e.with, voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, cost: e.cost, gift: e.gift, giftFrom: e.giftFrom, accredito: e.accredito, from: e.from, km: e.km, ev: e }];
 
 export const flatConcerts = (data: Entry[]): FlatConcert[] => data.flatMap(concertsOf);
 

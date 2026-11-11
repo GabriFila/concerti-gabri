@@ -12,7 +12,7 @@
 import { z } from "zod";
 import {
   artista, canzoniNote, commento, costo, dataEvento, dataEventoInput, dataGiorno, dataGiornoInput,
-  etichettaRegalo, nomeCitta, nomeFestival, nomePartenza, nomePersona, nomeVenue, vicinanza, voto,
+  etichettaRegalo, nomeCitta, nomeFestival, nomePartenza, nomePersona, nomeTour, nomeVenue, vicinanza, voto,
 } from "./campi.ts";
 import { idDi } from "./ids.ts";
 
@@ -21,6 +21,7 @@ import { idDi } from "./ids.ts";
 export const concertoFestivalDb = z.object({
   cid: z.string().min(1).max(40).describe("Id stabile del concerto dentro il festival"),
   artist: artista,
+  tour: nomeTour.optional(),
   with: z.array(idDi("people").describe("Id di una persona")).describe("Compagni del concerto"),
   voto: voto.optional(),
   vicinanza: vicinanza.optional(),
@@ -47,6 +48,7 @@ export const entryDbFields = {
   updatedAt: z.number().describe("Ultima modifica (ms)"),
   // solo concerto
   artist: artista.optional(),
+  tour: nomeTour.optional(),
   with: z.array(idDi("people").describe("Id di una persona")).optional().describe("Compagni del concerto"),
   voto: voto.optional(),
   vicinanza: vicinanza.optional(),
@@ -75,6 +77,7 @@ const luogo = {
 };
 const fatti = {
   artist: artista,
+  tour: nomeTour.optional(),
   with: z.array(nomePersona).max(30).default([]).describe("Compagni (nomi già presenti tra le persone). Usa soprannomi o diminutivi, non nome e cognome: 'Marco Rossi' → 'Marco R.'"),
   voto: voto.optional(),
   vicinanza: vicinanza.optional(),
@@ -123,6 +126,7 @@ export const entryPatch = z
     venue: nomeVenue.optional(),
     city: nomeCitta.optional(),
     artist: artista.optional().describe("Solo per i concerti singoli"),
+    tour: nomeTour.nullable().optional().describe("Solo per i concerti singoli (nei festival sta in concerts); null toglie"),
     name: nomeFestival.optional().describe("Solo per i festival"),
     with: z.array(nomePersona).max(30).optional().describe("Compagni (solo concerti singoli). Usa soprannomi o diminutivi, non nome e cognome: 'Marco Rossi' → 'Marco R.'"),
     voto: voto.nullable().optional(),

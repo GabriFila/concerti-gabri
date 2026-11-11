@@ -20,7 +20,7 @@ export function queryConcertsDef(vocab: ChatVocab) {
       "The ONLY source of the concert data. A CONCERT is one act's set; a festival is one EVENT/ticket containing several concerts, " +
       "so counts are per concert while costs are per ticket/event. Only this page's data, never addresses. Returns, for the concerts matching the filters (combined with AND): " +
       "exact count, attended/planned split, distinct event/ticket count, total and average ticket cost, average rating, average canzoni note, optional breakdown by " +
-      "person/artist/year/city/venue/vicinanza/canzoniNote, and the full matching list in chronological order. " +
+      "person/artist/tour/year/city/venue/vicinanza/canzoniNote, and the full matching list in chronological order. " +
       "Call it (possibly more than once) before answering ANY question about the data.",
     inputSchema: queryInputSchema(vocab),
     outputSchema: z.object({

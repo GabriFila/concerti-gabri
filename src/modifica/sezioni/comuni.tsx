@@ -360,7 +360,7 @@ export function useDescrizione(f: AnyFieldApi, aiuto: boolean) {
  * stessa riga del campo (l'«Aggiungi» delle aggiunte rapide), con
  * suggerimento ed errore sotto a tutti e due.
  */
-export function CampoTesto({ f, etichetta, aiuto, tipo = "text", segno, azione, ...resto }: {
+export function CampoTesto({ f, etichetta, aiuto, tipo = "text", segno, azione, suggerimenti, ...resto }: {
   f: AnyFieldApi;
   etichetta: ReactNode;
   aiuto?: ReactNode;
@@ -371,8 +371,11 @@ export function CampoTesto({ f, etichetta, aiuto, tipo = "text", segno, azione, 
   autoFocus?: boolean;
   maxLength?: number;
   autoComplete?: string;
+  /** Valori proposti sotto il campo (un <datalist>): si può sempre scrivere altro. */
+  suggerimenti?: readonly string[];
 }) {
   const d = useDescrizione(f, !!aiuto);
+  const lista = suggerimenti?.length ? `${d.id}-lista` : undefined;
   const campo = (
     <input
       id={d.id}
@@ -384,6 +387,7 @@ export function CampoTesto({ f, etichetta, aiuto, tipo = "text", segno, azione, 
       aria-invalid={d.invalido}
       aria-describedby={d.descritto}
       data-autofocus={resto.autoFocus || undefined}
+      list={lista}
       {...resto}
     />
   );
@@ -400,6 +404,11 @@ export function CampoTesto({ f, etichetta, aiuto, tipo = "text", segno, azione, 
         </div>
       ) : (
         campo
+      )}
+      {lista && (
+        <datalist id={lista}>
+          {suggerimenti!.map(s => <option key={s} value={s} />)}
+        </datalist>
       )}
       {aiuto && <span id={d.idAiuto} className="mod-hint">{aiuto}</span>}
       <ErroriCampo f={f} id={d.idErrore} />

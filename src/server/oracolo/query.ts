@@ -22,12 +22,13 @@ export function queryInputSchema(vocab: ChatVocab) {
     people: z.array(enumOrString(vocab.companions)).optional().meta({ description: "Exact companion names; matches concerts with at least one of them (OR). One person = that person's concerts." }),
     solo: z.boolean().optional().meta({ description: "true = only concerts attended alone (no companions)" }),
     artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name; festival names (e.g. 'MI AMI 2023') also match every set watched there" }),
+    tour: z.string().optional().meta({ description: "Case-insensitive substring match on the tour name (the artist's tour the concert belonged to; concerts without a tour never match)" }),
     cities: z.array(enumOrString(vocab.cities)).optional().meta({ description: "Concert cities (OR between them)" }),
     years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
     gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
     accredito: z.boolean().optional().meta({ description: "true = only concerts with free entry via guest list/press pass (accredito), false = exclude them" }),
     canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: `"Canzoni note" — how much of the setlist the page owner already knew: ${canzoniNoteScale()} (OR between them)` }),
-    groupBy: z.enum(["person", "artist", "year", "city", "venue", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion)" }),
+    groupBy: z.enum(["person", "artist", "tour", "year", "city", "venue", "vicinanza", "canzoniNote"]).optional().meta({ description: "Also return per-group stats (count, avg voto, avg canzoni note, costs) over the matching concerts (person = one entry per companion; tour = one entry per artist + tour, concerts without a tour left out)" }),
     sortGroupsBy: z.enum(["count", "avgVoto", "avgCost", "totalCost", "avgCanzoniNote"]).optional().meta({ description: "Descending sort of `groups` (default count). For rankings, pick the right key and report the groups exactly in the returned order." }),
   });
 }
@@ -39,6 +40,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 export function runConcertQuery(ds: Dataset, q: ConcertQuery, today: number) {
   const planned = (d: { date: string }) => isPlanned(d, today);
   const artist = q.artist?.trim().toLowerCase();
+  const tour = q.tour?.trim().toLowerCase();
   // per concert: festival sets match individually. The artist filter also
   // matches the festival's own name ("mi ami" finds every set watched there);
   // gift/accredito are ticket facts, so they come from the owning event.
@@ -48,6 +50,7 @@ export function runConcertQuery(ds: Dataset, q: ConcertQuery, today: number) {
     if (q.people?.length && !q.people.some(p => (c.with || []).includes(p))) return false;
     if (q.solo && (c.with || []).length > 0) return false;
     if (artist && !c.artist.toLowerCase().includes(artist) && !(isFestival(c.ev) && c.ev.name.toLowerCase().includes(artist))) return false;
+    if (tour && !c.tour?.toLowerCase().includes(tour)) return false;
     if (q.cities?.length && !q.cities.includes(c.city)) return false;
     if (q.years?.length && !q.years.includes(c.y)) return false;
     if (q.gift !== undefined && !!c.ev.gift !== q.gift) return false;
@@ -80,6 +83,7 @@ export function runConcertQuery(ds: Dataset, q: ConcertQuery, today: number) {
     const keysOf = (c: FlatConcert): string[] =>
       q.groupBy === "person" ? (c.with || [])
       : q.groupBy === "artist" ? [c.artist]
+      : q.groupBy === "tour" ? (c.tour ? [`${c.artist} — ${c.tour}`] : [])
       : q.groupBy === "year" ? [String(c.y)]
       : q.groupBy === "city" ? [c.city]
       : q.groupBy === "venue" ? [c.venue]
@@ -104,7 +108,7 @@ export function runConcertQuery(ds: Dataset, q: ConcertQuery, today: number) {
     ...costVotoStats(matches),
     ...(groups ? { groups } : {}),
     concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(c =>
-      `${c.date} · ${c.artist}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
+      `${c.date} · ${c.artist}${c.tour ? ` · tour «${c.tour}»` : ""}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
       ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
       (typeof c.cost === "number" ? ` · ${c.cost}€` : c.cost === "na" ? " · prezzo non ricordato" : "") +
       (c.gift ? (c.giftFrom && ds.gifters[c.giftFrom] ? ` · regalo di ${ds.gifters[c.giftFrom].label}` : " · regalo") : "") +

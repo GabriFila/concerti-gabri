@@ -35,6 +35,7 @@ export const entryPubblica = v.object({
   kmPending: v.optional(v.boolean()),
   comments: v.optional(v.string()),
   artist: v.optional(v.string()),
+  tour: v.optional(v.string()),
   with: v.optional(v.array(v.id("people"))),
   voto: v.optional(voto),
   vicinanza: v.optional(vicinanza),
@@ -45,6 +46,7 @@ export const entryPubblica = v.object({
       v.object({
         cid: v.string(),
         artist: v.string(),
+        tour: v.optional(v.string()),
         with: v.array(v.id("people")),
         voto: v.optional(voto),
         vicinanza: v.optional(vicinanza),

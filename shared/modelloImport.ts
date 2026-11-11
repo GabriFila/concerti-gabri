@@ -25,7 +25,7 @@ export const GUIDA_COLONNE = COLONNE_CSV.map(colonna => ({ colonna, descrizione:
 export const RIGHE_ESEMPIO: RigaCsv[] = [
   {
     tipo: "concerto", data: "2025-11-14", artista: "Nome dell'artista", venue: "Fabrique", citta: "Milano",
-    con: "Marco R.;Giuli", voto: "4", vicinanza: "5", canzoni_note: "3", costo: "35", partenza: "Casa", commento: "Bis lunghissimo",
+    con: "Marco R.;Giuli", voto: "4", vicinanza: "5", canzoni_note: "3", costo: "35", partenza: "Casa", commento: "Bis lunghissimo", tour: "Nome del tour 2025",
   },
   {
     tipo: "festival", data: "2026-07-03", data_concerto: "2026-07-03", artista: "Primo artista", festival: "Nome del festival 2026",
@@ -49,7 +49,7 @@ export function modelloCsv(righe: readonly RigaCsv[] = RIGHE_ESEMPIO): string {
 /** Lo stesso esempio nella forma JSON (`importJson`). */
 export const ESEMPIO_JSON: z.input<typeof importJson> = [
   {
-    kind: "concert", date: "2025-11-14", artist: "Nome dell'artista", venue: "Fabrique", city: "Milano",
+    kind: "concert", date: "2025-11-14", artist: "Nome dell'artista", tour: "Nome del tour 2025", venue: "Fabrique", city: "Milano",
     with: ["Marco R.", "Giuli"], voto: 4, vicinanza: 5, canzoniNote: 3, cost: 35, from: "Casa", comments: "Bis lunghissimo",
   },
   {

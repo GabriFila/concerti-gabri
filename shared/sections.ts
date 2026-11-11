@@ -1,7 +1,7 @@
 /* Le sezioni di "I dati": fonte unica per il TOC (che aggiunge le icone) e per
    lo strumento `go_to_section` dell'Oracolo. Gli id `sec-*` sono fissi. Una
    sezione può mancare dalla pagina (sec-commenti c'è solo se almeno un evento
-   ha un commento): il TOC si risolve sul DOM e `go_to_section` dà ok:false. */
+   ha un commento, sec-tour solo se almeno un concerto ha un tour): il TOC si risolve sul DOM e `go_to_section` dà ok:false. */
 
 import { etichetta, type EtichettaId, type Forma } from "./labels.ts";
 
@@ -23,6 +23,7 @@ export const SECTIONS = [
   { id: "sec-spesa-dettaglio", label: "Quando ho speso di più" },
   { id: "sec-spesa-distribuzione", label: "Quanto pago di solito" },
   { id: "sec-trend", label: "Come cambia nel tempo" },
+  { id: "sec-tour", label: "I tour visti" }, // nascosta se nessun concerto ha un tour
   { id: "sec-commenti", label: "I miei commenti" }, // nascosta se nessun evento ha un commento
   { id: "sec-archivio", label: "Archivio" },
 ] as const;

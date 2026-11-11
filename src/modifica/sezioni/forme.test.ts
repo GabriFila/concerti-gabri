@@ -204,7 +204,7 @@ describe("form di un concerto", () => {
     expect(campiMancanti(v, oggi)).toEqual(["vicinanza", "canzoniNote", "from"]);
     expect(campiMancanti({ ...v, date: "2026-12-01" }, oggi)).toEqual([]);
     expect(campiMancanti({ ...v, date: "" }, oggi)).toEqual([]);
-    const f: ValoriFestival = { ...valoriFestival(), name: "F", date: "30–31/05/2026", from: "Casa", concerts: [{ artist: "A", with: [], date: "", voto: 4, vicinanza: 6, canzoniNote: "na" }, { artist: "B", with: [], date: "" }] };
+    const f: ValoriFestival = { ...valoriFestival(), name: "F", date: "30–31/05/2026", from: "Casa", concerts: [{ artist: "A", tour: "", with: [], date: "", voto: 4, vicinanza: 6, canzoniNote: "na" }, { artist: "B", tour: "", with: [], date: "" }] };
     expect(campiMancanti(f, oggi)).toEqual(["concerts[1].voto", "concerts[1].vicinanza", "concerts[1].canzoniNote"]);
   });
 
@@ -236,14 +236,14 @@ describe("form di un concerto", () => {
     const f = valoriDuplicati(festival({ id: "f", date: "21–24/05/2025", from: "Casa", cost: 40, comments: "x", concerts: [{ artist: "A", with: ["Lu"] }, { artist: "B", with: [] }] })) as ValoriFestival;
     expect(f).toMatchObject({ name: "MI AMI", venue: "Idroscalo", city: "Milano", from: "Casa", date: "", comments: "" });
     expect(f.cost).toBeUndefined();
-    expect(f.concerts).toEqual([{ artist: "", with: [], date: "" }, { artist: "", with: [], date: "" }]);
+    expect(f.concerts).toEqual([{ artist: "", tour: "", with: [], date: "" }, { artist: "", tour: "", with: [], date: "" }]);
   });
 
   it("concerto ↔ festival: data, venue, biglietto, viaggio e commento restano; l'artista è il primo concerto", () => {
     const v = valoriConcerto(c as never);
     const f = daConcertoAFestival(v);
     expect(f).toMatchObject({ name: "", date: "24/07/2025", venue: "Fabrique", cost: 60.5, giftFrom: "Amici", from: "Casa", comments: "Serata enorme" });
-    expect(f.concerts).toEqual([{ artist: "Caparezza", with: ["Lu"], voto: 5, vicinanza: 6, canzoniNote: 4, date: "" }, { artist: "", with: [], date: "" }]);
+    expect(f.concerts).toEqual([{ artist: "Caparezza", tour: "", with: ["Lu"], voto: 5, vicinanza: 6, canzoniNote: 4, date: "" }, { artist: "", tour: "", with: [], date: "" }]);
     expect(daFestivalAConcerto(f)).toEqual(v);
     // un festival di più giorni torna senza data (il primo concerto può averne una sua)
     const g = daFestivalAConcerto({ ...f, date: "30–31/05/2026", concerts: [{ ...f.concerts[0], date: "2026-05-31" }, f.concerts[1]] });

@@ -12,6 +12,7 @@ import { soloHttps } from "./url.ts";
 
 interface Fatti {
   artist: string;
+  tour?: string;
   with: string[];
   voto?: Voto;
   vicinanza?: Vicinanza;
@@ -34,6 +35,7 @@ export interface PaginaEntry {
   kmPending?: boolean;
   comments?: string;
   artist?: string;
+  tour?: string;
   with?: string[];
   voto?: Voto;
   vicinanza?: Vicinanza;
@@ -77,10 +79,10 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
       comments: e.comments,
     });
     if (e.kind === "festival") {
-      const concerts = (e.concerts ?? []).map(c => def({ artist: c.artist, date: c.date, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote })) as FestivalConcert[];
+      const concerts = (e.concerts ?? []).map(c => def({ artist: c.artist, tour: c.tour, date: c.date, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote })) as FestivalConcert[];
       return { ...evento, name: e.name ?? "", concerts: concerts as [FestivalConcert, FestivalConcert, ...FestivalConcert[]] };
     }
-    return { ...evento, ...def({ artist: e.artist ?? "", with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote }) } as Entry;
+    return { ...evento, ...def({ artist: e.artist ?? "", tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote }) } as Entry;
   });
 
   return {

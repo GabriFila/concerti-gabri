@@ -148,9 +148,9 @@ Once he's confirmed the recap, in this order:
   address is `mancante`, the km stays pending: tell Gabri to set the address in
   `/<handle>/modifica#partenze` (only he can, from the dashboard).
 - **The entry.** New: `add_concert` with `{kind: "concert", date: "gg/mm/aaaa",
-  venue, city, artist, with, voto?, vicinanza?, canzoniNote?, cost? | gift +
+  venue, city, artist, tour?, with, voto?, vicinanza?, canzoniNote?, cost? | gift +
   giftFrom? | accredito?, from?, comments?}`, or `{kind: "festival", name, date,
-  venue, city, …ticket/trip/comments, concerts: [≥2 × {artist, with, voto?,
+  venue, city, …ticket/trip/comments, concerts: [≥2 × {artist, tour?, with, voto?,
   vicinanza?, canzoniNote?, date?}]}`; a multi-day festival date is
   `"30–31/03/2017"`. Existing: `update_concert({id, patch})` with only the
   changed fields (`null` removes one; for a festival, `concerts` replaces the
@@ -167,6 +167,11 @@ Once he's confirmed the recap, in this order:
   that means the nominal price plus every fee line ("commissioni ordine",
   "commissioni spedizione", prevendita, ...), summed. Don't ask which one he wants:
   it's always the total.
+- **`tour`:** the artist's tour the date belonged to, as on the poster/ticket
+  (e.g. "Volevo magia tour"); per concert, so on a festival it goes on each set.
+  Reuse the exact spelling of a tour already on another concert of the same
+  artist (`list_concerts({artista})`). Optional: leave it out for a one-off date,
+  and when unsure ask or look it up rather than guess.
 - **`comments`:** copy his words verbatim (skip the field when he left it blank —
   never write a comment he didn't write). It belongs to the EVENT, so on a
   festival it goes on the festival, not on a single set.
