@@ -16,7 +16,7 @@ import { z } from "zod";
 import { REGOLA_SOPRANNOMI, nomePersona, artista, nessunInput } from "../schema/campi.ts";
 import { annullaInput, elencaAttivitaInput } from "../schema/activity.ts";
 import { aggiungiPartenzaInput, cancellaPartenzaInput, rinominaPartenzaInput, partenzaPubblica } from "../schema/departure.ts";
-import { cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertoInput, statisticheInput } from "../schema/entry.ts";
+import { MAX_MODIFICHE_BLOCCO, cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertiInput, modificaConcertoInput, statisticheInput } from "../schema/entry.ts";
 import { importaConcertiInput } from "../schema/importFormat.ts";
 import { aggiungiRegaloInput, cancellaRegaloInput, logoRegaloInput, modificaRegaloInput } from "../schema/gifter.ts";
 import { aggiungiPersonaInput, cancellaPersonaInput, rinominaPersonaInput, unisciPersoneInput } from "../schema/people.ts";
@@ -88,6 +88,9 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
     descrizione: `Aggiunge un concerto o un festival (almeno 2 concerti). Persone, partenza e "regalato da" si indicano per nome e devono esistere. La venue si indica con nome e città come li dice l'utente: se non è tra le sue venue il server la aggiunge e ne cerca da solo la posizione su OpenStreetMap (i km di quel concerto arrivano poco dopo). ${REGOLA_SOPRANNOMI}. ${SCALE} ${REGOLE_CONCERTO} I km li calcola il server: non mandarli mai. Se l'artista è nella lista dei desideri (list_wishlist), proponi di toglierlo con set_wishlist.` }),
   op({ name: "update_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:update", input: modificaConcertoInput, output: conId,
     descrizione: `Modifica un concerto o festival; null toglie un campo. Una venue nuova (nome e città) si aggiunge da sola come in add_concert. ${REGOLA_SOPRANNOMI}. ${SCALE} ${REGOLE_CONCERTO}` }),
+  op({ name: "bulk_update_concerts", tipo: "scrittura", traguardo: 2, funzione: "entries:updateMany", input: modificaConcertiInput,
+    output: z.object({ modificati: z.number(), ids: z.array(z.string()), batchId: z.string() }),
+    descrizione: `Modifica fino a ${MAX_MODIFICHE_BLOCCO} concerti o festival in una volta: ogni elemento di updates è { id, patch } come in update_concert (null toglie un campo), un id una volta sola. Tutte o nessuna: se una modifica è sbagliata non si salva niente e l'errore dice quale (indice). Sono un solo lotto del registro: un undo di una qualunque voce le annulla tutte. Oltre ${MAX_MODIFICHE_BLOCCO} concerti, più chiamate. ${REGOLA_SOPRANNOMI}. ${SCALE} ${REGOLE_CONCERTO}` }),
   op({ name: "delete_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:remove", input: cancellaConcertoInput, output: ok, confirm: true,
     descrizione: "Cancella un concerto o festival. Chiedi conferma all'utente e passa confirm: true. Si può annullare con undo." }),
   op({ name: "add_person", tipo: "scrittura", traguardo: 2, funzione: "people:add", input: aggiungiPersonaInput, output: conId,

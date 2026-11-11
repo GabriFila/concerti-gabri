@@ -751,6 +751,24 @@ data (facoltativo, testo breve fino a 120 caratteri).
   sospeso al deploy (accettato). L'Oracolo pubblico filtra e raggruppa per
   tour (`query_concerts`: `tour`, `groupBy: "tour"`).
 
+## Modifica in blocco (Gabri, 2026-11-11)
+
+MCP e API key hanno `bulk_update_concerts` (`entries:updateMany`): fino a
+**20** concerti o festival per chiamata (`MAX_MODIFICHE_BLOCCO` in
+`shared/schema/entry.ts`), per completare o correggere tanti concerti senza
+una chiamata ciascuno.
+
+- **Forma.** `{ updates: [{ id, patch }] }`, ogni patch identica a quella di
+  `update_concert` (stessa funzione `modificaEntry`); un id una volta sola.
+- **Tutte o nessuna.** Una transazione: al primo errore non si salva niente
+  e l'errore dice quale modifica (`indice`, `campo: "updates.<i>.…"`).
+- **Un lotto.** Tutte le voci del registro hanno lo stesso `batchId`: un undo
+  le annulla tutte. Le venue nuove nascono fuori dal lotto, come altrove.
+- **Limite.** Ogni concerto conta una scrittura in `agentWrites`, come con
+  `update_concert`: il blocco non aggira il limite.
+- **Tour manager.** Non ce l'ha (`SOSTITUITE_DALLA_SCHEDA`): i suoi concerti
+  passano solo dalla scheda.
+
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 
 Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):

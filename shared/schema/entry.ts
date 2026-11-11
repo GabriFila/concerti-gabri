@@ -146,6 +146,27 @@ export const modificaConcertoInput = z
   .object({ id: idDi("entries").describe("Id del concerto o festival"), patch: entryPatch })
   .describe("Modifica un concerto o un festival");
 
+/** Quanti concerti o festival al massimo in una modifica in blocco (bulk_update_concerts). */
+export const MAX_MODIFICHE_BLOCCO = 20;
+
+/** Modifica in blocco: fino a MAX_MODIFICHE_BLOCCO patch, una per id, tutte o nessuna. */
+export const modificaConcertiInput = z
+  .object({
+    updates: z
+      .array(modificaConcertoInput)
+      .min(1)
+      .max(MAX_MODIFICHE_BLOCCO)
+      .superRefine((us, ctx) => {
+        const visti = new Set<string>();
+        us.forEach((u, i) => {
+          if (visti.has(u.id)) ctx.addIssue({ code: "custom", path: [i, "id"], message: "id ripetuto: una sola modifica per concerto" });
+          visti.add(u.id);
+        });
+      })
+      .describe(`Da 1 a ${MAX_MODIFICHE_BLOCCO} modifiche, ognuna con id e patch come in update_concert; un id una volta sola`),
+  })
+  .describe("Modifica in blocco di concerti o festival");
+
 export const cancellaConcertoInput = z
   .object({ id: idDi("entries").describe("Id del concerto o festival"), confirm: z.literal(true).describe("Conferma esplicita della cancellazione") })
   .describe("Cancella un concerto o un festival");

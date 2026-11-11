@@ -64,7 +64,7 @@ export { erroreLeggibile } from "./errori.ts";
 const NON_DISPONIBILE_SCRITTURA = "Il Tour manager non è disponibile, riprova più tardi.";
 
 /** Le operazioni del catalogo che nell'Oracolo passano dalla scheda (propose_concert). */
-export const SOSTITUITE_DALLA_SCHEDA = ["add_concert", "update_concert"] as const;
+export const SOSTITUITE_DALLA_SCHEDA = ["add_concert", "update_concert", "bulk_update_concerts"] as const;
 
 /** I limiti della richiesta in scrittura: un biglietto incollato (4000), la scheda corretta nella ripresa
     (16000) e i messaggi del browser quanti quelli dello storico salvato (ogni scheda ne vale 4–6: con 40
@@ -151,7 +151,7 @@ const APPROVAZIONE_IN_PIU: readonly string[] = ["undo", "merge_person", "set_wis
 const chiedeApprovazione = (op: OperazioneCatalogo) => !!op.confirm || APPROVAZIONE_IN_PIU.includes(op.name);
 
 /** Gli strumenti del catalogo, eseguiti sul server; cancellazioni e simili → approvazione nella chat.
-    `senza`: le operazioni da lasciare fuori (nell'Oracolo add_concert e update_concert, sostituite dalla scheda). */
+    `senza`: le operazioni da lasciare fuori (nell'Oracolo add_concert, update_concert e bulk_update_concerts, sostituite dalla scheda). */
 export function strumentiScrittura(esegui: EseguiOperazione, { senza = [] }: { senza?: readonly string[] } = {}) {
   return CATALOGO.filter(op => !senza.includes(op.name)).map(op =>
     toolDefinition({ name: op.name, description: op.descrizione, inputSchema: schemaPerIlModello(op.input), needsApproval: chiedeApprovazione(op) }).server(async input => {

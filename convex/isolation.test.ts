@@ -44,6 +44,7 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     "entries:get": { id: ids.entry },
     "entries:add": null,
     "entries:update": { id: ids.entry, patch: { artist: "Preso" } },
+    "entries:updateMany": { updates: [{ id: ids.entry, patch: { artist: "Preso" } }] },
     "entries:salvaScheda": { proposta: { id: ids.entry, voto: 3 } },
     "entries:remove": { id: ids.entry, confirm: true },
     "activity:list": null,

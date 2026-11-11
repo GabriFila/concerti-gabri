@@ -72,3 +72,60 @@ describe("tour", () => {
     expect(fest?.concerts?.map(c => c.tour)).toEqual(["Tour R", undefined]);
   });
 });
+
+describe("bulk_update_concerts (entries.updateMany)", () => {
+  async function base() {
+    const t = setup();
+    const a = await conProfilo(t, "u-a", "utente-a");
+    await venue(t, "Fabrique", "Milano", 9.25, 45.45);
+    await a.as.mutation(api.people.add, { input: { name: "Lu" } });
+    const add = async (artist: string) =>
+      (await a.as.mutation(api.entries.add, { input: { kind: "concert", artist, date: "01/03/2025", venue: "Fabrique", city: "Milano", with: [] } as never })).id;
+    const leggi = async () => Object.fromEntries((await a.as.query(api.entries.list, {})).concerts.map(e => [e.id, e as { voto?: number; with?: string[]; artist?: string }]));
+    return { t, a, add, leggi };
+  }
+
+  it("modifica più concerti in una volta, in un solo lotto che un undo annulla tutto", async () => {
+    const { a, add, leggi } = await base();
+    const [x, y, z] = [await add("X"), await add("Y"), await add("Z")];
+    const r = await a.as.mutation(api.entries.updateMany, {
+      input: { updates: [{ id: x, patch: { voto: 5, with: ["Lu"] } }, { id: y, patch: { voto: 2 } }] } as never,
+    });
+    expect(r).toMatchObject({ modificati: 2, ids: [x, y] });
+    let righe = await leggi();
+    expect(righe[x]).toMatchObject({ voto: 5, with: ["Lu"] });
+    expect(righe[y].voto).toBe(2);
+    expect(righe[z].voto).toBeUndefined();
+
+    const voci = (await a.as.query(api.activity.list, {})).voci.slice(0, 2);
+    expect(new Set(voci.map(v => (v as { lotto?: string }).lotto))).toEqual(new Set([r.batchId]));
+    await a.as.mutation(api.activity.undo, { input: { activityId: voci[1].id } });
+    righe = await leggi();
+    expect(righe[x].voto).toBeUndefined();
+    expect(righe[x].with).toEqual([]);
+    expect(righe[y].voto).toBeUndefined();
+  });
+
+  it("tutte o nessuna: un errore in una modifica non salva le altre e dice quale", async () => {
+    const { a, add, leggi } = await base();
+    const [x, y] = [await add("X"), await add("Y")];
+    const err = await a.as
+      .mutation(api.entries.updateMany, { input: { updates: [{ id: x, patch: { voto: 5 } }, { id: y, patch: { with: ["Sconosciuto"] } }] } as never })
+      .then(() => null, e => (e as { data: Record<string, unknown> }).data);
+    expect(err).toMatchObject({ code: "nome_sconosciuto", indice: 1, campo: "updates.1.patch.with.0" });
+    expect(String(err?.messaggio)).toMatch(/^updates\.1: /);
+    expect((await leggi())[x].voto).toBeUndefined();
+  });
+
+  it("al massimo 20, un id una volta sola, id altrui come inesistenti", async () => {
+    const { t, a, add } = await base();
+    const x = await add("X");
+    const codice = (input: unknown) => a.as.mutation(api.entries.updateMany, { input: input as never }).then(() => "ok", e => (e as { data: { code: string } }).data.code);
+    expect(await codice({ updates: [] })).toBe("input_non_valido");
+    expect(await codice({ updates: Array.from({ length: 21 }, () => ({ id: x, patch: { voto: 1 } })) })).toBe("input_non_valido");
+    expect(await codice({ updates: [{ id: x, patch: { voto: 1 } }, { id: x, patch: { voto: 2 } }] })).toBe("input_non_valido");
+    const b = await conProfilo(t, "u-b", "utente-b");
+    const daB = await b.as.mutation(api.entries.updateMany, { input: { updates: [{ id: x, patch: { voto: 1 } }] } as never }).then(() => null, e => (e as { data: Record<string, unknown> }).data);
+    expect(daB).toMatchObject({ code: "not_found", indice: 0, campo: "updates.0.id" });
+  });
+});

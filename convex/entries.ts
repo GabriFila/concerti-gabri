@@ -19,11 +19,12 @@ import { isPlanned, todayKey } from "../shared/lib/dates.ts";
 import { mancanoDi, type EventoPerMancano } from "../shared/lib/mancano.ts";
 import { nessunInput } from "../shared/schema/campi.ts";
 import {
-  cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertoInput,
+  cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertiInput, modificaConcertoInput,
 } from "../shared/schema/entry.ts";
 import { daProposta, nomiDa, salvaSchedaInput, type EntryPatch, type EventoEsterno, type RisultatoScheda } from "../shared/schema/proposta.ts";
 import { istantanea, logActivity, nuovoBatch } from "./lib/activity.ts";
-import { ownerMutation, ownerQuery } from "./lib/builders.ts";
+import { limitaAgente, ownerMutation, ownerQuery } from "./lib/builders.ts";
+import { ConvexError } from "convex/values";
 import { errore } from "./lib/errors.ts";
 import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
@@ -174,6 +175,44 @@ export const update = ownerMutation({
     const refs = await caricaRefs(ctx, owner.profile._id);
     await modificaEntry(ctx, owner, e, patch, refs);
     return { id: e._id as string };
+  },
+});
+
+/**
+ * La modifica in blocco (bulk_update_concerts): fino a MAX_MODIFICHE_BLOCCO
+ * patch come quelle di update_concert, in una transazione e in un solo
+ * lotto del registro (un undo le annulla tutte). Tutte o nessuna: al primo
+ * errore non si scrive niente, e l'errore dice quale modifica (`indice`,
+ * `campo` col prefisso `updates.<i>`). Ogni concerto conta una scrittura nel
+ * limite `agentWrites`, come con update_concert.
+ */
+export const updateMany = ownerMutation({
+  catalogOp: "bulk_update_concerts",
+  input: modificaConcertiInput,
+  handler: async (ctx, owner, { updates }) => {
+    if (updates.length > 1) await limitaAgente(ctx, owner, updates.length - 1);
+    const batchId = nuovoBatch();
+    const refs = await caricaRefs(ctx, owner.profile._id);
+    const ids: string[] = [];
+    for (const [i, { id, patch }] of updates.entries()) {
+      try {
+        const e = await getOwned(ctx, owner, "entries", id);
+        await modificaEntry(ctx, owner, e, patch, refs, batchId);
+        ids.push(e._id as string);
+      } catch (err) {
+        if (!(err instanceof ConvexError) || !err.data || typeof err.data !== "object") throw err;
+        const d = err.data as { code: Parameters<typeof errore>[0]; messaggio: string; campo?: string };
+        const campo = d.campo ? (d.campo === "patch" || d.campo.startsWith("patch.") ? d.campo : `patch.${d.campo}`) : d.code === "not_found" ? "id" : undefined;
+        throw errore(d.code, `updates.${i}: ${d.messaggio} (nessuna modifica salvata)`, {
+          ...(err.data as Record<string, string | number | boolean | string[]>),
+          messaggio: undefined,
+          code: undefined,
+          campo: campo ? `updates.${i}.${campo}` : `updates.${i}`,
+          indice: i,
+        });
+      }
+    }
+    return { modificati: ids.length, ids, batchId };
   },
 });
 

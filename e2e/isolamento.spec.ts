@@ -47,6 +47,7 @@ test("B non tocca A: né dalla UI né con la sua API key", { tag: "@sessione" },
   const tentativi: [string, Record<string, unknown>][] = [
     ["get_concert", { id: concertoA }],
     ["update_concert", { id: concertoA, patch: { artist: "Preso" } }],
+    ["bulk_update_concerts", { updates: [{ id: concertoA, patch: { artist: "Preso" } }] }],
     ["delete_concert", { id: concertoA, confirm: true }],
     ["rename_person", { id: personaA, name: "Preso" }],
     ["delete_person", { id: personaA, confirm: true }],
