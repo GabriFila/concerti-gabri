@@ -163,7 +163,8 @@ test.describe("manifest del profilo", () => {
     expect(res.headers()["content-type"]).toContain("application/manifest+json");
     const m = await res.json();
     expect(m).toMatchObject({ name: "Gabri ai concerti", start_url: "/gabrifila", scope: "/gabrifila", lang: "it" });
-    expect(m.icons.map((i: { sizes: string }) => i.sizes)).toEqual(["192x192", "512x512"]);
+    expect(m.icons.map((i: { sizes: string; purpose?: string }) => `${i.sizes} ${i.purpose ?? "any"}`))
+      .toEqual(["192x192 any", "512x512 any", "512x512 maskable"]);
   });
 
   test("handle sconosciuto: 404", async ({ baseURL }) => {
