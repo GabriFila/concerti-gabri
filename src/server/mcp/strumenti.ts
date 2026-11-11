@@ -168,5 +168,6 @@ export const ISTRUZIONI_MCP = [
   `Nomi di persone: ${REGOLA_SOPRANNOMI}.`,
   TESTO_SCALE,
   "Gli indirizzi delle partenze non passano mai da qui: se servono, l'utente li imposta dalla dashboard (#partenze).",
+  "Per aggiungere o completare un concerto chiedi quello che manca invece di indovinarlo (il commento sulla serata è facoltativo: chiedilo una volta per evento, mai per un concerto futuro), poi riassumi all'utente cosa scriverai e aspetta la sua conferma prima di add_concert o update_concert.",
   "Le cancellazioni e gli import sopra le 10 righe vogliono confirm: true, solo dopo la conferma esplicita dell'utente. Ogni scrittura si annulla con undo.",
 ].join("\n");

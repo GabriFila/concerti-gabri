@@ -41,6 +41,14 @@ const ok = z.object({ ok: z.literal(true) });
 const conId = z.object({ id: z.string().describe("Id del documento") });
 const SCALE = `Scale (più alto = meglio): voto 1–5; vicinanza ${vicinanzaScale()}; canzoni note ${canzoniNoteScale()} oppure "na".`;
 
+/* Le regole di scrittura dei concerti per gli agenti MCP (ex skill add-concert-data). */
+const REGOLE_CONCERTO =
+  "Concerto futuro: niente voto, vicinanza né canzoni note, si aggiungono dopo la serata. " +
+  "Non inventare mai voto, vicinanza, canzoni note, prezzo o tour: lascia fuori quello che l'utente non ha detto. " +
+  "cost è il totale pagato, commissioni comprese. " +
+  "comments solo con le parole dell'utente, mai scritto da te; è dell'evento, quindi in un festival va sul festival e non su un concerto. " +
+  "Per tour riusa la grafia già scritta su un altro concerto dello stesso artista (list_concerts con artista).";
+
 const op = (o: OperazioneCatalogo) => o;
 
 export const CATALOGO: readonly OperazioneCatalogo[] = [
@@ -77,9 +85,9 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
 
   /* ── scrittura ── */
   op({ name: "add_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:add", input: entryInput, output: conId,
-    descrizione: `Aggiunge un concerto o un festival (almeno 2 concerti). Persone, partenza e "regalato da" si indicano per nome e devono esistere. La venue si indica con nome e città come li dice l'utente: se non è tra le sue venue il server la aggiunge e ne cerca da solo la posizione su OpenStreetMap (i km di quel concerto arrivano poco dopo). ${REGOLA_SOPRANNOMI}. ${SCALE} I km li calcola il server.` }),
+    descrizione: `Aggiunge un concerto o un festival (almeno 2 concerti). Persone, partenza e "regalato da" si indicano per nome e devono esistere. La venue si indica con nome e città come li dice l'utente: se non è tra le sue venue il server la aggiunge e ne cerca da solo la posizione su OpenStreetMap (i km di quel concerto arrivano poco dopo). ${REGOLA_SOPRANNOMI}. ${SCALE} ${REGOLE_CONCERTO} I km li calcola il server: non mandarli mai. Se l'artista è nella lista dei desideri (list_wishlist), proponi di toglierlo con set_wishlist.` }),
   op({ name: "update_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:update", input: modificaConcertoInput, output: conId,
-    descrizione: `Modifica un concerto o festival; null toglie un campo. Una venue nuova (nome e città) si aggiunge da sola come in add_concert. ${REGOLA_SOPRANNOMI}. ${SCALE}` }),
+    descrizione: `Modifica un concerto o festival; null toglie un campo. Una venue nuova (nome e città) si aggiunge da sola come in add_concert. ${REGOLA_SOPRANNOMI}. ${SCALE} ${REGOLE_CONCERTO}` }),
   op({ name: "delete_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:remove", input: cancellaConcertoInput, output: ok, confirm: true,
     descrizione: "Cancella un concerto o festival. Chiedi conferma all'utente e passa confirm: true. Si può annullare con undo." }),
   op({ name: "add_person", tipo: "scrittura", traguardo: 2, funzione: "people:add", input: aggiungiPersonaInput, output: conId,
@@ -111,7 +119,7 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
     descrizione: "Imposta il logo di un \"regalato da\" da un URL https (png, jpeg o webp, max 256 KB); null lo toglie." }),
   op({ name: "set_wishlist", tipo: "scrittura", traguardo: 2, funzione: "wishlist:set",
     input: impostaWishlistInput, output: ok,
-    descrizione: "Sostituisce la lista dei desideri." }),
+    descrizione: "Sostituisce l'intera lista dei desideri: per togliere un artista passa tutti gli altri, nel loro ordine (da list_wishlist)." }),
   op({ name: "update_profile", tipo: "scrittura", traguardo: 2, funzione: "profiles:update", input: aggiornaProfiloInput, output: ok,
     descrizione: "Cambia nome visualizzato, handle (il vecchio reindirizza) o forma grammaticale." }),
   op({ name: "set_theme", tipo: "scrittura", traguardo: 2, funzione: "profiles:setTheme", input: impostaTemaInput, output: ok,

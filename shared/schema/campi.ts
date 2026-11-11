@@ -25,7 +25,7 @@ export const canzoniNote = z
 
 export const costo = z
   .union([z.number().min(0).max(10000), z.literal("na")])
-  .describe('Prezzo del biglietto in euro (0 = gratis), oppure "na" se pagato ma il prezzo è dimenticato');
+  .describe('Prezzo del biglietto in euro: il totale pagato, commissioni comprese (0 = gratis), oppure "na" se pagato ma il prezzo è dimenticato (mai stimato); senza cost il prezzo non è ancora noto');
 
 export const DATA_GIORNO_RE = /^\d{2}\/\d{2}\/\d{4}$/;
 export const DATA_EVENTO_RE = /^\d{2}(?:[–-]\d{2})?\/\d{2}\/\d{4}$/;

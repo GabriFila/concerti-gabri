@@ -299,7 +299,7 @@ dati in `src/data.ts`, storico dell'Oracolo su Upstash) a Vercel + Convex prod
 - Claude.ai e ChatGPT veri su `https://concerti.gabrifila.me/mcp` (domanda 5
   di PIANO §12): collegare, consentire, una lettura e una scrittura annullata;
   controllare che il token si rinnovi.
-- La skill `add-concert-data` scrive su `https://concerti.gabrifila.me/mcp`.
+- La skill `add-concert-data` è stata tolta (2026-11-11): le sue regole (concerti futuri, prezzo con commissioni, commento, tour, wishlist, riepilogo prima di scrivere) sono nelle descrizioni del catalogo (`shared/agent/catalog.ts`, `shared/schema/campi.ts`) e in `ISTRUZIONI_MCP` (`src/server/mcp/strumenti.ts`), quindi valgono per ogni client MCP.
 - PostHog dopo qualche giorno: i visitatori unici non collassano in uno.
 - Il branch `multiutente` si chiude; `preview/multiutente` scade da solo.
   `node scripts/check-setup.mjs --preview` controlla proprio quel deployment:
