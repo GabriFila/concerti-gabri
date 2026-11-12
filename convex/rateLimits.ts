@@ -33,6 +33,8 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   themeGlobalDay: { kind: "fixed window", rate: 50, period: DAY },
   // caricamento dei loghi (profilo)
   logoUpload: { kind: "fixed window", rate: 20, period: DAY },
+  // caricamento delle foto dei concerti (profilo)
+  fotoUpload: { kind: "fixed window", rate: 200, period: DAY },
 });
 
 /** Limite giornaliero di chatPageDay per gabrifila (PIANO §5.8). */
@@ -41,5 +43,5 @@ export const CHAT_PAGE_DAY_GABRIFILA = 120;
 export const NOMI_LIMITI = [
   "chatIpMinute", "chatIpDay", "chatGlobalDay", "chatPageDay", "chatOtherPagesDay",
   "agentWrites", "geocodeProfile", "geocodeActor", "nominatimGlobal", "venueNuove", "addressCorrection",
-  "otpSendEmail", "otpSendGlobal", "dcrGlobal", "themeFromDescription", "themeGlobalDay", "logoUpload",
+  "otpSendEmail", "otpSendGlobal", "dcrGlobal", "themeFromDescription", "themeGlobalDay", "logoUpload", "fotoUpload",
 ] as const;

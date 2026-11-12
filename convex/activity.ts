@@ -1,10 +1,11 @@
 /* Registro attività: elenco, Annulla (convex/lib/activity.ts) e conservazione
    a 180 giorni (cron). I cambi di logo dei "regalato da" (op "logo",
-   convex/gifters.ts) si registrano ma non si annullano: il file di prima è
-   già cancellato. */
+   convex/gifters.ts) e le foto (op "foto", convex/foto.ts) si registrano
+   ma non si annullano: il file di prima è già cancellato. */
 
 import { v } from "convex/values";
 import { annullaInput, elencaAttivitaInput } from "../shared/schema/activity.ts";
+import { OP_FOTO } from "./foto.ts";
 import { OP_LOGO } from "./gifters.ts";
 import { annulla, annullabile } from "./lib/activity.ts";
 import { ETICHETTE_ATTORE } from "./lib/owner.ts";
@@ -14,7 +15,7 @@ import { internalMutation, ownerMutation, ownerQuery } from "./lib/builders.ts";
 export const CONSERVAZIONE_MS = 180 * 24 * 3600_000;
 
 /** Operazioni registrate che non si annullano (vedi sopra). */
-export const OP_SENZA_ANNULLA = new Set<string>([OP_LOGO]);
+export const OP_SENZA_ANNULLA = new Set<string>([OP_LOGO, OP_FOTO]);
 
 export const list = ownerQuery({
   catalogOp: "list_activity",
@@ -51,7 +52,12 @@ export const undo = ownerMutation({
     if (!id) throw errore("not_found", "voce del registro non trovata");
     const voce = await ctx.db.get(id);
     if (voce && voce.profileId === owner.profile._id && OP_SENZA_ANNULLA.has(voce.op)) {
-      throw errore("conflitto", "un cambio di logo non si annulla: il logo di prima non c'è più, caricane un altro");
+      throw errore(
+        "conflitto",
+        voce.op === OP_FOTO
+          ? "le foto non si annullano: aggiungile o toglile di nuovo dal pannello del concerto"
+          : "un cambio di logo non si annulla: il logo di prima non c'è più, caricane un altro",
+      );
     }
     const nuove = await annulla(ctx, owner, id);
     return { ok: true as const, voci: nuove.length };

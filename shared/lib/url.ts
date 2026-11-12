@@ -11,3 +11,18 @@ export function soloHttps(u: unknown): string | undefined {
     return undefined;
   }
 }
+
+/* Gli URL dei file di Convex (le foto: storage.getUrl, mai scritti da un
+   utente): https, oppure http del Convex locale (sviluppo ed e2e, solo su
+   loopback). In produzione il deployment è https e l'eccezione non vale. */
+const LOOPBACK = new Set(["127.0.0.1", "localhost"]);
+export function urlFileConvex(u: unknown): string | undefined {
+  if (soloHttps(u)) return u as string;
+  if (typeof u !== "string" || !u) return undefined;
+  try {
+    const url = new URL(u);
+    return url.protocol === "http:" && LOOPBACK.has(url.hostname) ? u : undefined;
+  } catch {
+    return undefined;
+  }
+}

@@ -11,20 +11,22 @@
    - Annulla rispetta le stesse regole delle funzioni: niente persone,
      partenze o "regalato da" cancellati mentre un concerto li usa (`in_uso`),
      nomi unici, handle solo se disponibile (con gli alias, lib/handles.ts).
-     Una partenza ricreata torna SENZA indirizzo e con le sue coppie km.
+     Una partenza ricreata torna SENZA indirizzo e con le sue coppie km;
+     un concerto ricreato torna con le sue foto (lib/foto.ts).
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { codiceDi, errore } from "./errors.ts";
 import { cambiaHandle } from "./handles.ts";
+import { orfanaFoto, rimappaFoto } from "./foto.ts";
 import { campiKm, cancellaSegretiPartenza, rimappaCoppie } from "./km.ts";
 import type { Actor, Owner } from "./owner.ts";
 import { chiave, departuresOf, giftersOf, peopleOf } from "./refs.ts";
 
-export type TabellaRegistro = "entries" | "people" | "gifters" | "departures" | "profiles" | "wishlist" | "venues";
-/** "logo": cambio di logo di un "regalato da", registrato ma non annullabile (convex/activity.ts). */
-export type Op = "create" | "update" | "delete" | "replace" | "logo";
+export type TabellaRegistro = "entries" | "people" | "gifters" | "departures" | "profiles" | "wishlist" | "venues" | "foto";
+/** "logo" e "foto": cambio di logo di un "regalato da" e foto aggiunte, spostate o tolte, registrati ma non annullabili (convex/activity.ts). */
+export type Op = "create" | "update" | "delete" | "replace" | "logo" | "foto";
 
 export interface Voce {
   op: Op;
@@ -241,6 +243,8 @@ export async function annulla(ctx: MutationCtx, owner: Owner, activityId: Id<"ac
         if (n) throw errore("in_uso", `è usato da ${n} concerti: toglilo da lì prima di annullarne la creazione`);
         if (table === "departures") await cancellaSegretiPartenza(ctx, id as unknown as Id<"departures">);
       }
+      // come entries.remove: le foto aspettano un altro Annulla (lib/foto.ts)
+      if (table === "entries") await orfanaFoto(ctx, id as unknown as Id<"entries">);
       await ctx.db.delete(id);
       nuova = { op: "delete", table, docId: a.docId, summary: `annullato: ${a.summary}`, before: istantanea(prec as Record<string, unknown>), batchId };
     } else if (a.op === "delete") {
@@ -255,6 +259,8 @@ export async function annulla(ctx: MutationCtx, owner: Owner, activityId: Id<"ac
       }
       const id = await ctx.db.insert(table as "entries", doc as never);
       if (table === "departures") await rimappaCoppie(ctx, a.docId as Id<"departures">, id as unknown as Id<"departures">);
+      // il concerto ripristinato ha un id nuovo: le sue foto (orfane) tornano a lui
+      if (table === "entries") await rimappaFoto(ctx, a.docId, id as unknown as Id<"entries">);
       mappa.set(a.docId, id);
       nuova = { op: "create", table, docId: id, summary: `annullato: ${a.summary}`, after: istantanea((await ctx.db.get(id)) as Record<string, unknown>), batchId };
     } else {

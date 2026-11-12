@@ -26,6 +26,7 @@ import { istantanea, logActivity, nuovoBatch } from "./lib/activity.ts";
 import { limitaAgente, ownerMutation, ownerQuery } from "./lib/builders.ts";
 import { ConvexError } from "convex/values";
 import { errore } from "./lib/errors.ts";
+import { orfanaFoto } from "./lib/foto.ts";
 import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
 import { getOwned, type Owner } from "./lib/owner.ts";
@@ -221,6 +222,8 @@ export const remove = ownerMutation({
   input: cancellaConcertoInput,
   handler: async (ctx, owner, { id }) => {
     const e = await getOwned(ctx, owner, "entries", id);
+    // le foto aspettano un Annulla per 30 giorni (lib/foto.ts)
+    await orfanaFoto(ctx, e._id);
     await ctx.db.delete(e._id);
     // le coppie km restano: riaggiungere il concerto darà lo stesso km
     await logActivity(ctx, owner, { op: "delete", table: "entries", docId: e._id, summary: `cancellato: ${etichetta(e)}`, before: istantanea(e) });

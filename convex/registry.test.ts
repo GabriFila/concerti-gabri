@@ -137,7 +137,7 @@ describe("registro delle funzioni", () => {
   it("tutti i limiti d'uso di §5.8 sono definiti", () => {
     expect([...NOMI_LIMITI].sort()).toEqual([
       "addressCorrection", "agentWrites", "chatGlobalDay", "chatIpDay", "chatIpMinute", "chatOtherPagesDay", "chatPageDay",
-      "dcrGlobal", "geocodeActor", "geocodeProfile", "logoUpload", "nominatimGlobal", "otpSendEmail", "otpSendGlobal",
+      "dcrGlobal", "fotoUpload", "geocodeActor", "geocodeProfile", "logoUpload", "nominatimGlobal", "otpSendEmail", "otpSendGlobal",
       "themeFromDescription", "themeGlobalDay", "venueNuove",
     ]);
   });

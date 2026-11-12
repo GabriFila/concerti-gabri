@@ -12,7 +12,7 @@ export type TableName =
   | "profiles" | "handleAliases" | "people" | "gifters" | "wishlist"
   | "departures" | "departureSecrets" | "geocodeDrafts" | "kmPairs"
   | "venues" | "cities" | "venueSearchCache"
-  | "entries" | "activity" | "chatThreads" | "devOtpOutbox"
+  | "entries" | "foto" | "activity" | "chatThreads" | "devOtpOutbox"
   | "_storage";
 
 /** Strutturalmente identico a `GenericId<T>` di Convex. */

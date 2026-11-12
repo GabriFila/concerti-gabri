@@ -124,6 +124,17 @@ export const tables = {
     fetchedAt: ms("Richiesta (ms)"),
   },
   entries: entryDbFields,
+  foto: {
+    profileId: idDi("profiles").describe("Proprietario"),
+    entryId: idDi("entries").describe("Il concerto o festival della foto"),
+    file: idDi("_storage").describe("La foto (jpeg senza metadati)"),
+    miniatura: idDi("_storage").describe("La miniatura (jpeg senza metadati)"),
+    larghezza: z.number().int().describe("Larghezza della foto (px)"),
+    altezza: z.number().int().describe("Altezza della foto (px)"),
+    ordine: z.number().describe("Posizione nell'evento"),
+    orfanaDal: z.number().optional().describe("Il concerto è stato cancellato (ms): la foto aspetta un Annulla, poi si cancella"),
+    createdAt: ms("Caricamento (ms)"),
+  },
   activity: {
     profileId: idDi("profiles").describe("Proprietario"),
     at: ms("Quando (ms)"),

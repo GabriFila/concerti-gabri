@@ -167,6 +167,17 @@ export const fields = {
       ),
     ),
   },
+  foto: {
+    profileId: v.id("profiles"),
+    entryId: v.id("entries"),
+    file: v.id("_storage"),
+    miniatura: v.id("_storage"),
+    larghezza: v.number(),
+    altezza: v.number(),
+    ordine: v.number(),
+    orfanaDal: v.optional(v.number()),
+    createdAt: v.number(),
+  },
   activity: {
     profileId: v.id("profiles"),
     at: v.number(),
@@ -225,6 +236,12 @@ export default defineSchema({
     .index("by_profile_departure", ["profileId", "departureId"])
     .index("by_profile_venue", ["profileId", "venueId"])
     .index("by_venue", ["venueId"]),
+  foto: defineTable(fields.foto)
+    .index("by_profile_entry", ["profileId", "entryId", "ordine"])
+    .index("by_entry", ["entryId"])
+    .index("by_file", ["file"])
+    .index("by_miniatura", ["miniatura"])
+    .index("by_orfana", ["orfanaDal"]),
   activity: defineTable(fields.activity).index("by_profile_at", ["profileId", "at"]).index("by_batch", ["batchId"]),
   chatThreads: defineTable(fields.chatThreads)
     .index("by_threadId", ["threadId"])

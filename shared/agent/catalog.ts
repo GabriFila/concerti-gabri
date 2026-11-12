@@ -17,6 +17,7 @@ import { REGOLA_SOPRANNOMI, nomePersona, artista, nessunInput } from "../schema/
 import { annullaInput, elencaAttivitaInput } from "../schema/activity.ts";
 import { aggiungiPartenzaInput, cancellaPartenzaInput, rinominaPartenzaInput, partenzaPubblica } from "../schema/departure.ts";
 import { MAX_MODIFICHE_BLOCCO, cancellaConcertoInput, elencaConcertiInput, entryInput, leggiConcertoInput, modificaConcertiInput, modificaConcertoInput, statisticheInput } from "../schema/entry.ts";
+import { FOTO_PER_EVENTO, linkFotoInput } from "../schema/foto.ts";
 import { importaConcertiInput } from "../schema/importFormat.ts";
 import { aggiungiRegaloInput, cancellaRegaloInput, logoRegaloInput, modificaRegaloInput } from "../schema/gifter.ts";
 import { aggiungiPersonaInput, cancellaPersonaInput, rinominaPersonaInput, unisciPersoneInput } from "../schema/people.ts";
@@ -78,6 +79,9 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
     descrizione: "Cerca una venue: prima tra le venue del proprietario (ognuno ha le sue), poi su OpenStreetMap (© OpenStreetMap contributors). Non serve per aggiungere un concerto: add_concert accetta qualunque venue per nome e città. Utile per riusare il nome con cui una venue è già tra le sue; add_venue aggiunge un candidato col suo ref." }),
   op({ name: "get_stats", tipo: "lettura", traguardo: 7, funzione: "agents:stats", input: statisticheInput, output: z.any(),
     descrizione: "Le statistiche della pagina (le stesse KPI della dashboard)." }),
+  op({ name: "link_foto_concerto", tipo: "lettura", traguardo: 5, funzione: "foto:link", input: linkFotoInput,
+    output: z.object({ link: z.string(), foto: z.number(), max: z.number(), concerto: z.string() }),
+    descrizione: `Il link per aggiungere le foto di un concerto o festival (al massimo ${FOTO_PER_EVENTO}), più quante ne ha già. Le foto non si caricano da qui: dai il link all'utente, che lo apre (anche dal telefono), trova il pannello del concerto con «Foto» in evidenza e tocca «Aggiungi foto»; posizione e dati del telefono si tolgono nel suo browser. Proponilo quando l'utente parla di foto di una serata, o dopo aver aggiunto o completato un concerto passato. Per sapere se le ha caricate richiamalo e guarda foto.` }),
   op({ name: "list_activity", tipo: "lettura", traguardo: 2, funzione: "activity:list",
     input: elencaAttivitaInput,
     output: z.object({ voci: z.array(z.any()) }),

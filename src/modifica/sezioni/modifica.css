@@ -847,6 +847,22 @@ dialog.mf-pannello[data-subito]{animation:none}
 .mod-logo.mf-logo-grande{width:64px;height:64px;border-radius:12px}
 .mf-logo-azioni{display:flex;flex-wrap:wrap;gap:8px}
 
+/* ── il pannello di un concerto: le foto della serata (foto/FotoEvento.tsx) ── */
+.mf-foto{align-items:stretch;scroll-margin:24px}
+.mf-foto[data-evidenza]{margin-inline:-12px;padding:14px 12px 12px;border:1px solid var(--lamp);border-radius:12px;background:var(--lamp-faint)}
+.mf-foto-conta{font-weight:500;letter-spacing:.04em;text-transform:none;font-variant-numeric:tabular-nums}
+.mf-foto-griglia{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.mf-foto-voce{position:relative;min-width:0}
+.mf-foto-anteprima{position:relative;display:block;aspect-ratio:1;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:var(--panel-2)}
+.mf-foto-anteprima img{display:block;width:100%;height:100%;object-fit:cover}
+.mf-foto-anteprima:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+.mf-foto-prima{position:absolute;left:6px;bottom:6px;padding:2px 7px;border-radius:999px;background:var(--panel);color:var(--text);
+  font-size:.66rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line-2)}
+.mf-foto-voce > .mf-foto-menu{position:absolute;top:4px;right:4px}
+.mf-foto-voce > .mf-foto-menu > button{background:rgba(10,10,12,.5);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:999px;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+.mf-foto-azioni{display:flex;flex-wrap:wrap;gap:8px}
+.mf-foto-conferma{display:block;width:120px;height:120px;object-fit:cover;border-radius:10px;border:1px solid var(--line-2);margin-bottom:10px}
+
 /* ── le viste di impostazioni (#stile, #agenti, #account): schede una sotto l'altra ── */
 .mf-vista-media{max-width:1080px}
 .mod-gruppo.mf-impostazione{gap:14px;padding:18px 20px}
@@ -948,3 +964,4 @@ html:has(.mf-app) .modeswitch{top:calc((var(--mf-barra-h-shell,64px) - 46px) / 2
   html:has(.mf-app) .theme-toggle{top:calc(8px + env(safe-area-inset-top) + (60px - 38px) / 2)}
   html:has(.mf-app) .modeswitch{top:calc(8px + env(safe-area-inset-top) + 7px)}
 }
+.mod-tag.mf-tag-foto{display:inline-flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}

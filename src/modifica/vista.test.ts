@@ -39,6 +39,15 @@ describe("leggiHash e scriviHash", () => {
     expect(leggiHash("concerti?completa=1").parametri).toEqual({});
   });
 
+  it("concerti con apri e foto (il link di link_foto_concerto)", () => {
+    const h = `concerti?apri=${ID}&foto=1`;
+    expect(leggiHash(h)).toEqual({ vista: "concerti", parametri: { apri: ID, foto: "1" } });
+    expect(scriviHash("concerti", { foto: "1", apri: ID })).toBe(h);
+    // foto da solo, o con un altro valore, non vale
+    expect(leggiHash("concerti?foto=1").parametri).toEqual({});
+    expect(leggiHash(`concerti?apri=${ID}&foto=si`).parametri).toEqual({ apri: ID });
+  });
+
   it("chiavi sconosciute o di un'altra vista si scartano", () => {
     expect(leggiHash(`concerti?boh=1&apri=${ID}`).parametri).toEqual({ apri: ID });
     expect(leggiHash(`stile?apri=${ID}`).parametri).toEqual({});

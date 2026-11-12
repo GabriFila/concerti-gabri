@@ -13,6 +13,7 @@ import { NOMINATIM_DEFAULT, nominatim, USER_AGENT } from "./geo.ts";
 import { logActivity } from "./lib/activity.ts";
 import { internalAction, internalMutation, internalQuery } from "./lib/builders.ts";
 import { parseInput } from "./lib/errors.ts";
+import { cancellaFotoDelProfilo } from "./lib/foto.ts";
 import { campiKm, cancellaCoppieDelProfilo } from "./lib/km.ts";
 import { caricaRefs, campiDaInput, chiave, venuePerNome } from "./lib/refs.ts";
 
@@ -122,7 +123,7 @@ export const setDepartureForTest = internalMutation({
 });
 
 const TABELLE_APP = [
-  "entries", "people", "gifters", "wishlist", "activity", "chatThreads", "handleAliases", "devOtpOutbox", "venueSearchCache",
+  "entries", "foto", "people", "gifters", "wishlist", "activity", "chatThreads", "handleAliases", "devOtpOutbox", "venueSearchCache",
 ] as const;
 
 async function svuotaProfilo(ctx: MutationCtx, profileId: Id<"profiles">) {
@@ -167,6 +168,7 @@ export const cleanupE2E = internalMutation({
       if (n === PROFILI_PER_PULIZIA) break;
       const id = p._id;
       await svuotaProfilo(ctx, id);
+      await cancellaFotoDelProfilo(ctx, id, 10_000);
       const righe = [
         ...(await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", id)).collect()),
         ...(await ctx.db.query("people").withIndex("by_profile_name", q => q.eq("profileId", id)).collect()),
@@ -252,6 +254,7 @@ export const preparaProfiloDiProva = internalMutation({
       await ctx.db.insert("handleAliases", { handle, profileId, createdAt: Date.now() });
     }
     if (a.concerti) {
+      await cancellaFotoDelProfilo(ctx, profileId, 10_000);
       for (const d of await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", profileId)).collect()) await ctx.db.delete(d._id);
       for (const d of await ctx.db.query("activity").withIndex("by_profile_at", q => q.eq("profileId", profileId)).collect()) await ctx.db.delete(d._id);
       const refs = await caricaRefs(ctx, profileId);

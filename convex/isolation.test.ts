@@ -73,13 +73,21 @@ function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
     // T6
     "chat:myThreads": null,
     "chat:myThread": { threadId: ids.thread },
+    // foto dei concerti
+    "foto:dellEvento": { entryId: ids.entry },
+    "foto:conteggi": null,
+    "foto:urlCaricamento": { entryId: ids.entry },
+    "foto:aggiungi": { entryId: ids.entry, file: ids.file, miniatura: ids.miniatura },
+    "foto:sposta": { id: ids.foto, verso: "dopo" },
+    "foto:togli": { id: ids.foto, confirm: true },
+    "foto:link": { id: ids.entry },
   };
 }
 
 async function datiDi(t: T, profileId: string) {
   return await t.run(async ctx => {
     const out: Record<string, unknown[]> = {};
-    for (const tab of ["people", "departures", "gifters", "entries", "wishlist", "activity"] as const) {
+    for (const tab of ["people", "departures", "gifters", "entries", "wishlist", "activity", "foto"] as const) {
       out[tab] = (await ctx.db.query(tab).collect()).filter(d => (d as { profileId: string }).profileId === profileId);
     }
     out.profile = [await ctx.db.get(profileId as never)];
@@ -113,7 +121,13 @@ describe("isolamento tra profili", () => {
     await t.run(async ctx => {
       await ctx.db.insert("chatThreads", { profileId: a.profileId, threadId: thread, visibility: "proprietario", title: "Chat", messages: [{ role: "user", content: "ciao" }], updatedAt: Date.now(), expiresAt: Date.now() + 86_400_000 });
     });
-    const ids = { person, person2, departure, gifter, entry, activity, apikey, clientId: "client-a", consentCode, thread };
+    const { foto, file, miniatura } = await t.run(async ctx => {
+      const blob = () => new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], { type: "image/jpeg" });
+      const [f, m] = [await ctx.storage.store(blob()), await ctx.storage.store(blob())];
+      const id = await ctx.db.insert("foto", { profileId: a.profileId, entryId: entry as never, file: f, miniatura: m, larghezza: 10, altezza: 10, ordine: 0, createdAt: Date.now() });
+      return { foto: id as string, file: f as string, miniatura: m as string };
+    });
+    const ids = { person, person2, departure, gifter, entry, activity, apikey, clientId: "client-a", consentCode, thread, foto, file, miniatura };
     const prima = await datiDi(t, a.profileId);
     const authPrima = await authDi(t);
     // B come agente: una sua API key e un suo token OAuth

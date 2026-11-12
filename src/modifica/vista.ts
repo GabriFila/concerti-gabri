@@ -17,7 +17,7 @@ export const VISTE = ["concerti", "wishlist", "persone", "partenze", "regali", "
 export type IdVista = (typeof VISTE)[number];
 
 /** Le chiavi ammesse, nell'ordine canonico con cui si scrivono. */
-export const CHIAVI = ["nuovo", "apri", "completa", "filtro", "con", "indirizzo", "parte", "elimina"] as const;
+export const CHIAVI = ["nuovo", "apri", "completa", "foto", "filtro", "con", "indirizzo", "parte", "elimina"] as const;
 export type Chiave = (typeof CHIAVI)[number];
 export type Parametri = Partial<Record<Chiave, string>>;
 
@@ -38,6 +38,7 @@ const AMMESSI: Partial<Record<IdVista, Partial<Record<Chiave, (v: string) => boo
     nuovo: uno("concerto", "festival"),
     apri: id,
     completa: uno("1"),
+    foto: uno("1"),
     filtro: uno("programma", "passati", "da-completare", "festival"),
     con: id,
   },
@@ -50,7 +51,7 @@ const AMMESSI: Partial<Record<IdVista, Partial<Record<Chiave, (v: string) => boo
 
 export const eVista = (s: string): s is IdVista => (VISTE as readonly string[]).includes(s);
 
-/** Solo le chiavi e i valori ammessi per la vista; `completa` vale solo con `apri`. */
+/** Solo le chiavi e i valori ammessi per la vista; `completa` e `foto` valgono solo con `apri`. */
 function pulisci(vista: IdVista, parametri: Parametri): Parametri {
   const regole = AMMESSI[vista] ?? {};
   const fuori: Parametri = {};
@@ -60,6 +61,7 @@ function pulisci(vista: IdVista, parametri: Parametri): Parametri {
     if (v !== undefined && v !== "" && ok && ok(v)) fuori[k] = v;
   }
   if (fuori.completa && !fuori.apri) delete fuori.completa;
+  if (fuori.foto && !fuori.apri) delete fuori.foto;
   return fuori;
 }
 

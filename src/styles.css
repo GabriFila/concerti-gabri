@@ -1123,6 +1123,45 @@
   .touritem .t-artist{font-size:.88rem;color:var(--muted)}
   .touritem .t-data{margin-top:4px}
   .commenttext{margin:7px 0 0;color:var(--muted);font-size:.92rem;line-height:1.6;white-space:pre-line}
+  /* ── "Le mie foto": una striscia di miniature per serata, poi il visore ── */
+  .fotolist{margin-top:4px}
+  .fotoitem{padding:15px 0;border-bottom:1px solid var(--line)}
+  .fotoitem:last-child{border-bottom:none;padding-bottom:0}
+  .fotostrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px}
+  .fototile{position:relative;display:block;aspect-ratio:1;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    background:var(--panel-2);cursor:zoom-in;transition:border-color .15s ease,transform .15s ease}
+  .fototile img{display:block;width:100%;height:100%;object-fit:cover}
+  @media(hover:hover){ .fototile:hover{border-color:var(--lamp)} }
+  .fototile:focus{outline:none}
+  .fototile:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+  .fotopiu{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(8,8,10,.58);color:#fff;font-family:'Inter',sans-serif;font-weight:600;font-size:1.15rem;letter-spacing:.02em}
+  @media (max-width:620px){ .fotostrip{grid-template-columns:repeat(2,minmax(0,1fr))} }
+  .fotovisore{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;
+    padding:56px 64px;background:rgba(6,6,8,.92);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:fmbg .18s ease}
+  .fv-figura{margin:0;display:flex;flex-direction:column;align-items:center;gap:12px;max-width:100%;max-height:100%}
+  .fv-figura img{display:block;max-width:100%;max-height:calc(100vh - 170px);width:auto;height:auto;object-fit:contain;border-radius:8px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55)}
+  .fv-dida{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:center;gap:4px 12px;color:#f2efe9;text-align:center}
+  .fv-titolo{font-weight:600}
+  .fv-meta{font-size:.84rem;color:#b9b4ab}
+  .fv-conta{font-size:.8rem;color:#b9b4ab;font-variant-numeric:tabular-nums}
+  .fv-chiudi,.fv-freccia{position:absolute;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;
+    border:1px solid rgba(255,255,255,.22);border-radius:50%;background:rgba(20,20,24,.6);color:#f2efe9;cursor:pointer;
+    transition:border-color .15s ease,color .15s ease}
+  @media(hover:hover){ .fv-chiudi:hover,.fv-freccia:hover{border-color:var(--lamp);color:var(--lamp)} }
+  .fv-chiudi:focus-visible,.fv-freccia:focus-visible{outline:2px solid var(--lamp);outline-offset:2px}
+  .fv-chiudi{top:12px;right:12px}
+  .fv-freccia{top:50%;margin-top:-22px}
+  .fv-prima{left:12px}
+  .fv-prima svg{transform:rotate(90deg)}
+  .fv-dopo{right:12px}
+  .fv-dopo svg{transform:rotate(-90deg)}
+  @media (max-width:620px){
+    .fotovisore{padding:60px 10px 24px}
+    .fv-freccia{top:auto;bottom:16px;margin-top:0}
+    .fv-figura img{max-height:calc(100vh - 210px)}
+  }
   .resn{font-size:.8rem;color:var(--muted);margin-top:16px}
   .ordn{color:var(--lamp)}
   .relink{font-family:inherit;font-size:.76rem;margin-left:12px;padding:5px 13px;border:1px solid var(--line-2);border-radius:999px;background:none;color:var(--muted);cursor:pointer}

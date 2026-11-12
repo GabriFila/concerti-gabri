@@ -769,6 +769,51 @@ una chiamata ciascuno.
 - **Tour manager.** Non ce l'ha (`SOSTITUITE_DALLA_SCHEDA`): i suoi concerti
   passano solo dalla scheda.
 
+## Foto dei concerti (Gabri, 2026-11-11)
+
+Ogni concerto o festival può avere fino a **20** foto (`FOTO_PER_EVENTO` in
+`shared/schema/foto.ts`), su Convex file storage (scelta di costo: con ~10
+utenti e ~200 visite al mese stanno nei centesimi; R2 solo se il traffico
+crescerà). Video per ora no: i metadati di posizione di un MP4/MOV non si
+tolgono né si controllano in modo affidabile nel browser e nel runtime di
+Convex, e i file pesano 50 MB al minuto.
+
+- **Dove.** Si caricano solo dalla dashboard, nel pannello del concerto in
+  `#concerti` (`src/modifica/foto/FotoEvento.tsx`): si salvano subito, fuori
+  da «Salva», come il logo di un "regalato da". Tabella `foto` (per evento,
+  come il commento: un festival le ha per tutto il weekend), funzioni in
+  `convex/foto.ts`, tutte `dashboardOnly`: niente MCP né Tour manager.
+- **Privacy.** Il browser decodifica, ridimensiona (lato lungo 2048 px,
+  miniatura 512) e ricodifica in JPEG con un canvas (`elabora.ts`): GPS, data
+  e telefono dell'Exif non partono. Il server ricontrolla i byte
+  (`convex/lib/jpeg.ts`): un JPEG con APP1 (Exif/XMP), APP13 o COM, oltre il
+  lato o il peso (2 MB, 200 KB la miniatura) si rifiuta e i file si
+  cancellano. Una foto scattata a casa non porta mai le coordinate sulla
+  pagina pubblica (prova: `e2e/foto.spec.ts`, con un Exif GPS vero).
+- **Registro.** Aggiungere, spostare o togliere una foto va in Attività
+  (op `foto`) ma non si annulla: togliere cancella i file (conferma prima).
+- **Concerto cancellato.** Le foto restano «orfane» (`orfanaDal`), fuori dalla
+  pagina; Annulla le rimette al concerto ripristinato (id nuovo:
+  `rimappaFoto`). Dopo 30 giorni il cron `foto.pulisciOrfane` le cancella coi
+  file. L'eliminazione dell'account le cancella subito.
+- **File mai usati.** Il cron dei loghi orfani (`gifters.cleanupOrphanLogos`)
+  ora vale per tutti i file: salta loghi, foto e miniature, e scorre
+  `_storage` a pagine di 500.
+- **Pagina pubblica.** `pages.byHandle` dà gli URL (`foto`); la sezione
+  `sec-foto` «Le mie foto» in «I dati» mostra una striscia per serata
+  (la più recente prima, 3 serate alla volta) e il visore; come
+  `sec-commenti` sparisce, TOC compreso, se nei filtri nessun evento ha foto.
+- **Limiti.** `fotoUpload`: 200 al giorno per profilo.
+- **Agenti: solo il link.** Gli agenti non caricano foto (un file non
+  passa in un argomento di testo, e il GPS lo toglie il browser).
+  `link_foto_concerto` (`foto:link`, sola lettura, MCP e Tour manager) dà
+  il link `/<handle>/modifica#concerti?apri=<id>&foto=1` (MCP lo rende
+  assoluto, come i `fix`) e quante foto ha già il concerto: l'utente lo
+  apre, il pannello del concerto si apre col blocco «Foto» in evidenza e il
+  fuoco su «Aggiungi foto» (la scelta dei file la apre solo un suo tocco).
+  Non è un link segreto: serve il login. Gli agenti lo propongono dopo aver
+  aggiunto o completato un concerto passato (`ISTRUZIONI_MCP`).
+
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 
 Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):

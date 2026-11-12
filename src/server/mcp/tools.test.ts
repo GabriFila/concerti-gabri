@@ -112,6 +112,9 @@ describe("chiamate", () => {
     });
     expect(JSON.parse(add.testo)).toEqual({ id: "e1", avviso: "departure_address_missing", fix: `${ORIGINE}/utente-a/modifica#partenze` });
     expect(proietta({ a: [{ coordinate: [1, 2], b: { indirizzo: "x", ok: 1 } }] }, ORIGINE)).toEqual({ a: [{ b: { ok: 1 } }] });
+    // il link di link_foto_concerto diventa assoluto come i fix; un URL già assoluto resta com'è
+    expect(proietta({ link: "/utente-a/modifica#concerti?apri=e1&foto=1", foto: 2 }, ORIGINE)).toEqual({ link: `${ORIGINE}/utente-a/modifica#concerti?apri=e1&foto=1`, foto: 2 });
+    expect(proietta({ link: "https://altro.example/x" }, ORIGINE)).toEqual({ link: "https://altro.example/x" });
   });
 
   it("errori: {code, messaggio} del nostro codice con il fix assoluto, generico per tutto il resto", async () => {

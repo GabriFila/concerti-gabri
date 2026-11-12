@@ -4,7 +4,7 @@
    Restituisce, con `returns` esplicito (proiezione pubblica): profilo
    pubblico, concerti, nomi delle persone USATE, "regalato da" con
    `logoUrl`, nomi delle partenze, venue e città usate con le coordinate,
-   wishlist, tema e layout. Mai `authUserId`, `onboardingStep`,
+   wishlist, tema, layout e gli URL delle foto dei concerti. Mai `authUserId`, `onboardingStep`,
    `hasAddress`, `kmSource`, indirizzi o coordinate delle partenze.
    `null` se il profilo non esiste o non è `active`; `{redirect}` se
    l'handle è un alias.
@@ -80,6 +80,8 @@ export const paginaPubblica = v.object({
   venues: v.array(v.object({ _id: v.id("venues"), name: v.string(), city: v.string(), lng: v.optional(v.number()), lat: v.optional(v.number()) })),
   cities: v.array(v.object({ name: v.string(), lng: v.number(), lat: v.number() })),
   wishlist: v.array(v.string()),
+  // le foto degli eventi (convex/foto.ts): JPEG senza metadati, nell'ordine di ogni evento
+  foto: v.array(v.object({ entryId: v.id("entries"), url: v.string(), miniatura: v.string(), larghezza: v.number(), altezza: v.number() })),
 });
 
 const proietta = (e: Doc<"entries">) => {
@@ -137,6 +139,15 @@ export const byHandle = publicQuery({
       if (c) cities.push({ name: c.name, lng: c.lng, lat: c.lat });
     }
 
+    // le foto dei concerti che ci sono (le orfane aspettano un Annulla fuori dalla pagina)
+    const presenti = new Set(entries.map(e => e._id as string));
+    const foto = [];
+    for (const f of await ctx.db.query("foto").withIndex("by_profile_entry", q => q.eq("profileId", pid)).collect()) {
+      if (f.orfanaDal !== undefined || !presenti.has(f.entryId)) continue;
+      const [url, miniatura] = [await ctx.storage.getUrl(f.file), await ctx.storage.getUrl(f.miniatura)];
+      if (url && miniatura) foto.push({ entryId: f.entryId, url, miniatura, larghezza: f.larghezza, altezza: f.altezza });
+    }
+
     return {
       profile: {
         handle: profile.handle,
@@ -153,6 +164,7 @@ export const byHandle = publicQuery({
       venues,
       cities,
       wishlist: await wishlistOf(ctx, pid),
+      foto,
     };
   },
 });

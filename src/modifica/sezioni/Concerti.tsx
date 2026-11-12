@@ -17,7 +17,8 @@
      pannello, ⋯ «Modifica», «Duplica», «Cancella…»; una riga cambiata da
      chiunque (l'Oracolo, un agente) lampeggia un attimo.
    - Il pannello per aggiungere e modificare (ConcertoPannello), aperto
-     dall'hash: `?nuovo=concerto|festival`, `?apri=<id>` e `&completa=1`
+     dall'hash: `?nuovo=concerto|festival`, `?apri=<id>`, `&completa=1` e
+     `&foto=1` (il link di link_foto_concerto: il blocco «Foto» in evidenza)
      (vista.ts), così «indietro» lo chiude e il ponte dell'editor
      (editor.tsx) ci arriva da qualunque parte di /modifica. Cancellare
      chiede conferma; ogni scrittura va nel registro, e la notifica che
@@ -35,6 +36,7 @@ import { Fab, IntestazioneVista } from "../shell/IntestazioneVista.tsx";
 import type { SezioneProps } from "../tipi.ts";
 import { BarraStrumenti, Vuoto } from "../ui/campi.tsx";
 import { Menu } from "../ui/Menu.tsx";
+import { useFotoPerEvento } from "../foto/FotoEvento.tsx";
 import { useToast } from "../ui/Toast.tsx";
 import { useVista } from "../useVista.ts";
 import { haPannello } from "../vista.ts";
@@ -221,6 +223,7 @@ function PannelloConcerti({ eventi }: { eventi: EventoUi[] | undefined }) {
         tipo={eFestival(ultimo) ? "festival" : "concert"}
         apertura={editor.aperto}
         coda={infoCoda}
+        fotoInEvidenza={parametri.foto === "1"}
       />
     );
   }
@@ -450,6 +453,7 @@ function RigaEvento({ e, oggi, aperto, lampo, onModifica, onDuplica, onCancella 
   const voto = votoDi(e);
   const nome = `${titoloDi(e)} del ${e.date}`;
   const compagni = compagniBrevi(e);
+  const nFoto = useFotoPerEvento()[e.id] ?? 0;
   return (
     <li
       className="mf-riga mod-evento"
@@ -464,6 +468,13 @@ function RigaEvento({ e, oggi, aperto, lampo, onModifica, onDuplica, onCancella 
             {titoloDi(e)}
           </button>
           {fest && <span className="mod-tag">festival · {e.concerts.length} concerti</span>}
+          {nFoto > 0 && (
+            <span className="mod-tag mf-tag-foto" title={nFoto === 1 ? "1 foto" : `${nFoto} foto`}>
+              <Icon name="camera" size={13} />
+              <span className="mf-sr">{nFoto === 1 ? "1 foto" : `${nFoto} foto`}</span>
+              <span aria-hidden="true">{nFoto}</span>
+            </span>
+          )}
         </span>
         {fest && <span className="mf-riga-lineup">{e.concerts.map(c => c.artist).join(", ")}</span>}
       </span>

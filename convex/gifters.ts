@@ -17,7 +17,8 @@
    Un cambio di logo va nel registro ma non si annulla (op "logo"): il file
    di prima non c'è più. Per lo stesso motivo un "regalato da" cancellato
    e poi ripristinato torna senza il logo caricato.
-   Un cron cancella i file caricati e mai usati (dopo 24 ore).
+   Un cron cancella i file caricati e mai usati (dopo 24 ore): né loghi né
+   foto dei concerti (convex/foto.ts).
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
@@ -29,6 +30,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import { USER_AGENT } from "./geo.ts";
 import { istantanea, logActivity } from "./lib/activity.ts";
+import { fileDiFoto } from "./lib/foto.ts";
 import { internalMutation, internalQuery, limitaAgente, ownerAction, ownerMutation, ownerQuery } from "./lib/builders.ts";
 import { errore } from "./lib/errors.ts";
 import { getOwned, type Actor, type Owner } from "./lib/owner.ts";
@@ -397,25 +399,34 @@ export const applicaLogoInterno = internalMutation({
   },
 });
 
-/** Cron: i file caricati più di 24 ore fa e non usati come logo da nessuno. */
+/**
+ * Cron: i file caricati più di 24 ore fa e non usati da nessuno, né come
+ * logo né come foto (o miniatura) di un concerto. Scorre `_storage` dal
+ * più vecchio a pagine di 500 e si riprogramma finché non arriva ai file
+ * recenti.
+ */
 export const cleanupOrphanLogos = internalMutation({
-  args: {},
+  args: { cursor: v.optional(v.union(v.string(), v.null())) },
   returns: v.null(),
-  handler: async ctx => {
+  handler: async (ctx, { cursor }) => {
     const usati = new Set<string>();
     for (const g of await ctx.db.query("gifters").collect()) {
       const s = storageDi(g.logo);
       if (s) usati.add(s);
     }
     const limite = Date.now() - ORFANI_DOPO_MS;
-    let cancellati = 0;
+    const pagina = await ctx.db.system.query("_storage").paginate({ cursor: cursor ?? null, numItems: 500 });
+    let recenti = false;
     // dal più vecchio: ci si ferma ai file recenti
-    for await (const f of ctx.db.system.query("_storage")) {
-      if (f._creationTime >= limite || cancellati >= 500) break;
-      if (usati.has(f._id)) continue;
+    for (const f of pagina.page) {
+      if (f._creationTime >= limite) {
+        recenti = true;
+        break;
+      }
+      if (usati.has(f._id) || (await fileDiFoto(ctx, f._id))) continue;
       await ctx.storage.delete(f._id);
-      cancellati++;
     }
+    if (!recenti && !pagina.isDone) await ctx.scheduler.runAfter(0, internal.gifters.cleanupOrphanLogos, { cursor: pagina.continueCursor });
     return null;
   },
 });

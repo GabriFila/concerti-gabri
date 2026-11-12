@@ -6,9 +6,9 @@
    sotto sono strutturali e combaciano con il `returns` di convex/pages.ts.
    ────────────────────────────────────────────────────────────── */
 
-import type { CanzoniNote, Entry, FestivalConcert, GifterInfo, LngLat, Vicinanza, Voto } from "../model/concert.ts";
+import type { CanzoniNote, Entry, FestivalConcert, FotoEvento, GifterInfo, LngLat, Vicinanza, Voto } from "../model/concert.ts";
 import type { DatasetInput } from "./dataset.ts";
-import { soloHttps } from "./url.ts";
+import { soloHttps, urlFileConvex } from "./url.ts";
 
 interface Fatti {
   artist: string;
@@ -53,6 +53,8 @@ export interface PaginaPubblica {
   venues: { _id: string; name: string; city: string; lng?: number; lat?: number }[];
   cities: { name: string; lng: number; lat: number }[];
   wishlist: string[];
+  /** Le foto, nell'ordine di ogni evento (assente nelle pagine di prima delle foto). */
+  foto?: ({ entryId: string } & FotoEvento)[];
 }
 
 const def = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, x]) => x !== undefined)) as T;
@@ -61,6 +63,13 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
   const persone = new Map(page.people.map(p => [p._id, p.name]));
   const venues = new Map(page.venues.map(v => [v._id, v]));
   const nomi = (ids: string[] = []) => ids.map(id => persone.get(id) ?? "?");
+  // le foto: URL dei file di Convex, https (o il Convex locale in sviluppo)
+  const foto = new Map<string, FotoEvento[]>();
+  for (const { entryId, url, miniatura, larghezza, altezza } of page.foto ?? []) {
+    const [u, m] = [urlFileConvex(url), urlFileConvex(miniatura)];
+    if (!u || !m) continue;
+    foto.set(entryId, [...(foto.get(entryId) ?? []), { url: u, miniatura: m, larghezza, altezza }]);
+  }
 
   const entries: Entry[] = page.entries.map(e => {
     const v = venues.get(e.venueId);
@@ -77,6 +86,7 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
       km: e.km,
       kmPending: e.kmPending || undefined,
       comments: e.comments,
+      foto: foto.get(e._id),
     });
     if (e.kind === "festival") {
       const concerts = (e.concerts ?? []).map(c => def({ artist: c.artist, tour: c.tour, date: c.date, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote })) as FestivalConcert[];

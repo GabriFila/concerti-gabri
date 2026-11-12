@@ -2,7 +2,8 @@
    Il pannello di un concerto o di un festival (#concerti, spec
    ux-modifica §6.2): il form (i campi in ConcertoForm.tsx) dentro
    Pannello (ui/Pannello.tsx), aperto dall'hash (`?nuovo=concerto|festival`,
-   `?apri=<id>`, `&completa=1` per la coda dei "da completare") o dal
+   `?apri=<id>`, `&completa=1` per la coda dei "da completare", `&foto=1`
+   per il blocco delle foto in evidenza) o dal
    ponte dell'editor (editor.tsx) con una bozza.
 
    Il form (TanStack Form) si valida con lo schema unico di
@@ -22,6 +23,8 @@
    - Un form nuovo (non dal ponte) passa da concerto a festival e
      viceversa portandosi dietro i valori (forme.ts).
    - Nella testa, ⋯ «Duplica» e «Cancella…» (solo modifica).
+   - Sotto il form, le foto della serata (foto/FotoEvento.tsx): si salvano
+     subito, senza «Salva»; un concerto nuovo le prende dopo il primo salvataggio.
    - Concorrenza: il pannello guarda la riga dal vivo di entries.list. Se
      cambia (l'Oracolo, un agente, un'altra scheda) e il form è pulito si
      ricarica; con modifiche, un avviso chiede quali dati tenere; se sparisce,
@@ -39,6 +42,7 @@ import { api } from "../../../convex/_generated/api";
 import { todayKey } from "../../../shared/lib/dates.ts";
 import { concertoInput, festivalInput } from "../../../shared/schema/entry.ts";
 import { useEditorConcerti, type AperturaConcerto } from "../editor.tsx";
+import { FotoEvento } from "../foto/FotoEvento.tsx";
 import type { VoceMenu } from "../ui/Menu.tsx";
 import { Pannello } from "../ui/Pannello.tsx";
 import { useScrittura, useToast, type AzioneToast } from "../ui/Toast.tsx";
@@ -96,6 +100,8 @@ interface PropsPannello {
   /** Tutti gli eventi (le scorciatoie del form). */
   eventi: EventoUi[];
   coda?: InfoCoda | null;
+  /** `&foto=1` (link_foto_concerto): il blocco «Foto» in vista, col fuoco su «Aggiungi foto». */
+  fotoInEvidenza?: boolean;
   passaggio?: Passaggio | null;
   onChiudi: () => void;
   onSalvato: (s: Salvataggio, dopo: DopoSalvataggio) => void;
@@ -179,7 +185,7 @@ export function CancellaEvento({ e, onChiudi, onCancellato }: { e: EventoUi; onC
     >
       <p>
         <b>{titoloDi(e)}</b>, {e.date} a {e.venue}. Sparisce dalla tua pagina; se lo riaggiungi, o lo ripristini con «Annulla», torna
-        con gli stessi km.
+        con gli stessi km. Con «Annulla» tornano anche le sue foto (entro 30 giorni).
       </p>
     </Conferma>
   );
@@ -548,6 +554,8 @@ function ModuloEvento(p: PropsModulo) {
             {!campoErrore && <Errore errore={op.errore} />}
           </form>
         </ProviderModulo>
+        {/* le foto si salvano da sole, fuori dal form (e non nella scheda del Tour manager) */}
+        {!scheda && !p.sparito && <FotoEvento entryId={base?.id} titolo={base ? titoloDi(base) : tipoParola} inEvidenza={!!p.fotoInEvidenza} />}
       </Pannello>
       {cancella && evento && (
         <CancellaEvento

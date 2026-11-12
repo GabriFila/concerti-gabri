@@ -35,6 +35,7 @@ import { cancellaCoppieDelProfiloPagina, cancellaPartenzeDelProfilo, indirizziDe
 import { guardiaSviluppo } from "./devtools.ts";
 import { cancellaFile } from "./gifters.ts";
 import { internalMutation, ownerMutation, ownerQuery } from "./lib/builders.ts";
+import { cancellaFotoDelProfilo } from "./lib/foto.ts";
 import { errore } from "./lib/errors.ts";
 import { departuresOf, giftersOf, nomiPerEsterno, peopleOf } from "./lib/refs.ts";
 import { wishlistOf } from "./wishlist.ts";
@@ -276,6 +277,7 @@ async function lottoDiDati(ctx: MutationCtx, profileId: Id<"profiles">, max: num
     for (const d of docs) await ctx.db.delete(d._id);
     n += docs.length;
   };
+  n += await cancellaFotoDelProfilo(ctx, profileId, max - n);
   await togli(await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", profileId)).take(max - n));
   await togli(await ctx.db.query("people").withIndex("by_profile_name", q => q.eq("profileId", profileId)).take(max - n));
   const gifters = await ctx.db.query("gifters").withIndex("by_profile", q => q.eq("profileId", profileId)).take(max - n);

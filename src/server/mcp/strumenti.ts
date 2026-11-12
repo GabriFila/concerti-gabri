@@ -12,7 +12,7 @@
      errori sono sempre `{code, messaggio}` e non ripetono mai i valori.
    - Output: nessuno strumento legge o scrive indirizzi; per sicurezza ogni
      risposta perde comunque le chiavi address/lat/lng/coordinate, e i `fix`
-     della dashboard diventano URL assoluti.
+     e i `link` della dashboard diventano URL assoluti.
    ────────────────────────────────────────────────────────────── */
 
 import type { McpServer, StandardSchemaWithJSON } from "@modelcontextprotocol/server";
@@ -114,14 +114,17 @@ export function descrizioneStrumento(op: OperazioneCatalogo): string {
 
 const CHIAVI_PRIVATE = /^(address|indirizzo|indirizzi|lat|lng|lon|latitude|longitude|coords|coordinate|coordinates)$/i;
 
-/** Toglie le chiavi private (a ogni livello) e rende assoluti i `fix` della dashboard. */
+/** I link alla dashboard che diventano assoluti: `fix` degli errori e avvisi, `link` di link_foto_concerto. */
+const LINK_DASHBOARD = new Set(["fix", "link"]);
+
+/** Toglie le chiavi private (a ogni livello) e rende assoluti i link della dashboard (`fix`, `link`). */
 export function proietta(x: unknown, origine: string): unknown {
   if (Array.isArray(x)) return x.map(y => proietta(y, origine));
   if (x && typeof x === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(x)) {
       if (CHIAVI_PRIVATE.test(k)) continue;
-      out[k] = k === "fix" && typeof val === "string" && val.startsWith("/") ? `${origine}${val}` : proietta(val, origine);
+      out[k] = LINK_DASHBOARD.has(k) && typeof val === "string" && val.startsWith("/") ? `${origine}${val}` : proietta(val, origine);
     }
     return out;
   }
@@ -170,4 +173,5 @@ export const ISTRUZIONI_MCP = [
   "Gli indirizzi delle partenze non passano mai da qui: se servono, l'utente li imposta dalla dashboard (#partenze).",
   "Per aggiungere o completare un concerto chiedi quello che manca invece di indovinarlo (il commento sulla serata è facoltativo: chiedilo una volta per evento, mai per un concerto futuro), poi riassumi all'utente cosa scriverai e aspetta la sua conferma prima di add_concert o update_concert.",
   "Le cancellazioni e gli import sopra le 10 righe vogliono confirm: true, solo dopo la conferma esplicita dell'utente. Ogni scrittura si annulla con undo.",
+  "Le foto dei concerti non passano da qui: link_foto_concerto dà il link al pannello del concerto, dove l'utente le carica dal browser. Proponilo dopo aver aggiunto o completato un concerto passato.",
 ].join("\n");

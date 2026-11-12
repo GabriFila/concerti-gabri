@@ -6,7 +6,7 @@ import { Icon } from "../ui/Icon.tsx";
 /* Ids+labels live in shared/sections.ts (shared with the AI chat); only icons are added here.
    The list follows the profile: its forma, and the layout's order, hidden
    sections and custom titles (PIANO §1.35). */
-const TOC_ICONS:Record<string,string>={"sec-kpis":"star","sec-andamento":"chart","sec-trend":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-tour":"route","sec-commenti":"pen","sec-archivio":"list"};
+const TOC_ICONS:Record<string,string>={"sec-kpis":"star","sec-andamento":"chart","sec-trend":"chart","sec-mappa":"map","sec-artisti":"mic","sec-compagni":"users","sec-venue":"repeat","sec-vicinanza":"target","sec-stagionalita":"calendar","sec-giorni":"calendar","sec-voti":"star","sec-voti-migliori":"trophy","sec-voti-vs":"target","sec-canzoni":"note","sec-spesa":"wallet","sec-spesa-dettaglio":"euro","sec-spesa-distribuzione":"coins","sec-tour":"route","sec-foto":"camera","sec-commenti":"pen","sec-archivio":"list"};
 
 export function TocButton(){
   const forma=useForma();
