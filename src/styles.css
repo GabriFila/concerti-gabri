@@ -842,6 +842,14 @@
   .dualbars .ybar.gap .barpair .bar{width:100%;max-width:35px}
   .dualbars .ybar .bar.avgbar .avseg{width:100%;height:100%;background:var(--dim);opacity:.55}
   .dualbars .ybar .bar.avgbar span{color:var(--muted)}
+  .dualbars .ybar:not(.gap) .bar span{left:auto;right:0;text-align:right}
+  .dualbars .ybar:not(.gap) .bar.avgbar span{left:0;right:auto;text-align:left}
+  .dualbars .barpair{position:relative}
+  .dualbars .barpair .tot{display:none;position:absolute;left:-20px;right:-20px;text-align:center;font-family:'Inter',sans-serif;font-size:.62rem;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+  @media (max-width:620px){
+    .dualbars.fitto .barpair .tot{display:block}
+    .dualbars.fitto .ybar .bar span{display:none}
+  }
   .ylegend .lg-avg::before{background:var(--dim);opacity:.55}
   .votedist .ybar .yl,.votedist .ybar.peak .yl{color:var(--lamp)}
   /* ── "Come cambia nel tempo": box del grafico ECharts (canvas) ──

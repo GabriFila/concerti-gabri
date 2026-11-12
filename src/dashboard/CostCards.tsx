@@ -12,6 +12,9 @@ import { useTitoloSezione } from "./sezioni.tsx";
 // Every figure here is computed only over concerts with a known `cost` (all-in,
 // single seat). Unknown-price concerts are tolerated and just left out.
 
+// "€1153" → "€1,2k": the per-year total when only one short label fits.
+const eurK=(n:number)=>n<1000?eur0(n):"€"+(n/1000).toLocaleString("it-IT",{maximumFractionDigits:1})+"k";
+
 function SpendYearChart({rows}:{rows:Array<Datum&{cost:number}>}){
   const isPlanned=usePlanned();
   const ds=useDataset();
@@ -28,7 +31,13 @@ function SpendYearChart({rows}:{rows:Array<Datum&{cost:number}>}){
   const peak=span.slice().sort((a,b)=>att[b]-att[a])[0];
   const avgOf=(y:number)=>cnt[y]?tot(y)/cnt[y]:0;
   const avgMax=Math.max(...span.map(avgOf),1);
-  return <div className="years spendyears dualbars">{span.map(y=>{
+  // Labels are wider than the 16 px bars. Each one is aligned to the outer edge
+  // of its own bar, so the two labels of a year never overlap each other or the
+  // other bar. With more than 7 years on a phone (CSS `.fitto` under 620 px)
+  // there is room for one label per year: the total, compact, centred above
+  // the taller of the two bars (`.tot`); the average stays in the bar's title.
+  const fitto=span.length>7;
+  return <div className={"years spendyears dualbars"+(fitto?" fitto":"")}>{span.map(y=>{
     const a=att[y],p=pl[y],v=a+p;
     const h=v?Math.max(8,Math.round(v/max*150)):4;
     const ph=v?Math.round(p/v*h):0;const ah=h-ph;
@@ -37,6 +46,7 @@ function SpendYearChart({rows}:{rows:Array<Datum&{cost:number}>}){
     const cls=v===0?"ybar gap":(String(y)===String(peak)?"ybar peak":"ybar");
     return <div className={cls} key={y}>
       <div className="barpair">
+        {fitto&&v>0&&<span className="tot" style={{bottom:Math.max(h,avh)+6+"px"}}>{eurK(v)}</span>}
         <div className="bar" style={{height:h+"px"}}>
           <span>{eur0(v)}</span>
           {p>0&&<div className="pseg" style={{height:ph+"px"}} title={eur0(p)+" in programma"}></div>}
