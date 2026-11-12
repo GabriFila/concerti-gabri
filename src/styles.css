@@ -327,6 +327,10 @@
     .chatmodal{padding:10px}
     .chatpop{height:calc(100dvh - 80px)}
   }
+  /* tastiera aperta (src/ui/tastiera.ts): chat e filtri stanno nella parte visibile, sopra la tastiera */
+  html[data-tastiera] :is(.chatmodal,.filtermodal){top:var(--vv-alto);bottom:var(--tastiera)}
+  html[data-tastiera] :is(.chatpop,.filterpop){max-height:100%}
+  @media (max-width:620px){ html[data-tastiera] .chatpop{height:100%} }
 
   /* ── Filtri: overlay modale centrato ── */
   .filtermodal{

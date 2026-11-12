@@ -34,6 +34,7 @@ import { IdentificaProprietario } from "../osservabilita/Identifica.tsx";
 import { siteTitle } from "../root/title.ts";
 import { NotFound } from "../shell/NotFound.tsx";
 import { SYSTEM_THEME_SCRIPT, ssrDataTheme } from "../theme/tema.ts";
+import { osservaTastiera } from "../ui/tastiera.ts";
 import type { RouterContext } from "../router.tsx";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -83,6 +84,8 @@ function RootDocument({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.dataset.idratato = "1";
   }, []);
+  // la tastiera del telefono: le finestre fisse restano nella parte visibile (src/ui/tastiera.ts)
+  useEffect(() => osservaTastiera(), []);
   useEffect(() => {
     if (greeted) return;
     greeted = true;
