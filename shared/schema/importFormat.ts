@@ -6,11 +6,15 @@
    CSV, colonne in quest'ordine:
      tipo,data,data_concerto,artista,festival,venue,citta,con,voto,
      vicinanza,canzoni_note,costo,regalo,regalato_da,accredito,partenza,
-     commento,tour
+     commento,tour,apertura_di
    - `tipo`: concerto | festival
    - `tour` (aggiunta il 2026-11-11, facoltativa come tutte tranne tipo,
      data, artista, venue e citta: i CSV di prima restano validi): il tour
      dell'artista, per ogni riga (anche nei festival)
+   - `apertura_di` (aggiunta il 2026-11-12, facoltativa: i CSV di prima
+     restano validi): solo per tipo=concerto, l'artista headliner della
+     stessa data e venue di cui il concerto è l'apertura (nello stesso file
+     o già salvato)
    - `con`: nomi separati da `;`
    - `canzoni_note`: 1–5 oppure `na`
    - le righe `tipo=festival` con stessi `festival`, `venue` e `data`
@@ -28,7 +32,7 @@ import { entryInput } from "./entry.ts";
 export const COLONNE_CSV = [
   "tipo", "data", "data_concerto", "artista", "festival", "venue", "citta", "con", "voto",
   "vicinanza", "canzoni_note", "costo", "regalo", "regalato_da", "accredito", "partenza", "commento",
-  "tour",
+  "tour", "apertura_di",
 ] as const;
 export type ColonnaCsv = (typeof COLONNE_CSV)[number];
 
@@ -63,6 +67,7 @@ export const DESCRIZIONE_COLONNE: Record<ColonnaCsv, string> = {
   partenza: "nome di una partenza esistente",
   commento: "ricordo libero della serata",
   tour: "il tour dell'artista di cui faceva parte il concerto, vuoto se fuori tour",
+  apertura_di: "solo concerti: se il concerto ha aperto quello di un altro artista la stessa sera, l'artista headliner (stessa data e venue); vuoto altrimenti",
 };
 
 /** Una riga CSV grezza (tutte stringhe, vuoto = assente). */

@@ -5,7 +5,7 @@
    BIGLIETTO/evento.
    ────────────────────────────────────────────────────────────── */
 
-import { concertsOf, type Entry, type FlatConcert } from "../model/concert.ts";
+import { concertsOf, serateOf, type Entry, type FlatConcert } from "../model/concert.ts";
 import { CN_LABELS, VIC_LABELS } from "../model/scale.ts";
 import { isPlanned, sortKey } from "./dates.ts";
 import { eur0, eur2, km0, voto1 } from "./format.ts";
@@ -86,7 +86,8 @@ export const TREND_SPECS: TrendSpec[] = [
   { k: "cost", tab: "Costo", label: "costo del biglietto", unit: "biglietti",
     points: (d, today) => eventPoints(d, e => hasCost(e) ? e.cost : null, today),
     yMin: 0, yFormat: eur0, valueFormat: eur2 },
+  // i viaggi sono per serata: un'apertura viaggia con il suo headliner
   { k: "km", tab: "Viaggio", label: "km di viaggio", unit: "biglietti",
-    points: (d, today) => eventPoints(d, e => distKm(e), today),
+    points: (d, today) => eventPoints(serateOf(d), e => distKm(e), today),
     yMin: 0, yFormat: km0, valueFormat: km0 },
 ];

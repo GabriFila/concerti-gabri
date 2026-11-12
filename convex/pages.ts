@@ -40,6 +40,7 @@ export const entryPubblica = v.object({
   voto: v.optional(voto),
   vicinanza: v.optional(vicinanza),
   canzoniNote: v.optional(canzoniNote),
+  aperturaDiId: v.optional(v.id("entries")),
   name: v.optional(v.string()),
   concerts: v.optional(
     v.array(

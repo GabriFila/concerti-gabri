@@ -15,7 +15,7 @@
    vuoto (o con soli concerti in programma) dà null, mai NaN.
    ────────────────────────────────────────────────────────────── */
 
-import { flatConcerts, type Entry, type LngLat } from "../model/concert.ts";
+import { flatConcerts, serateOf, type Entry, type LngLat } from "../model/concert.ts";
 import { counter, ranked } from "./aggregate.ts";
 import { isPlanned, romeClock } from "./dates.ts";
 
@@ -28,9 +28,9 @@ export function serieDa(entries: Entry[], today: number): number | null {
   return da;
 }
 
-/** La città più frequente tra gli eventi visti (a parità, la prima in ordine alfabetico); null se nessuno. */
+/** La città più frequente tra le serate viste (a parità, la prima in ordine alfabetico); null se nessuna. */
 export function cittaPrincipale(entries: Entry[], today: number): string | null {
-  const visti = entries.filter(d => !isPlanned(d, today));
+  const visti = serateOf(entries.filter(d => !isPlanned(d, today)));
   const top = ranked(counter(visti, "city")).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "it"))[0];
   return top ? top[0] : null;
 }

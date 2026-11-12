@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import { GABRIFILA_INPUT } from "../seed/gabrifila.ts";
-import { flatConcerts, isFestival, type Entry } from "../model/concert.ts";
+import { flatConcerts, isFestival, serataDi, type Entry } from "../model/concert.ts";
 import { buildDataset } from "./dataset.ts";
 import { isPlanned, sortKey, todayKey } from "./dates.ts";
 import {
@@ -96,7 +96,8 @@ describe("applyFilters", () => {
     expect(run({ kmMin: B.kmMin, kmMax: B.kmMax })).toHaveLength(84);
     const near = run({ kmMin: 0, kmMax: 20 });
     expect(near).toHaveLength(64);
-    expect(near.every(r => { const k = distKm(r); return k !== null && k <= 20; })).toBe(true);
+    // un'apertura passa col viaggio della sua serata (l'headliner)
+    expect(near.every(r => { const k = distKm(serataDi(r)); return k !== null && k <= 20; })).toBe(true);
   });
 
   it("il giorno di oggi arriva da fuori: a mezzanotte di Roma il concerto passa tra i visti", () => {

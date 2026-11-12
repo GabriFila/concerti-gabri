@@ -2,7 +2,7 @@
    filtrate con gli stessi aiuti dei KPI, così le due viste coincidono per
    costruzione. */
 
-import { flatConcerts, type Entry, type FlatConcert } from "../model/concert.ts";
+import { flatConcerts, serateOf, type Entry, type FlatConcert } from "../model/concert.ts";
 import { isPlanned, sortKey, todayKey } from "./dates.ts";
 import { counter, rankCutoff, ranked, sum } from "./aggregate.ts";
 import { distKm, hasVoto } from "./predicates.ts";
@@ -31,7 +31,8 @@ export function computePortrait(entries: Entry[], now: number): Portrait {
   const today = todayKey(now);
   const planned = (d: { date: string }) => isPlanned(d, today);
   const flat = flatConcerts(entries);
-  const attEv = entries.filter(d => !planned(d));
+  // i viaggi sono delle serate: un'apertura viaggia con il suo headliner
+  const attEv = serateOf(entries.filter(d => !planned(d)));
   const attC = flat.filter(c => !planned(c));
   const rated = attC.filter(hasVoto).sort((a, b) => b.voto - a.voto || sortKey(b) - sortKey(a));
   const five = rated.filter(c => c.voto >= 5);

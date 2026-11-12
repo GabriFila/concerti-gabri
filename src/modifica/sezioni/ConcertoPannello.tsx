@@ -53,7 +53,7 @@ import { Conferma, Errore, useConvex } from "./comuni.tsx";
 import {
   campiMancanti, campoDaServer, chiaveNome, daConcertoAFestival, daFestivalAConcerto, eFestival, eValoriFestival, erroriSchema, etichettaCampo,
   inProgrammaValori, inputConcerto, inputFestival, ordinaCampi, patchConcerto, patchFestival, titoloDi, ultimaPartenza, valoriConcerto,
-  valoriDuplicati, valoriFestival, tourDiArtista, venueRecenti, type EventoUi, type ValoriConcerto, type ValoriFestival,
+  valoriDuplicati, valoriFestival, tourDiArtista, venueRecenti, apertureDelConcerto, headlinerDelGiorno, type EventoUi, type ValoriConcerto, type ValoriFestival,
 } from "./forme.ts";
 
 const FORM = "mod-form-evento";
@@ -496,6 +496,9 @@ function ModuloEvento(p: PropsModulo) {
     recenti,
     ultima,
     tourDi: (artista: string) => tourDiArtista(p.eventi, artista),
+    // la scheda del Tour manager non porta il collegamento (propostaConcertoInput resta com'è): «Apertura di…» solo nel modulo
+    headlinerDi: (dataIso: string) => (scheda ? [] : headlinerDelGiorno(p.eventi, dataIso, base?.id)),
+    aperture: scheda ? [] : apertureDelConcerto(p.eventi, base?.id),
     inProgramma: inProgrammaValori(valori, oggi),
     mancanti,
     evidenzia: new Set(apertura?.evidenzia ?? []),

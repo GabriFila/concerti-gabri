@@ -133,7 +133,8 @@ export function valoriVuoti(tipo: "festival"): ValoriFestival;
 export function valoriVuoti(tipo: TipoScheda): Valori;
 export function valoriVuoti(tipo: TipoScheda): Valori {
   const evento = { date: "", venue: "", city: "", cost: undefined, gift: false, giftFrom: "", accredito: false, from: "", comments: "" };
-  return tipo === "concert" ? { ...evento, artist: "", tour: "", with: [] } : { ...evento, name: "", concerts: [] };
+  // la scheda non porta il collegamento a un headliner (propostaConcertoInput è statico): aperturaDi resta vuoto
+  return tipo === "concert" ? { ...evento, artist: "", tour: "", with: [], aperturaDi: "" } : { ...evento, name: "", concerts: [] };
 }
 
 const setDaEsterno = (c: SetEsterno): ValoriSet => ({
@@ -168,6 +169,7 @@ export function valoriDaEsterno(e: EventoEsterno): Valori {
     voto: e.voto as ValoriConcerto["voto"],
     vicinanza: e.vicinanza as ValoriConcerto["vicinanza"],
     canzoniNote: e.canzoniNote as Canzoni,
+    aperturaDi: "",
   };
 }
 

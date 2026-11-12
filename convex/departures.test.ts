@@ -43,7 +43,8 @@ async function confermaCandidato(t: T, as: ReturnType<T["withIdentity"]>, profil
 }
 
 const kmMilano = (t: T, pid: Id<"profiles">, milano: Id<"departures">) =>
-  t.run(async ctx => (await ctx.db.query("entries").withIndex("by_profile_departure", q => q.eq("profileId", pid).eq("departureId", milano)).collect()).map(e => ({ id: e._id, km: e.km, source: e.kmSource, pending: e.kmPending, venueId: e.venueId })));
+  // le aperture (aperturaDiId) non hanno km suoi: viaggiano con l'headliner
+  t.run(async ctx => (await ctx.db.query("entries").withIndex("by_profile_departure", q => q.eq("profileId", pid).eq("departureId", milano)).collect()).filter(e => !e.aperturaDiId).map(e => ({ id: e._id, km: e.km, source: e.kmSource, pending: e.kmPending, venueId: e.venueId })));
 
 describe("partenze e km", () => {
   it("il primo indirizzo non ricalcola i km legacy; calcola solo quelli in attesa", async () => {

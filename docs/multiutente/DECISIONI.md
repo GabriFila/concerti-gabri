@@ -874,6 +874,81 @@ profili) e `/admin/<handle>` (il dettaglio di uno).
   canarino non è nell'HTML delle due pagine). In locale gli e2e rendono admin
   un utente di prova con `node scripts/convex-locale.mjs admin <id>`.
 
+## Aperture (Gabri, 2026-11-12)
+
+Un concerto può essere l'**apertura** (opening act) di un altro concerto
+della stessa serata. Prima un'apertura era un concerto a sé con la stessa
+data e venue, e le statistiche per serata la contavano due volte (Fiera
+Milano Live: 3 visite per una sera; i km 13 diventavano 39).
+
+- **Dove sta.** L'apertura resta una riga `entries` separata, un `Concert`
+  normale con artista, tour, compagni, voto, vicinanza, canzoni note,
+  commento e foto suoi, più `aperturaDiId` (id dell'headliner, come persone
+  e venue; indice `by_apertura`). Negli input esterni (MCP, import, modulo)
+  è `aperturaDi`: l'artista dell'headliner, risolto lato server per nome e
+  **data** tra i concerti singoli del profilo (`headlinerDa`,
+  `convex/lib/refs.ts`); con più concerti di quell'artista nella data
+  decide la venue. Non trovato o ambiguo: `ConvexError` con gli headliner
+  validi di quel giorno, mai il valore ricevuto. Nel modello condiviso
+  `Concert.aperturaDi` è il nome (come nel seed) e `FlatConcert.headliner`
+  la riga dell'headliner (collegata da `collegaAperture`).
+- **Vincoli.** L'headliner è un concerto singolo dello stesso profilo, non
+  un festival e non a sua volta un'apertura; un headliner può averne più
+  d'una e non può diventare un'apertura finché ne ha. Un festival non ha
+  aperture: la lineup le comprende già.
+- **Soldi: invariati.** Ogni riga tiene costo, regalo, «regalato da» e
+  accredito suoi (un'apertura costa spesso 0, ma può avere un prezzo vero);
+  KPI e card dei soldi contano le righe come prima.
+- **Venue e viaggio sono della serata.** Data, venue e partenza
+  dell'apertura sono sempre quelle dell'headliner: le impone il server a
+  ogni scrittura (un valore diverso è `input_non_valido` sul campo) e le
+  propaga quando cambiano sull'headliner, nello stesso lotto del registro
+  (`allineaAperture`, `convex/lib/aperture.ts`). L'apertura non ha km
+  (`km`/`kmSource`/`kmPending` assenti; i ricalcoli di sistema la saltano).
+  Le statistiche per evento/viaggio contano le **serate** (`serateOf`,
+  `shared/model/concert.ts`): «Dove torno più spesso», pallini e popup
+  della mappa, km totali e per anno, la fascia di km dei filtri (un'apertura
+  passa col viaggio della sua serata), la città più frequente e la sua
+  percentuale. Le stats per concerto (artisti visti, voti, vicinanza, canzoni
+  note, compagni, timeline, grafico per anno, tour) contano l'apertura come
+  un concerto: un artista visto solo in apertura è tra gli artisti visti.
+- **Cancellare l'headliner** lascia le aperture come concerti normali,
+  scollegati, con la data, la venue e la partenza della serata e i km della
+  stessa coppia (partenza, venue) già estratta: nessuna estrazione nuova.
+  Tutto in una transazione e in un lotto: Annulla ricrea l'headliner e le
+  ricollega (al suo id nuovo). Annullare l'aggiunta di un headliner che ha
+  aperture è `in_uso`; annullare una modifica che lo porterebbe fuori dalla
+  serata di aperture collegate dopo è un `conflitto`.
+- **Pagina pubblica.** Nella tabella Concerti la chip «apertura di
+  <headliner>» sotto l'artista, come quella del festival; Costo quello
+  della riga; in Viaggio il «—» smorzato con il titolo «Incluso nel viaggio
+  della serata di …». Il filtro «Includi aperture» (attivo di default)
+  compare tra i filtri quando il profilo ha aperture, ed è anche
+  nell'Oracolo pubblico (`set_filters.aperture`, `query_concerts.aperture`;
+  `eveningCount` conta le serate).
+- **/modifica.** Nel pannello del concerto «Apertura di…» (facoltativo, mai
+  «da completare») propone i concerti singoli della stessa data; scelto
+  l'headliner, data, venue e partenza diventano in sola lettura. Un'apertura
+  non chiede la partenza tra i «da completare»: si completa sull'headliner.
+- **Agenti e import.** `add_concert`, `update_concert` (`null` scollega) e
+  `bulk_update_concerts` accettano `aperturaDi`; `list_concerts` e
+  `get_concert` danno `aperturaDi` e `aperturaDiId`. Il catalogo dice agli
+  agenti di usarlo per chi apre invece di un concerto indipendente. CSV:
+  colonna `apertura_di` IN CODA, dopo `tour` (i CSV di prima restano
+  validi): l'headliner è nello stesso file (stessa data, venue e artista) o
+  già salvato, e l'import scrive le aperture per ultime.
+- **Tour manager: non ancora.** `propostaConcertoInput` resta com'è (deve
+  restare statico: cambiarlo renderebbe scadute le schede in sospeso al
+  deploy), quindi la scheda non imposta né toglie il collegamento: per ora
+  si imposta dal modulo e da MCP. Salvare dalla scheda un'apertura con data
+  o venue diverse dà l'errore del server sul campo.
+- **Dati.** Cambio additivo dello schema, nessuna migrazione: nel seed
+  (`shared/seed/gabrifila.ts`, fixture dei test) Kiwanuka apre Nutini e Bove
+  e Temper City aprono Capaldi, senza km propri; i dati live Gabri li
+  collega a mano dal modulo. Con il seed i KPI cambiano di conseguenza (km
+  7278 → 6960, «53% a Milano» → «56%»): la parità con `main` su quei
+  numeri non vale più, per scelta.
+
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 
 Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):

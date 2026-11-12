@@ -8,7 +8,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { z } from "zod";
-import { isFestival, type FlatConcert } from "../../../shared/model/concert.ts";
+import { isFestival, serataDi, type FlatConcert } from "../../../shared/model/concert.ts";
 import { CANZONI_NOTE_LABELS, VICINANZA_LABELS, canzoniNoteScale } from "../../../shared/model/scale.ts";
 import { isPlanned } from "../../../shared/lib/dates.ts";
 import type { Dataset } from "../../../shared/lib/dataset.ts";
@@ -23,6 +23,7 @@ export function queryInputSchema(vocab: ChatVocab) {
     solo: z.boolean().optional().meta({ description: "true = only concerts attended alone (no companions)" }),
     artist: z.string().optional().meta({ description: "Case-insensitive substring match on the artist name; festival names (e.g. 'MI AMI 2023') also match every set watched there" }),
     tour: z.string().optional().meta({ description: "Case-insensitive substring match on the tour name (the artist's tour the concert belonged to; concerts without a tour never match)" }),
+    aperture: z.boolean().optional().meta({ description: "Include opening acts (a concert that opened for a headliner the same evening: it is a concert of its own, with its own ticket, but not an extra evening or trip). Default true; false = leave them out" }),
     cities: z.array(enumOrString(vocab.cities)).optional().meta({ description: "Concert cities (OR between them)" }),
     years: z.array(z.number()).optional().meta({ description: "Concert years, e.g. [2025]" }),
     gift: z.boolean().optional().meta({ description: "true = only concerts received as a present, false = only paid/own tickets" }),
@@ -51,6 +52,7 @@ export function runConcertQuery(ds: Dataset, q: ConcertQuery, today: number) {
     if (q.solo && (c.with || []).length > 0) return false;
     if (artist && !c.artist.toLowerCase().includes(artist) && !(isFestival(c.ev) && c.ev.name.toLowerCase().includes(artist))) return false;
     if (tour && !c.tour?.toLowerCase().includes(tour)) return false;
+    if (q.aperture === false && c.headliner) return false;
     if (q.cities?.length && !q.cities.includes(c.city)) return false;
     if (q.years?.length && !q.years.includes(c.y)) return false;
     if (q.gift !== undefined && !!c.ev.gift !== q.gift) return false;
@@ -106,9 +108,11 @@ export function runConcertQuery(ds: Dataset, q: ConcertQuery, today: number) {
     attendedCount: matches.filter(c => !planned(c)).length,
     plannedCount: matches.filter(c => planned(c)).length,
     ...costVotoStats(matches),
+    // venue and trip belong to the evening: an opening act shares its headliner's
+    eveningCount: new Set(matches.map(c => serataDi(c.ev))).size,
     ...(groups ? { groups } : {}),
     concerts: matches.slice(0, MAX_LISTED_CONCERTS).map(c =>
-      `${c.date} · ${c.artist}${c.tour ? ` · tour «${c.tour}»` : ""}${isFestival(c.ev) ? ` (${c.ev.name})` : ""} · ${c.venue} (${c.city})` +
+      `${c.date} · ${c.artist}${c.tour ? ` · tour «${c.tour}»` : ""}${isFestival(c.ev) ? ` (${c.ev.name})` : ""}${c.headliner ? ` (apertura di ${c.headliner.artist})` : ""} · ${c.venue} (${c.city})` +
       ` · ${c.with?.length ? `con ${c.with.join(", ")}` : "da solo"}` +
       (typeof c.cost === "number" ? ` · ${c.cost}€` : c.cost === "na" ? " · prezzo non ricordato" : "") +
       (c.gift ? (c.giftFrom && ds.gifters[c.giftFrom] ? ` · regalo di ${ds.gifters[c.giftFrom].label}` : " · regalo") : "") +

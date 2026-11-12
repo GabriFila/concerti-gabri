@@ -123,8 +123,8 @@ describe("Zod → Convex", () => {
 
 describe("formato di import (congelato)", () => {
   it("colonne CSV in quest'ordine", () => {
-    // `tour` (2026-11-11) si aggiunge in fondo: l'ordine di prima non cambia
-    expect(COLONNE_CSV.join(",")).toBe("tipo,data,data_concerto,artista,festival,venue,citta,con,voto,vicinanza,canzoni_note,costo,regalo,regalato_da,accredito,partenza,commento,tour");
+    // `tour` (2026-11-11) e `apertura_di` (2026-11-12) si aggiungono in fondo: l'ordine di prima non cambia
+    expect(COLONNE_CSV.join(",")).toBe("tipo,data,data_concerto,artista,festival,venue,citta,con,voto,vicinanza,canzoni_note,costo,regalo,regalato_da,accredito,partenza,commento,tour,apertura_di");
   });
 });
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { concertsOf } from "../../shared/model/concert.ts";
+import { concertsOf, serateOf } from "../../shared/model/concert.ts";
 import { CN_LABELS, VIC_LABELS, VIC_ORDER } from "../../shared/model/scale.ts";
 import { counter, rankCutoff, ranked } from "../../shared/lib/aggregate.ts";
 import { useData } from "../filters/FilterContext.tsx";
@@ -8,9 +8,10 @@ import { Icon } from "../ui/Icon.tsx";
 import { ENT_VENUE, ShowAllBtn } from "../ui/ShowAllBtn.tsx";
 import { useTitoloSezione } from "./sezioni.tsx";
 
-// Dove torno più spesso: per EVENTO (un festival è una visita alla venue)
+// Dove torno più spesso: per SERATA (un festival è una visita alla venue, un'apertura
+// è nella serata del suo headliner)
 export function VenueCard(){
-  const DATA=useData();
+  const DATA=serateOf(useData());
   const isPlanned=usePlanned();
   const [expanded,setExpanded]=useState(false);
   const titolo=useTitoloSezione("Dove torno più spesso");

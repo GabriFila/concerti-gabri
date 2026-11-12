@@ -281,7 +281,7 @@ function versoModello(e: ReturnType<typeof esterno>, y: number): Entry {
     const concerts = e.concerts.map(c => Object.fromEntries(Object.entries(c).filter(([, x]) => x !== undefined)) as unknown as FestivalConcert);
     return { ...evento, name: e.name ?? "", concerts: concerts as [FestivalConcert, FestivalConcert, ...FestivalConcert[]] };
   }
-  const c = e as { artist?: string; tour?: string; with: string[]; voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na" };
+  const c = e as { artist?: string; tour?: string; with: string[]; voto?: 1 | 2 | 3 | 4 | 5; vicinanza?: 1 | 2 | 3 | 4 | 5 | 6; canzoniNote?: 1 | 2 | 3 | 4 | 5 | "na"; aperturaDi?: string };
   return {
     ...evento,
     artist: c.artist ?? "",
@@ -290,6 +290,7 @@ function versoModello(e: ReturnType<typeof esterno>, y: number): Entry {
     ...(c.voto !== undefined ? { voto: c.voto } : {}),
     ...(c.vicinanza !== undefined ? { vicinanza: c.vicinanza } : {}),
     ...(c.canzoniNote !== undefined ? { canzoniNote: c.canzoniNote } : {}),
+    ...(c.aperturaDi ? { aperturaDi: c.aperturaDi } : {}),
   };
 }
 

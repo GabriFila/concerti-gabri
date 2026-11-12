@@ -17,6 +17,10 @@
      Le partenze invece devono esistere: le crea il proprietario
      (#partenze o add_departure).
    - Un agente consuma `agentWrites`: 1 per lotto.
+   - Aperture (`aperturaDi`, colonna `apertura_di`): l'headliner è un
+     concerto dello stesso file (stessa data, venue e artista) o già
+     salvato; si scrivono dopo tutti gli altri, così il loro headliner c'è
+     già quando si collegano (refs.ts `headlinerDa`).
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
@@ -28,10 +32,10 @@ import type { EntryInput } from "../shared/schema/entry.ts";
 import { CONFIRM_IMPORT_ROWS, importaConcertiInput } from "../shared/schema/importFormat.ts";
 import { istantanea, logActivity, nuovoBatch } from "./lib/activity.ts";
 import { internalMutation, internalQuery, limitaAgente, ownerAction, ownerQuery } from "./lib/builders.ts";
-import { codiceDi, errore } from "./lib/errors.ts";
+import { codiceDi, errore, messaggioDi } from "./lib/errors.ts";
 import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
-import { caricaRefs, campiDaInput, chiave, venuePerNome } from "./lib/refs.ts";
+import { caricaRefs, campiDaInput, chiave, headlinerDa, tempoDi, venuePerNome } from "./lib/refs.ts";
 import { sembraIndirizzoCivico } from "../shared/lib/nomi.ts";
 
 /** Voci per mutation: ogni voce legge i riferimenti e scrive concerto e registro. */
@@ -50,6 +54,14 @@ interface Verifica {
 
 const nomiDi = (e: EntryInput) => (e.kind === "concert" ? e.with : e.concerts.flatMap(c => c.with));
 
+const eApertura = (e: EntryInput) => e.kind === "concert" && !!e.aperturaDi;
+
+/** Le voci con le aperture in fondo (nell'ordine del file): il loro headliner si scrive prima. */
+export const conAperturePerUltime = (voci: VoceImport[]) => [...voci.filter(v => !eApertura(v.entry)), ...voci.filter(v => eApertura(v.entry))];
+
+/** La chiave (giorno, venue, città, artista) di un concerto dell'import, per trovare l'headliner di un'apertura nello stesso file. */
+const chiaveSerata = (giorno: number, venue: string, city: string, artista: string) => [String(giorno), chiave(venue), chiave(city), chiave(artista)].join("\u0000");
+
 /** I riferimenti di ogni voce: le partenze devono esistere, persone, "regalato da" e venue possono nascere. */
 async function verificaRiferimenti(ctx: QueryCtx, profileId: Id<"profiles">, voci: VoceImport[]): Promise<Verifica> {
   const refs = await caricaRefs(ctx, profileId);
@@ -58,7 +70,22 @@ async function verificaRiferimenti(ctx: QueryCtx, profileId: Id<"profiles">, voc
   const regali = new Map<string, string>();
   const venue = new Map<string, string>();
   const venueViste = new Set<string>();
+  // gli headliner possibili dentro l'import: concerti singoli che non sono aperture
+  const headlinerNelFile = new Set(
+    voci.flatMap(({ entry: e }) => (e.kind === "concert" && !e.aperturaDi ? [chiaveSerata(tempoDi(e.date).sortKey, e.venue, e.city, e.artist)] : [])),
+  );
   for (const { righe, entry } of voci) {
+    if (entry.kind === "concert" && entry.aperturaDi && !headlinerNelFile.has(chiaveSerata(tempoDi(entry.date).sortKey, entry.venue, entry.city, entry.aperturaDi))) {
+      try {
+        const h = await headlinerDa(ctx, profileId, entry.aperturaDi, { date: entry.date, venue: entry.venue, city: entry.city }, { campo: "apertura_di" });
+        const v = await ctx.db.get(h.venueId);
+        if (!v || chiave(v.name) !== chiave(entry.venue) || chiave(v.city) !== chiave(entry.city)) {
+          errori.push({ riga: righe[0], campo: "venue", messaggio: "venue: un'apertura è nella venue del suo headliner; scrivi la stessa venue e città" });
+        }
+      } catch (e) {
+        errori.push({ riga: righe[0], campo: "apertura_di", messaggio: messaggioDi(e) ?? "apertura_di: headliner non trovato" });
+      }
+    }
     for (const n of nomiDi(entry)) if (!refs.people.has(chiave(n))) persone.set(chiave(n), n);
     if (entry.giftFrom && !refs.gifters.has(chiave(entry.giftFrom))) regali.set(chiave(entry.giftFrom), entry.giftFrom);
     if (entry.from && !refs.departures.has(chiave(entry.from))) {
@@ -142,7 +169,8 @@ export const scriviLotto = internalMutation({
       // persone e "regalato da" mancanti nascono nel lotto (lib/mancanti.ts), le venue in campiDaInput; le partenze no: devono esistere
       await creaMancanti(ctx, owner, refs, { persone: nomiDi(entry), ...(entry.giftFrom ? { regalo: entry.giftFrom } : {}) }, batchId, "dall'import");
       const campi = await campiDaInput(ctx, refs, entry, owner);
-      const km = await campiKm(ctx, { profileId, departureId: campi.departureId, venueId: campi.venueId });
+      // un'apertura non ha km suoi: viaggia con il suo headliner
+      const km = "aperturaDiId" in campi && campi.aperturaDiId ? {} : await campiKm(ctx, { profileId, departureId: campi.departureId, venueId: campi.venueId });
       const doc = Object.fromEntries(
         Object.entries({ ...campi, ...km, profileId, updatedAt: Date.now() }).filter(([, x]) => x !== undefined),
       ) as Omit<Doc<"entries">, "_id" | "_creationTime">;
@@ -178,7 +206,7 @@ export const apply = ownerAction({
     const analisi = analizzaImport(formato, contenuto);
     if (analisi.errori.length) throw erroreRighe(analisi.errori, analisi.righe);
     if (!analisi.voci.length) throw errore("input_non_valido", "nessun concerto da importare", { campo: "contenuto" });
-    const voci = pulite(analisi.voci);
+    const voci = pulite(conAperturePerUltime(analisi.voci));
     const controllo: Verifica = await ctx.runQuery(internal.importer.verifica, { profileId: owner.profile._id, voci });
     if (controllo.errori.length) throw erroreRighe(controllo.errori.sort((a, b) => a.riga - b.riga), analisi.righe);
     if (serveConferma(analisi.righe) && confirm !== true) {

@@ -55,7 +55,7 @@ export const serveConferma = (righe: number) => righe > CONFIRM_IMPORT_ROWS;
 const COLONNA_DI: Record<string, ColonnaCsv> = {
   kind: "tipo", date: "data", artist: "artista", tour: "tour", name: "festival", venue: "venue", city: "citta", with: "con",
   voto: "voto", vicinanza: "vicinanza", canzoniNote: "canzoni_note", cost: "costo", gift: "regalo",
-  giftFrom: "regalato_da", accredito: "accredito", from: "partenza", comments: "commento",
+  giftFrom: "regalato_da", accredito: "accredito", from: "partenza", comments: "commento", aperturaDi: "apertura_di",
 };
 
 const SI = new Set(["si", "sì", "s", "x", "true", "1", "yes", "y"]);
@@ -197,6 +197,9 @@ function concertoDaRiga(r: RigaLetta, colonne: readonly ColonnaCsv[], errori: Er
   for (const c of ["festival", "data_concerto"] as const) {
     if (valori[c] !== undefined) e.push({ riga: r.riga, campo: c, messaggio: `${c}: vale solo per tipo=festival` });
   }
+  if (valori.apertura_di !== undefined && chiaveSemplice(String(valori.apertura_di)) === chiaveSemplice(String(valori.artista ?? ""))) {
+    e.push({ riga: r.riga, campo: "apertura_di", messaggio: "apertura_di: un concerto non apre sé stesso; scrivi l'artista headliner" });
+  }
   if (e.length) {
     errori.push(...e);
     return null;
@@ -218,6 +221,7 @@ function concertoDaRiga(r: RigaLetta, colonne: readonly ColonnaCsv[], errori: Er
     accredito: valori.accredito,
     from: valori.partenza,
     comments: valori.commento,
+    aperturaDi: valori.apertura_di,
   });
   const esito = entryInput.safeParse(grezzo);
   if (!esito.success) {
@@ -242,6 +246,9 @@ function festivalDaGruppo(gruppo: RigaLetta[], colonne: readonly ColonnaCsv[], e
   if (gruppo.length < 2) {
     e.push({ riga: numeri[0], campo: "festival", messaggio: "festival: servono almeno 2 righe (una per concerto) con stessi festival, venue e data" });
   }
+  convertite.forEach(({ valori }, i) => {
+    if (valori.apertura_di !== undefined) e.push({ riga: numeri[i], campo: "apertura_di", messaggio: "apertura_di: un festival non ha aperture (la lineup le comprende già); vale solo per tipo=concerto" });
+  });
   if (e.length) {
     errori.push(...e);
     return null;
@@ -316,6 +323,9 @@ export const analizzaImport = (formato: "csv" | "json", contenuto: string): Anal
 /* ── export ───────────────────────────────────────────────────── */
 
 const testoCosto = (c: number | "na" | undefined) => (c === undefined ? "" : String(c));
+function chiaveSemplice(s: string) {
+  return s.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
 const si = (b: boolean | undefined) => (b ? "si" : "");
 
 /** Concerti e festival nel CSV di import (un festival = una riga per concerto, biglietto ripetuto). */
@@ -330,8 +340,8 @@ export function versoCsv(entries: EntryInput[]): string {
       artista: c.artist, tour: c.tour ?? "", con: c.with.join(SEPARATORE_CON), voto: c.voto === undefined ? "" : String(c.voto),
       vicinanza: c.vicinanza === undefined ? "" : String(c.vicinanza), canzoni_note: c.canzoniNote === undefined ? "" : String(c.canzoniNote),
     });
-    if (e.kind === "concert") righe.push({ tipo: "concerto", data_concerto: "", festival: "", ...evento, ...fatti(e) });
-    else for (const c of e.concerts) righe.push({ tipo: "festival", data_concerto: c.date ?? "", festival: e.name, ...evento, ...fatti(c) });
+    if (e.kind === "concert") righe.push({ tipo: "concerto", data_concerto: "", festival: "", ...evento, ...fatti(e), apertura_di: e.aperturaDi ?? "" });
+    else for (const c of e.concerts) righe.push({ tipo: "festival", data_concerto: c.date ?? "", festival: e.name, ...evento, ...fatti(c), apertura_di: "" });
   }
   return Papa.unparse({ fields: [...COLONNE_CSV], data: righe.map(r => COLONNE_CSV.map(c => r[c])) }, { newline: "\n" });
 }

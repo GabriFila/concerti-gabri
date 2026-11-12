@@ -30,6 +30,7 @@ import type * as importer from "../importer.js";
 import type * as lib_activity from "../lib/activity.js";
 import type * as lib_admin from "../lib/admin.js";
 import type * as lib_agentToken from "../lib/agentToken.js";
+import type * as lib_aperture from "../lib/aperture.js";
 import type * as lib_builders from "../lib/builders.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_foto from "../lib/foto.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   "lib/activity": typeof lib_activity;
   "lib/admin": typeof lib_admin;
   "lib/agentToken": typeof lib_agentToken;
+  "lib/aperture": typeof lib_aperture;
   "lib/builders": typeof lib_builders;
   "lib/errors": typeof lib_errors;
   "lib/foto": typeof lib_foto;

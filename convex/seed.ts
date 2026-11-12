@@ -123,6 +123,8 @@ export async function seedGabrifila(ctx: MutationCtx) {
   /* concerti: solo se il profilo non ne ha (il seed non duplica mai) */
   const giaPresenti = await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", pid)).first();
   if (!giaPresenti) {
+    const headliner = new Map<string, Id<"entries">>();
+    const aperture: { id: Id<"entries">; e: (typeof ALLDATA)[number] & { aperturaDi?: string } }[] = [];
     for (const e of ALLDATA) {
       const comune = {
         profileId: pid,
@@ -136,7 +138,8 @@ export async function seedGabrifila(ctx: MutationCtx) {
         ...(e.accredito !== undefined ? { accredito: e.accredito } : {}),
         ...(e.from ? { departureId: partenze.get(e.from)! } : {}),
         ...(e.from && typeof e.km === "number" ? { km: e.km, kmSource: "legacy" as const } : {}),
-        ...(e.from && typeof e.km !== "number" ? { kmPending: true } : {}),
+        // un'apertura non ha km suoi (il viaggio è dell'headliner), quindi nemmeno in attesa
+        ...(e.from && typeof e.km !== "number" && (isFestival(e) || !e.aperturaDi) ? { kmPending: true } : {}),
         ...(e.comments ? { comments: e.comments } : {}),
         updatedAt: Date.now(),
       };
@@ -152,9 +155,17 @@ export async function seedGabrifila(ctx: MutationCtx) {
           concerts: e.concerts.map(c => ({ cid: `seed${cid++}`, artist: c.artist, with: c.with.map(n => persone.get(n)!), ...fatti(c), ...(c.date ? { date: c.date } : {}) })),
         });
       } else {
-        await ctx.db.insert("entries", { ...comune, kind: "concert", artist: e.artist, with: e.with.map(n => persone.get(n)!), ...fatti(e) });
+        const id = await ctx.db.insert("entries", { ...comune, kind: "concert", artist: e.artist, with: e.with.map(n => persone.get(n)!), ...fatti(e) });
+        if (e.aperturaDi) aperture.push({ id, e });
+        else headliner.set(`${e.date}\u0000${e.venue}\u0000${e.city}\u0000${e.artist}`, id);
       }
       conteggi.entries++;
+    }
+    // le aperture si collegano al loro headliner (stessa data e venue) quando ci sono tutti
+    for (const { id, e } of aperture) {
+      const h = headliner.get(`${e.date}\u0000${e.venue}\u0000${e.city}\u0000${e.aperturaDi}`);
+      if (!h) throw new Error(`seed: headliner mancante per un'apertura del ${e.date}`);
+      await ctx.db.patch(id, { aperturaDiId: h });
     }
   }
 

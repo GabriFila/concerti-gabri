@@ -468,6 +468,7 @@ function RigaEvento({ e, oggi, aperto, lampo, onModifica, onDuplica, onCancella 
             {titoloDi(e)}
           </button>
           {fest && <span className="mod-tag">festival · {e.concerts.length} concerti</span>}
+          {!fest && e.aperturaDi && <span className="mod-tag">apertura di {e.aperturaDi}</span>}
           {nFoto > 0 && (
             <span className="mod-tag mf-tag-foto" title={nFoto === 1 ? "1 foto" : `${nFoto} foto`}>
               <Icon name="camera" size={13} />

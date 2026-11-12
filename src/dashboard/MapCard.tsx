@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { concertsOf, type Entry } from "../../shared/model/concert.ts";
+import { concertsOf, isFestival, serataDi, serateOf, type Entry } from "../../shared/model/concert.ts";
 import { etichetta } from "../../shared/labels.ts";
 import { baricentro } from "../../shared/lib/derive.ts";
 import { sortKey } from "../../shared/lib/dates.ts";
@@ -49,13 +49,15 @@ export function MapCard(){
   const buildGeo=React.useCallback((m:string)=>{
     const coords = m==="venue"?VENUE_COORDS:CITY_COORDS;
     const keyOf = (d:Entry)=> m==="venue"?d.venue:d.city;
+    // one visit per evening: an opening act is part of its headliner's evening
+    const SERATE=serateOf(DATA);
     const counts:Record<string,number>={};
-    DATA.forEach(d=>{const k=keyOf(d);counts[k]=(counts[k]||0)+1;});
+    SERATE.forEach(d=>{const k=keyOf(d);counts[k]=(counts[k]||0)+1;});
     const features=Object.keys(counts).map(k=>{
       const c=coords[k];
       if(!c) return null;
-      const sample=DATA.find(d=>keyOf(d)===k);
-      const group=DATA.filter(d=>keyOf(d)===k);
+      const sample=SERATE.find(d=>keyOf(d)===k);
+      const group=SERATE.filter(d=>keyOf(d)===k);
       const planned=group.filter(isPlanned).length;
       const attended=group.length-planned;
       // primary = dominant type, secondary = the other (only meaningful when mixed)
@@ -68,12 +70,13 @@ export function MapCard(){
       // equal-RADIUS split: inner amber radius = attended share of the total
       const attendedShare = total ? attended/total : 1;
       const innerFactor = mixed ? Math.min(attendedShare, 0.78) : 1;
-      // the marker count is per-event (a festival is one venue visit), but the
-      // popup lists the concerts, so a festival contributes each of its acts
-      const items=group
-        .sort((a,b)=>sortKey(b)-sortKey(a))
+      // the marker count is per-evening (a festival is one venue visit, an opening
+      // act shares its headliner's), but the popup lists the concerts, so a
+      // festival contributes each of its acts and an evening its opening acts too
+      const items=DATA.filter(d=>keyOf(serataDi(d))===k)
+        .sort((a,b)=>sortKey(b)-sortKey(a)||(isFestival(a)||!a.aperturaDi?0:1)-(isFestival(b)||!b.aperturaDi?0:1))
         .flatMap(concertsOf)
-        .map(c=>({artist:c.artist,year:c.y,planned:isPlanned(c)}));
+        .map(c=>({artist:c.headliner?c.artist+" (apertura)":c.artist,year:c.y,planned:isPlanned(c)}));
       return {type:"Feature",geometry:{type:"Point",coordinates:c},
         properties:{name:k, city:m==="venue"?sample!.city:k, count:counts[k],
           attended, planned, mixed, onlyPlanned, attendedShare, innerFactor,

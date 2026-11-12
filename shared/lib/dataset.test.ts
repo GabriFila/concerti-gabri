@@ -23,7 +23,7 @@ describe("buildDataset su gabrifila", () => {
   it("i filtri vuoti partono dagli estremi del dataset", () => {
     expect(ds.emptyFilters).toEqual({
       dateFrom: "", dateTo: "", cities: [], people: [], vicinanze: [], canzoni: [],
-      status: "all", price: "all", solo: false,
+      status: "all", price: "all", solo: false, aperture: true,
       costMin: 0, costMax: 150, kmMin: 0, kmMax: 980,
     });
   });

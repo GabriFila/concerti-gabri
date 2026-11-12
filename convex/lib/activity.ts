@@ -13,10 +13,16 @@
      nomi unici, handle solo se disponibile (con gli alias, lib/handles.ts).
      Una partenza ricreata torna SENZA indirizzo e con le sue coppie km;
      un concerto ricreato torna con le sue foto (lib/foto.ts).
+   - Aperture (lib/aperture.ts): un'apertura ripristinata torna nella serata
+     del suo headliner (anche ricreato nello stesso lotto) e senza km; non si
+     annulla la creazione di un headliner che ha aperture (`in_uso`), né una
+     modifica che lo porterebbe fuori dalla serata delle aperture collegate
+     dopo (`conflitto`).
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { apertureDi, controllaAperture, riallineaApertura } from "./aperture.ts";
 import { codiceDi, errore } from "./errors.ts";
 import { cambiaHandle } from "./handles.ts";
 import { orfanaFoto, rimappaFoto } from "./foto.ts";
@@ -115,6 +121,8 @@ async function corrente(ctx: MutationCtx, a: Doc<"activity">) {
  * La venue dev'essere del profilo (ognuno ha le sue): una orfana la prende lui, quella di un altro è un conflitto.
  */
 async function conKm(ctx: MutationCtx, doc: Record<string, unknown>) {
+  // un'apertura: data, venue e partenza dell'headliner, nessun km suo
+  if (doc.aperturaDiId) return await riallineaApertura(ctx, doc);
   if (!doc.venueId) return doc;
   const venue = await ctx.db.get(doc.venueId as Id<"venues">);
   if (!venue || (venue.profileId && venue.profileId !== doc.profileId)) throw errore("conflitto", "la venue di questo concerto non c'è più");
@@ -243,8 +251,13 @@ export async function annulla(ctx: MutationCtx, owner: Owner, activityId: Id<"ac
         if (n) throw errore("in_uso", `è usato da ${n} concerti: toglilo da lì prima di annullarne la creazione`);
         if (table === "departures") await cancellaSegretiPartenza(ctx, id as unknown as Id<"departures">);
       }
-      // come entries.remove: le foto aspettano un altro Annulla (lib/foto.ts)
-      if (table === "entries") await orfanaFoto(ctx, id as unknown as Id<"entries">);
+      if (table === "entries") {
+        // un headliner con aperture non sparisce sotto di loro
+        const n = (await apertureDi(ctx, id as unknown as Id<"entries">)).length;
+        if (n) throw errore("in_uso", `ha ${n === 1 ? "un'apertura collegata" : `${n} aperture collegate`}: scollegala o cancellala prima di annullarne la creazione`);
+        // come entries.remove: le foto aspettano un altro Annulla (lib/foto.ts)
+        await orfanaFoto(ctx, id as unknown as Id<"entries">);
+      }
       await ctx.db.delete(id);
       nuova = { op: "delete", table, docId: a.docId, summary: `annullato: ${a.summary}`, before: istantanea(prec as Record<string, unknown>), batchId };
     } else if (a.op === "delete") {
@@ -281,6 +294,12 @@ export async function annulla(ctx: MutationCtx, owner: Owner, activityId: Id<"ac
     const nuovaId = await logActivity(ctx, owner, { ...nuova, undoOf: a._id });
     await ctx.db.patch(a._id, { undoneBy: nuovaId });
     create.push(nuovaId);
+  }
+  // le aperture collegate a un concerto ripristinato sono nella sua serata (o è un conflitto)
+  for (const a of prima) {
+    if (a.table !== "entries" || a.op === "create") continue;
+    const id = ctx.db.normalizeId("entries", mappa.get(a.docId) ?? a.docId);
+    if (id) await controllaAperture(ctx, id);
   }
   return create;
 }

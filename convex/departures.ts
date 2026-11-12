@@ -222,6 +222,8 @@ export const riscriviKm = internalMutation({
       .paginate({ cursor, numItems: LOTTO });
     const profile = await ctx.db.get(d.profileId);
     for (const e of page.page) {
+      // un'apertura non ha km suoi: viaggia con il suo headliner
+      if (e.aperturaDiId) continue;
       const k = await kmSalvato(ctx, departureId, e.venueId);
       if (!k) continue;
       if (e.km === k.km && e.kmSource === k.source && !e.kmPending) continue;

@@ -2,8 +2,10 @@
    I campi del form di un concerto o di un festival (#concerti, spec
    ux-modifica §6.2), dentro il pannello di ConcertoPannello.tsx. Il form
    è diviso in parti con la loro legenda, una sotto l'altra:
-   - «La serata»: artista, tour, data (con «in programma»), venue, con
-     chi; per un festival nome, data (anche più giorni) e venue, poi
+   - «La serata»: artista, tour, data (con «in programma»), «Apertura
+     di…» (facoltativo, mai «da completare»: i concerti singoli della
+     stessa data; con un headliner data, venue e partenza diventano le sue,
+     in sola lettura), venue, con chi; per un festival nome, data (anche più giorni) e venue, poi
      «Concerti del festival»: le schede dei suoi concerti, ognuna con
      artista, tour, giorno, compagni e voti. Il tour propone quelli già
      scritti per lo stesso artista;
@@ -45,7 +47,7 @@ import type { IdVista, Parametri } from "../vista.ts";
 import { CampoCosto, PersoneScelte, VenueScelta, type useNomi } from "./campiConcerto.tsx";
 import { CampoTesto, Errore, ErroriCampo, useConvex, useDescrizione, useOperazione, type ErroreUi } from "./comuni.tsx";
 import {
-  chiaveNome, compagniFrequenti, descrizione, etichettaCampo, nuovoSet, type EventoUi, type ValoriConcerto, type ValoriFestival, type ValoriSet,
+  chiaveNome, compagniFrequenti, descrizione, etichettaCampo, nuovoSet, type ConcertoUi, type EventoUi, type ValoriConcerto, type ValoriFestival, type ValoriSet,
 } from "./forme.ts";
 
 const C = concertoInput.shape;
@@ -73,6 +75,10 @@ export interface ContestoModulo {
   recenti: { venue: string; city: string }[];
   /** I tour già scritti per un artista (i suggerimenti del campo «Tour»). */
   tourDi: (artista: string) => string[];
+  /** I possibili headliner in una data ISO (le proposte di «Apertura di…»). */
+  headlinerDi: (dataIso: string) => ConcertoUi[];
+  /** Le aperture collegate a questo concerto (un headliner non può essere a sua volta un'apertura). */
+  aperture: ConcertoUi[];
   /** La partenza dell'ultimo concerto, solo per un concerto nuovo. */
   ultima: string | null;
   /** La data è oggi o dopo. */
@@ -181,10 +187,78 @@ function Voti({ prefisso }: { prefisso: string }) {
   );
 }
 
+/** Il concerto è un'apertura: l'artista dell'headliner (solo concerti, "" se no). */
+const headlinerDelModulo = (m: ContestoModulo): string => (m.festival ? "" : (m.valori as ValoriConcerto).aperturaDi.trim());
+
+/** Un valore della serata che arriva dall'headliner: in sola lettura, con il perché. */
+function DallHeadliner({ etichetta, valore, headliner, campo }: { etichetta: string; valore: string; headliner: string; campo: string }) {
+  return (
+    <div className="mod-campo" data-campo={campo}>
+      <span className="mod-etichetta">{etichetta}</span>
+      <p className="mf-dallheadliner">{valore || "—"}</p>
+      <span className="mod-hint">Come la serata di {headliner}: si cambia dall'headliner, oppure togli «Apertura di».</span>
+      <ErroreDelServer campo={campo} />
+    </div>
+  );
+}
+
+/**
+ * «Apertura di…»: facoltativo, mai «da completare». Propone i concerti
+ * singoli della stessa data; scelto un headliner, venue e partenza diventano
+ * le sue (il server le impone comunque) e la serata conta una volta.
+ */
+function CampoAperturaDi({ f }: { f: AnyFieldApi }) {
+  const m = useModulo();
+  const d = useDescrizione(f, true);
+  const v = m.valori as ValoriConcerto;
+  const attuale = String(f.state.value ?? "");
+  const proposte = m.headlinerDi(v.date);
+  if (m.aperture.length) {
+    return (
+      <p className="mod-hint mf-aperture" data-campo={f.name}>
+        {m.aperture.length === 1 ? "L'ha aperto" : "L'hanno aperto"} {m.aperture.map(a => a.artist).join(", ")}: è l'headliner della serata.
+      </p>
+    );
+  }
+  if (!attuale && !proposte.length) return null;
+  const scegli = (nome: string) => {
+    f.handleChange(nome);
+    const h = proposte.find(p => chiaveNome(p.artist ?? "") === chiaveNome(nome));
+    if (!h) return;
+    m.form.setFieldValue("venue", h.venue);
+    m.form.setFieldValue("city", h.city);
+    m.form.setFieldValue("from", h.from ?? "");
+  };
+  return (
+    <div className="mod-campo" data-campo={f.name}>
+      <label className="mod-etichetta" htmlFor={d.id}>
+        Apertura di…
+        <Segno campo={f.name} />
+      </label>
+      <select id={d.id} name={f.name} value={attuale} onChange={e => scegli(e.target.value)} onBlur={f.handleBlur} aria-describedby={d.descritto} aria-invalid={d.invalido}>
+        <option value="">— no, è un concerto a sé</option>
+        {proposte.map(p => (
+          <option key={p.id} value={p.artist ?? ""}>{p.artist} · {p.venue}</option>
+        ))}
+        {attuale && !proposte.some(p => chiaveNome(p.artist ?? "") === chiaveNome(attuale)) && <option value={attuale}>{attuale}</option>}
+      </select>
+      <span id={d.idAiuto} className="mod-hint">
+        {attuale
+          ? "Data, venue e partenza sono quelle dell'headliner: la serata e il viaggio contano una volta. Prezzo, voti e compagni restano di questo concerto."
+          : "Facoltativo: se questo artista ha aperto il concerto di un altro la stessa sera."}
+      </span>
+      <ErroreDelServer campo={f.name} />
+      <ErroriCampo f={f} id={d.idErrore} />
+    </div>
+  );
+}
+
 /** La venue (due campi, venue e città, scelti insieme), con le venue degli ultimi concerti. */
 function CampoVenue() {
   const m = useModulo();
   const { form } = m;
+  const headliner = headlinerDelModulo(m);
+  if (headliner) return <DallHeadliner etichetta="Venue" campo="venue" headliner={headliner} valore={[m.valori.venue, m.valori.city].filter(Boolean).join(" · ")} />;
   return (
     <VenueScelta
       venue={m.valori.venue}
@@ -242,6 +316,7 @@ function CampoTour({ f, artista }: { f: AnyFieldApi; artista: string }) {
 function SerataConcerto() {
   const m = useModulo();
   const { form } = m;
+  const headliner = headlinerDelModulo(m);
   return (
     <Parte id="serata" titolo="La serata">
       <div className="mod-griglia">
@@ -249,10 +324,20 @@ function SerataConcerto() {
           {(f: AnyFieldApi) => <CampoTesto f={f} etichetta="Artista" segno={<Segno campo="artist" />} aiuto={descrizione(C.artist)} maxLength={120} autoFocus={m.autofocus === "campo"} />}
         </form.Field>
         <form.Field name="date">
-          {(f: AnyFieldApi) => <CampoTesto f={f} etichetta="Data" tipo="date" segno={<Segno campo="date" />} aiuto={m.inProgramma ? <InProgramma /> : undefined} />}
+          {(f: AnyFieldApi) => (
+            <CampoTesto
+              f={f}
+              etichetta="Data"
+              tipo="date"
+              segno={<Segno campo="date" />}
+              readOnly={!!headliner}
+              aiuto={headliner ? <>La data della serata di {headliner}.{m.inProgramma && <> <InProgramma /></>}</> : m.inProgramma ? <InProgramma /> : undefined}
+            />
+          )}
         </form.Field>
       </div>
       <form.Field name="tour">{(f: AnyFieldApi) => <CampoTour f={f} artista={(m.valori as ValoriConcerto).artist} />}</form.Field>
+      <form.Field name="aperturaDi">{(f: AnyFieldApi) => <CampoAperturaDi f={f} />}</form.Field>
       <CampoVenue />
       <form.Field name="with">{(f: AnyFieldApi) => <CampoCompagni f={f} />}</form.Field>
     </Parte>
@@ -470,6 +555,12 @@ const NUOVA_PARTENZA = "\n nuova";
  * «Nuova partenza…» apre un campo per il nome: la partenza si crea subito (nella scheda dell'Oracolo la crea il salvataggio).
  */
 function CampoPartenza({ f }: { f: AnyFieldApi }) {
+  const headliner = headlinerDelModulo(useModulo());
+  if (headliner) return <DallHeadliner etichetta="Partito da" campo={f.name} headliner={headliner} valore={String(f.state.value ?? "")} />;
+  return <ScegliPartenza f={f} />;
+}
+
+function ScegliPartenza({ f }: { f: AnyFieldApi }) {
   const m = useModulo();
   const d = useDescrizione(f, true);
   const convex = useConvex();

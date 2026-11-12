@@ -80,7 +80,11 @@ export function perImport(e: Doc<"entries">, n: Nomi) {
   return {
     kind: "concert" as const,
     ...base,
-    ...senzaVuoti({ artist: e.artist ?? "", tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote }),
+    ...senzaVuoti({
+      artist: e.artist ?? "", tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote,
+      // un'apertura: l'artista dell'headliner (import la ricollega per nome e data)
+      aperturaDi: e.aperturaDiId ? n.headliner.get(e.aperturaDiId) : undefined,
+    }),
   };
 }
 

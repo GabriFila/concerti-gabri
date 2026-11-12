@@ -35,12 +35,14 @@ describe("computeKpis: i 12 KPI al 2026-10-21T12:00+02:00", () => {
     ["voto", "3,4★", "80 concerti votati"],
     ["speso", "€3375", "68 biglietti"],
     ["spesaMedia", "€50", "68 biglietti"],
-    ["citta", "13", "53% a Milano"],
+    // per serata: le aperture di Rho e Lido di Camaiore non sono serate in più (prima 53%)
+    ["citta", "13", "56% a Milano"],
     ["artisti", "50", "Emma Nolde 10x"],
     ["compagni", "44", "#1 Cami <3"],
     ["solo", "11", "14% del totale"],
     ["cieca", "25", "32% dei concerti"],
-    ["km", "7278", "andata e ritorno"],
+    // 7278 − 2·(133 + 13 + 13): Kiwanuka, Bove e Temper City viaggiano con il loro headliner
+    ["km", "6960", "andata e ritorno"],
   ] as [KpiId, string, string][])("%s = %s (%s)", (id, value, hint) => {
     expect(shown(byId[id])).toBe(value);
     expect(byId[id].hint).toBe(hint);
@@ -119,7 +121,7 @@ describe("aggregati delle card", () => {
   it("il Ritratto coincide coi KPI (stessi aiuti, stesse righe)", () => {
     expect(p.total).toBe(80);
     expect(p.artists).toBe(50);
-    expect(p.km).toBe(7278);
+    expect(p.km).toBe(6960);
     expect(p.perYear.toFixed(1)).toBe("15.6");
     expect(p.companions).toBe(44);
     expect(p.solo).toBe(11);

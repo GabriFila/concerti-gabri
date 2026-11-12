@@ -149,7 +149,10 @@ interface ValoriFatti {
   canzoniNote?: CanzoniNote;
 }
 
-export interface ValoriConcerto extends ValoriEvento, ValoriFatti {}
+export interface ValoriConcerto extends ValoriEvento, ValoriFatti {
+  /** L'artista dell'headliner se è un'apertura; "" = non è un'apertura. */
+  aperturaDi: string;
+}
 export interface ValoriSet extends ValoriFatti {
   /** "" = il giorno del festival (multi-giorno: quello del set, ISO). */
   date: string;
@@ -186,7 +189,7 @@ const fatti = (c?: { artist?: string; tour?: string; with?: string[]; voto?: num
 
 /** I valori iniziali del modale di un concerto (vuoti se nuovo). */
 export function valoriConcerto(e?: ConcertoUi): ValoriConcerto {
-  return { ...valoriEvento(e), ...fatti(e), date: inIso(e?.date) };
+  return { ...valoriEvento(e), ...fatti(e), date: inIso(e?.date), aperturaDi: e?.aperturaDi ?? "" };
 }
 
 /** I valori iniziali del modale di un festival (due set vuoti se nuovo). */
@@ -231,7 +234,12 @@ function eventoInput(v: ValoriEvento) {
 }
 
 /** L'input di add_concert (forma esterna di shared/schema/entry.ts) da un concerto del modale. */
-export const inputConcerto = (v: ValoriConcerto) => ({ kind: "concert" as const, ...eventoInput(v), ...fattiInput(v) });
+export const inputConcerto = (v: ValoriConcerto) => ({
+  kind: "concert" as const,
+  ...eventoInput(v),
+  ...fattiInput(v),
+  ...(v.aperturaDi.trim() ? { aperturaDi: v.aperturaDi.trim() } : {}),
+});
 
 /** L'input di add_concert da un festival del modale. */
 export const inputFestival = (v: ValoriFestival) => ({
@@ -265,6 +273,7 @@ export const patchConcerto = (v: ValoriConcerto) => ({
   voto: v.voto ?? null,
   vicinanza: v.vicinanza ?? null,
   canzoniNote: v.canzoniNote ?? null,
+  aperturaDi: v.aperturaDi.trim() ? v.aperturaDi.trim() : null,
 });
 
 export const patchFestival = (v: ValoriFestival) => ({
@@ -299,7 +308,8 @@ export function campiMancanti(v: ValoriConcerto | ValoriFestival, oggi: number):
   const fatti = (f: ValoriFatti, prefisso: string) =>
     (["voto", "vicinanza", "canzoniNote"] as const).filter(k => f[k] === undefined).map(k => `${prefisso}${k}`);
   const out = eValoriFestival(v) ? v.concerts.flatMap((c, i) => fatti(c, `concerts[${i}].`)) : fatti(v, "");
-  if (!v.from.trim()) out.push("from");
+  // un'apertura parte con il suo headliner: la partenza si completa lì
+  if (!v.from.trim() && (eValoriFestival(v) || !v.aperturaDi.trim())) out.push("from");
   return out;
 }
 
@@ -309,6 +319,7 @@ const ETICHETTE: Record<string, string> = {
   artist: "Artista",
   tour: "Tour",
   date: "Data",
+  aperturaDi: "Apertura di",
   venue: "Venue",
   city: "Venue",
   with: "Con chi",
@@ -377,7 +388,8 @@ export function valoriDuplicati(e: EventoUi): ValoriConcerto | ValoriFestival {
     return { ...base, name: da.name, venue: da.venue, city: da.city, from: da.from };
   }
   const v = valoriConcerto(e);
-  return { ...v, date: "", voto: undefined, vicinanza: undefined, canzoniNote: undefined, comments: "" };
+  // senza data non c'è serata: un duplicato non è un'apertura
+  return { ...v, date: "", voto: undefined, vicinanza: undefined, canzoniNote: undefined, comments: "", aperturaDi: "" };
 }
 
 /**
@@ -386,7 +398,8 @@ export function valoriDuplicati(e: EventoUi): ValoriConcerto | ValoriFestival {
  * diventano il primo concerto del festival.
  */
 export function daConcertoAFestival(v: ValoriConcerto): ValoriFestival {
-  const { artist, tour, with: con, voto, vicinanza, canzoniNote, date, ...evento } = v;
+  const { artist, tour, with: con, voto, vicinanza, canzoniNote, date, aperturaDi: _apertura, ...evento } = v;
+  void _apertura; // un festival non è un'apertura
   return { ...evento, date: daIso(date), name: "", concerts: [{ artist, tour, with: [...con], voto, vicinanza, canzoniNote, date: "" }, setVuoto()] };
 }
 
@@ -404,8 +417,25 @@ export function daFestivalAConcerto(v: ValoriFestival): ValoriConcerto {
     voto: primo.voto,
     vicinanza: primo.vicinanza,
     canzoniNote: primo.canzoniNote,
+    aperturaDi: "",
   };
 }
+
+/**
+ * I possibili headliner di un'apertura in quella data (ISO del form): i
+ * concerti singoli dello stesso giorno, non festival, non a loro volta
+ * aperture, escluso quello che si modifica. Le proposte del campo
+ * «Apertura di…».
+ */
+export function headlinerDelGiorno(eventi: EventoUi[], dataIso: string, self?: string): ConcertoUi[] {
+  const d = daIso(dataIso);
+  if (!d) return [];
+  return eventi.filter((e): e is ConcertoUi => !eFestival(e) && e.date === d && !e.aperturaDi && e.id !== self);
+}
+
+/** Le aperture collegate a un concerto (per id). */
+export const apertureDelConcerto = (eventi: EventoUi[], id: string | undefined): ConcertoUi[] =>
+  id ? eventi.filter((e): e is ConcertoUi => !eFestival(e) && e.aperturaDiId === id) : [];
 
 /** Le venue degli ultimi eventi (dal più recente), senza doppioni: le scorciatoie «Usate di recente». */
 export function venueRecenti(eventi: EventoUi[], n = 5): { venue: string; city: string }[] {
@@ -506,7 +536,9 @@ export const anniDi = (eventi: EventoUi[]): number[] => [...new Set(eventi.map(a
  * attesa» (la partenza non ha l'indirizzo), «da Casa» (km storici assenti)
  * o «—» senza partenza.
  */
-export function viaggioDi(e: { from?: string; km?: number; kmPending?: boolean }): string {
+export function viaggioDi(e: { from?: string; km?: number; kmPending?: boolean; aperturaDi?: string }): string {
+  // un'apertura viaggia con il suo headliner: niente km suoi
+  if (e.aperturaDi) return e.from ? `da ${e.from} · serata di ${e.aperturaDi}` : `serata di ${e.aperturaDi}`;
   if (!e.from) return "—";
   if (e.kmPending) return `da ${e.from} · km in attesa`;
   return e.km !== undefined ? `da ${e.from} · ${e.km} km` : `da ${e.from}`;

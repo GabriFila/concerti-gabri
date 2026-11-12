@@ -1,5 +1,5 @@
 /* Le regole che sostituiscono le costanti di Gabri (PIANO §1.33): per
-   gabrifila danno i valori di sempre ("dal 2022", Milano al 53%, anni
+   gabrifila danno i valori di sempre ("dal 2022", Milano al 56% delle serate, anni
    2017…2027, centro sulle venue); un profilo vuoto, con soli concerti in
    programma o con un anno solo non produce mai NaN. */
 
@@ -34,9 +34,10 @@ describe("regole per gabrifila: gli stessi valori di prima", () => {
     expect(computeKpis(ds.entries, NOW).find(k => k.id === "media")!.hint).toBe("dal 2022 a oggi");
   });
 
-  it("Milano al 53%: la città più frequente", () => {
+  // 56% delle serate (53% delle righe prima delle aperture: tre aperture a Rho e Lido di Camaiore contavano come serate)
+  it("Milano al 56%: la città più frequente", () => {
     expect(cittaPrincipale(ds.entries, TODAY)).toBe("Milano");
-    expect(computeKpis(ds.entries, NOW).find(k => k.id === "citta")!.hint).toBe("53% a Milano");
+    expect(computeKpis(ds.entries, NOW).find(k => k.id === "citta")!.hint).toBe("56% a Milano");
   });
 
   it("asse degli anni: dal primo anno a max(anno corrente, ultimo anno con dati)", () => {

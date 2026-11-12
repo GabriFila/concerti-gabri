@@ -55,7 +55,8 @@ describe("seed:ensure", () => {
       expect(e.km, `riga ${i}`).toBe(ALLDATA[i].km);
       expect(!!e.from, `riga ${i}`).toBe(!!ALLDATA[i].from);
     });
-    expect(page.entries.every(e => (e.km === undefined) === !e.departureId || e.kmPending)).toBe(true);
+    // un'apertura ha la partenza dell'headliner ma nessun km suo
+    expect(page.entries.every(e => (e.km === undefined) === !e.departureId || e.kmPending || e.aperturaDiId)).toBe(true);
   });
 
   it("coppie km coerenti: una per (partenza, venue), mai valori diversi nei dati di oggi", async () => {

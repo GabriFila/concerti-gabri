@@ -44,6 +44,7 @@ export function chatToolDefs(vocab: ChatVocab) {
       cities: z.array(enumOrString(vocab.cities)).optional().meta({ description: "Concert cities (OR between them). Empty array = all cities." }),
       people: z.array(enumOrString(vocab.companions)).optional().meta({ description: "Companions the page owner went with (OR between them). Empty array = anyone." }),
       solo: z.boolean().optional().meta({ description: "true = only concerts attended alone" }),
+      aperture: z.boolean().optional().meta({ description: "Include opening acts (concerts that opened for a headliner the same evening). Default true; false = leave them out" }),
       vicinanze: z.array(z.enum(["1", "2", "3", "4", "5", "6"])).optional().meta({ description: `Closeness to the stage, higher = closer: ${vicinanzaScale()}. Empty array = all.` }),
       canzoniNote: z.array(z.enum(["1", "2", "3", "4", "5"])).optional().meta({ description: `"Canzoni note" — how much of the setlist the page owner already knew: ${canzoniNoteScale()}. Empty array = all.` }),
       price: z.enum(["all", "paid", "gift", "accredito", "unknown"]).optional().meta({ description: "paid = has a known price, gift = received as a present, accredito = free entry via guest list/press pass, unknown = no price recorded" }),

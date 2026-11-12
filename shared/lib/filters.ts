@@ -5,10 +5,14 @@
    Gli estremi (costo e km massimi) e il vocabolario (città, persone, livelli
    presenti) vengono dal dataset del profilo, mai da costanti di modulo; il
    giorno di oggi arriva come parametro.
+
+   `aperture` (Includi aperture, attivo di default): spento toglie i
+   concerti di apertura. Un'apertura è della serata del suo headliner,
+   quindi la fascia di km guarda il viaggio della serata.
    ────────────────────────────────────────────────────────────── */
 
 import { etichetta, type Forma } from "../labels.ts";
-import { isFestival, type Entry } from "../model/concert.ts";
+import { collegaAperture, isFestival, serataDi, type Entry } from "../model/concert.ts";
 import { CN_LABELS, VIC_LABELS } from "../model/scale.ts";
 import { isoKey, isPlanned, sortKey } from "./dates.ts";
 import { distKm, hasCN, hasCost, hasVic, isAccredito, isGift, type PerConcert } from "./predicates.ts";
@@ -19,6 +23,8 @@ export interface Filters {
   cities: string[]; people: string[];
   vicinanze: number[]; canzoni: number[];
   status: string; price: string; solo: boolean;
+  /** Includi aperture (true di default): false toglie i concerti di apertura. */
+  aperture: boolean;
   costMin: number; costMax: number; kmMin: number; kmMax: number;
 }
 
@@ -37,7 +43,7 @@ export interface FilterVocab {
 
 export const emptyFilters = (b: FilterBounds): Filters => ({
   dateFrom: "", dateTo: "", cities: [], people: [], vicinanze: [], canzoni: [],
-  status: "all", price: "all", solo: false,
+  status: "all", price: "all", solo: false, aperture: true,
   costMin: b.costMin, costMax: b.costMax, kmMin: b.kmMin, kmMax: b.kmMax,
 });
 
@@ -62,10 +68,10 @@ export function rebaseFilters(f: Filters, old: FilterBounds, b: FilterBounds): F
 
 export const isEmptyFilters = (f: Filters, b: FilterBounds) =>
   isDefaultDate(f) && f.cities.length === 0 && f.people.length === 0 && f.vicinanze.length === 0 && f.canzoni.length === 0 &&
-  f.status === "all" && f.price === "all" && !f.solo && isDefaultCost(f, b) && isDefaultKm(f, b);
+  f.status === "all" && f.price === "all" && !f.solo && f.aperture !== false && isDefaultCost(f, b) && isDefaultKm(f, b);
 export const countActive = (f: Filters, b: FilterBounds) =>
   (f.dateFrom ? 1 : 0) + (f.dateTo ? 1 : 0) + f.cities.length + f.people.length + f.vicinanze.length + f.canzoni.length +
-  (f.status !== "all" ? 1 : 0) + (f.price !== "all" ? 1 : 0) + (f.solo ? 1 : 0) + (isDefaultCost(f, b) ? 0 : 1) + (isDefaultKm(f, b) ? 0 : 1);
+  (f.status !== "all" ? 1 : 0) + (f.price !== "all" ? 1 : 0) + (f.solo ? 1 : 0) + (f.aperture === false ? 1 : 0) + (isDefaultCost(f, b) ? 0 : 1) + (isDefaultKm(f, b) ? 0 : 1);
 
 /* Recap testuale dei filtri attivi: lo usa l'Oracolo per confermare cosa
    mostra la pagina. "da solo" segue la forma del profilo (default m). */
@@ -78,6 +84,7 @@ export function describeFilters(f: Filters, b: FilterBounds, forma: Forma = "m")
   if (f.cities.length) parts.push("città: " + f.cities.join(", "));
   if (f.people.length) parts.push("con: " + f.people.join(", "));
   if (f.solo) parts.push(etichetta("riassuntoSolo", forma));
+  if (f.aperture === false) parts.push("senza aperture");
   if (f.vicinanze.length) parts.push("vicinanza: " + f.vicinanze.map(v => VIC_LABELS[v] || v).join(", "));
   if (f.canzoni.length) parts.push("canzoni note: " + f.canzoni.map(v => CN_LABELS[v] || v).join(", "));
   if (f.price === "paid") parts.push("solo con prezzo");
@@ -101,6 +108,7 @@ export function mergeToolFilters(cur: Filters, input: any, v: FilterVocab): Filt
   if (input.cities !== undefined) next.cities = input.cities.filter((c: string) => v.cities.includes(c));
   if (input.people !== undefined) next.people = input.people.filter((p: string) => v.people.includes(p));
   if (input.solo !== undefined) next.solo = !!input.solo;
+  if (input.aperture !== undefined) next.aperture = !!input.aperture;
   if (input.vicinanze !== undefined) next.vicinanze = input.vicinanze.map(Number).filter((x: number) => v.vic.includes(x));
   if (input.canzoniNote !== undefined) next.canzoni = input.canzoniNote.map(Number).filter((x: number) => v.cn.includes(x));
   if (input.price !== undefined) next.price = input.price;
@@ -129,7 +137,10 @@ export const hasConcertFilters = (f: Filters): boolean => f.people.length > 0 ||
 export function applyFilters(data: Entry[], f: Filters, b: FilterBounds, today: number): Entry[] {
   const from = isoKey(f.dateFrom), to = isoKey(f.dateTo);
   const out: Entry[] = [];
+  collegaAperture(data);
   for (const d of data) {
+    // un'apertura: fuori se "Includi aperture" è spento
+    if (f.aperture === false && !isFestival(d) && d.aperturaDi) continue;
     // criteri dell'evento: la riga passa o cade intera
     const dk = sortKey(d);
     if (from != null && dk < from) continue;
@@ -150,7 +161,7 @@ export function applyFilters(data: Entry[], f: Filters, b: FilterBounds, today: 
     // fascia di km: come il costo, scatta solo se ristretta, e allora ammette
     // solo gli eventi con distanza nota
     if (!isDefaultKm(f, b)) {
-      const k = distKm(d);
+      const k = distKm(serataDi(d));
       if (k === null || k < f.kmMin || k > f.kmMax) continue;
     }
     // criteri per concerto: un festival resta se almeno un set corrisponde, ed

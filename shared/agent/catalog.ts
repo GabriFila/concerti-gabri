@@ -48,7 +48,10 @@ const REGOLE_CONCERTO =
   "Non inventare mai voto, vicinanza, canzoni note, prezzo o tour: lascia fuori quello che l'utente non ha detto. " +
   "cost è il totale pagato, commissioni comprese. " +
   "comments solo con le parole dell'utente, mai scritto da te; è dell'evento, quindi in un festival va sul festival e non su un concerto. " +
-  "Per tour riusa la grafia già scritta su un altro concerto dello stesso artista (list_concerts con artista).";
+  "Per tour riusa la grafia già scritta su un altro concerto dello stesso artista (list_concerts con artista). " +
+  "Chi apre il concerto di un altro artista la stessa sera (opening act, supporto) è un'apertura: aggiungilo come concerto con aperturaDi = l'artista dell'headliner, " +
+  "già salvato con la stessa data e venue, invece di un concerto indipendente; data, venue e partenza sono quelle dell'headliner (niente km suoi, la serata conta una volta), " +
+  "mentre prezzo (spesso 0, incluso nel biglietto), voto, compagni, vicinanza e canzoni note restano dell'apertura. Un festival non ha aperture: chi suona lì va nei suoi concerti.";
 
 const op = (o: OperazioneCatalogo) => o;
 
@@ -59,9 +62,9 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
     descrizione: "Il profilo del proprietario: handle, nome visualizzato, forma grammaticale, tema e layout." }),
   op({ name: "list_concerts", tipo: "lettura", traguardo: 2, funzione: "entries:list", input: elencaConcertiInput,
     output: z.object({ concerts: z.array(z.any()) }),
-    descrizione: `Elenca concerti e festival, con filtri per anno, artista o "da completare" (passati senza voto, vicinanza, canzoni note o partenza; ogni riga ha "mancano" con cosa manca, in italiano: proponi di completarli). ${SCALE}` }),
+    descrizione: `Elenca concerti e festival, con filtri per anno, artista o "da completare" (passati senza voto, vicinanza, canzoni note o partenza; ogni riga ha "mancano" con cosa manca, in italiano: proponi di completarli). Un'apertura ha aperturaDi (l'artista dell'headliner) e aperturaDiId; un'apertura non chiede la partenza, che è quella dell'headliner. ${SCALE}` }),
   op({ name: "get_concert", tipo: "lettura", traguardo: 2, funzione: "entries:get", input: leggiConcertoInput, output: z.any(),
-    descrizione: "Legge un concerto o festival per id, con i nomi di persone, venue, partenza e \"regalato da\"." }),
+    descrizione: "Legge un concerto o festival per id, con i nomi di persone, venue, partenza e \"regalato da\"; un'apertura ha aperturaDi (l'artista dell'headliner) e aperturaDiId." }),
   op({ name: "list_people", tipo: "lettura", traguardo: 2, funzione: "people:list", input: vuoto,
     output: z.object({ people: z.array(z.object({ id: z.string(), name: nomePersona, concerti: z.number() })) }),
     descrizione: `Le persone (compagni di concerto) del proprietario. ${REGOLA_SOPRANNOMI}` }),
@@ -96,7 +99,7 @@ export const CATALOGO: readonly OperazioneCatalogo[] = [
     output: z.object({ modificati: z.number(), ids: z.array(z.string()), batchId: z.string() }),
     descrizione: `Modifica fino a ${MAX_MODIFICHE_BLOCCO} concerti o festival in una volta: ogni elemento di updates è { id, patch } come in update_concert (null toglie un campo), un id una volta sola. Tutte o nessuna: se una modifica è sbagliata non si salva niente e l'errore dice quale (indice). Sono un solo lotto del registro: un undo di una qualunque voce le annulla tutte. Oltre ${MAX_MODIFICHE_BLOCCO} concerti, più chiamate. ${REGOLA_SOPRANNOMI}. ${SCALE} ${REGOLE_CONCERTO}` }),
   op({ name: "delete_concert", tipo: "scrittura", traguardo: 2, funzione: "entries:remove", input: cancellaConcertoInput, output: ok, confirm: true,
-    descrizione: "Cancella un concerto o festival. Chiedi conferma all'utente e passa confirm: true. Si può annullare con undo." }),
+    descrizione: "Cancella un concerto o festival. Chiedi conferma all'utente e passa confirm: true. Le aperture di un headliner cancellato restano come concerti normali, scollegati, nello stesso lotto. Si può annullare con undo (che le ricollega)." }),
   op({ name: "add_person", tipo: "scrittura", traguardo: 2, funzione: "people:add", input: aggiungiPersonaInput, output: conId,
     descrizione: `Aggiunge una persona. ${REGOLA_SOPRANNOMI}` }),
   op({ name: "rename_person", tipo: "scrittura", traguardo: 2, funzione: "people:rename",

@@ -6,6 +6,8 @@
    - Passato: voto, posizione, canzoni note (per concerto: in un festival
      contati, «voto (2 concerti)»), partenza se manca `from`.
    - In programma: solo partenza (e prezzo).
+   - Un'apertura (`aperturaDi`) non chiede la partenza: è quella
+     dell'headliner, e si completa lì. Il collegamento stesso non manca mai.
    - «prezzo» solo con `{prezzo: true}` (scheda e Oracolo): senza costo,
      regalo o accredito. Il riquadro della dashboard non lo chiede.
    Puro e isomorfo.
@@ -27,6 +29,7 @@ export interface EventoPerMancano extends FattiPerMancano {
   gift?: boolean;
   accredito?: boolean;
   from?: string;
+  aperturaDi?: string;
   concerts?: readonly FattiPerMancano[];
 }
 
@@ -44,7 +47,7 @@ export function mancanoDi(evento: EventoPerMancano, oggi: number, { prezzo }: { 
     conta("posizione", c => c.vicinanza === undefined);
     conta("canzoni note", c => c.canzoniNote === undefined);
   }
-  if (!evento.from) mancano.push("partenza");
+  if (!evento.from && !evento.aperturaDi) mancano.push("partenza");
   if (prezzo && evento.cost === undefined && !evento.gift && !evento.accredito) mancano.push("prezzo");
   return mancano;
 }

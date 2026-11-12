@@ -25,3 +25,9 @@ export const codiceDi = (e: unknown): string | undefined => {
   const data = (e as { data?: unknown })?.data;
   return data && typeof data === "object" && "code" in data ? String((data as { code: unknown }).code) : undefined;
 };
+
+/** Il `messaggio` di un ConvexError (o undefined). */
+export const messaggioDi = (e: unknown): string | undefined => {
+  const data = (e as { data?: unknown })?.data;
+  return data && typeof data === "object" && "messaggio" in data ? String((data as { messaggio: unknown }).messaggio) : undefined;
+};

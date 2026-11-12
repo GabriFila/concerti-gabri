@@ -6,6 +6,9 @@
    ricevuto). Le venue no: con un autore, una venue che non è tra quelle
    del profilo nasce col nome scritto (lib/venueUtente.ts). Ogni profilo ha
    le sue venue: si cercano sempre per (profilo, nome, città).
+   L'headliner di un'apertura si indica con l'artista e si cerca tra i
+   concerti singoli della stessa data (`headlinerDa`, DECISIONI «Aperture»):
+   non trovato o ambiguo è un errore con gli headliner validi di quel giorno.
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc, Id } from "../_generated/dataModel";
@@ -110,12 +113,97 @@ export const tempoDi = (date: string) => {
 let cidSeq = 0;
 export const nuovoCid = () => `c${Date.now().toString(36)}${(cidSeq++ % 1296).toString(36).padStart(2, "0")}`;
 
+/* ── aperture ─────────────────────────────────────────────────── */
+
+const stessaVenue = (v: Doc<"venues"> | null, venue: string, city: string) => !!v && chiave(v.name) === chiave(venue) && chiave(v.city) === chiave(city);
+
+/**
+ * L'headliner di un'apertura: il concerto singolo del profilo (non un
+ * festival, non a sua volta un'apertura) della stessa data con l'artista
+ * `nome`; se nella data ce n'è più d'uno, decide la venue. Non trovato o
+ * ambiguo: errore con gli headliner validi di quel giorno (mai i valori
+ * ricevuti). `self` esclude il concerto che si sta modificando.
+ */
+export async function headlinerDa(
+  ctx: Ctx,
+  profileId: Id<"profiles">,
+  nome: string,
+  dove: { date: string; venue?: string; city?: string },
+  { campo = "aperturaDi", self }: { campo?: string; self?: Id<"entries"> } = {},
+): Promise<Doc<"entries">> {
+  const { sortKey: k } = tempoDi(dove.date);
+  const stessoGiorno = (await ctx.db.query("entries").withIndex("by_profile_sortKey", q => q.eq("profileId", profileId).eq("sortKey", k)).collect())
+    .filter(e => e._id !== self);
+  const n = chiave(nome);
+  const conNome = stessoGiorno.filter(e => chiave((e.kind === "festival" ? e.name : e.artist) ?? "") === n);
+  const validi = stessoGiorno.filter(e => e.kind === "concert" && !e.aperturaDiId);
+  let scelti = conNome.filter(e => validi.includes(e));
+  if (scelti.length > 1 && dove.venue !== undefined && dove.city !== undefined) {
+    const nella = [];
+    for (const e of scelti) if (stessaVenue(await ctx.db.get(e.venueId), dove.venue, dove.city)) nella.push(e);
+    scelti = nella;
+  }
+  if (scelti.length === 1) return scelti[0];
+  if (scelti.length > 1) {
+    throw errore("input_non_valido", `${campo}: in quella data ci sono più concerti di quell'artista; indica la venue dell'headliner`, { campo });
+  }
+  if (conNome.some(e => e.kind === "festival")) {
+    throw errore("input_non_valido", `${campo}: è un festival, e un festival non ha aperture (la lineup le comprende già): aggiungi questo concerto ai concerti del festival`, { campo });
+  }
+  if (conNome.length) {
+    throw errore("input_non_valido", `${campo}: quel concerto è a sua volta un'apertura; indica l'headliner della serata`, { campo });
+  }
+  const nomi = elenco([...new Set(validi.map(e => e.artist ?? ""))].filter(Boolean));
+  throw errore(
+    "nome_sconosciuto",
+    `${campo}: nessun concerto di quell'artista in quella data (l'headliner dev'essere un concerto singolo già salvato, con la stessa data). Headliner validi in quella data: ${nomi.join(", ") || "nessuno"}`,
+    { campo },
+  );
+}
+
+/**
+ * Un'apertura è nella serata del suo headliner: venue, città e partenza
+ * scritte nell'input (se ci sono) devono essere le sue. Errore sul campo,
+ * senza valori.
+ */
+export async function controllaSerata(
+  ctx: Ctx,
+  refs: Refs,
+  h: Doc<"entries">,
+  input: { date?: string; venue?: string; city?: string; from?: string | null },
+  prefisso = "",
+) {
+  if (input.date !== undefined && tempoDi(input.date).sortKey !== h.sortKey) {
+    throw errore("input_non_valido", `${prefisso}date: un'apertura ha la data del suo headliner; cambiala sull'headliner o togli aperturaDi`, { campo: `${prefisso}date` });
+  }
+  if (input.venue !== undefined || input.city !== undefined) {
+    const v = await ctx.db.get(h.venueId);
+    if (!stessaVenue(v, input.venue ?? v?.name ?? "", input.city ?? v?.city ?? "")) {
+      throw errore("input_non_valido", `${prefisso}venue: un'apertura è nella venue del suo headliner; scrivi la stessa venue e città o togli aperturaDi`, { campo: `${prefisso}venue` });
+    }
+  }
+  if (input.from !== undefined) {
+    const dep = input.from === null ? undefined : partenzaDa(refs, input.from);
+    if (dep !== h.departureId) {
+      throw errore("input_non_valido", `${prefisso}from: un'apertura parte con il suo headliner (stessa partenza, nessun viaggio in più); cambiala sull'headliner o togli aperturaDi`, { campo: `${prefisso}from` });
+    }
+  }
+}
+
+/** I campi della serata che un'apertura prende sempre dal suo headliner. */
+export const serataDi = (h: Doc<"entries">) => ({ date: h.date, sortKey: h.sortKey, y: h.y, venueId: h.venueId, departureId: h.departureId });
+
 /**
  * I campi DB (senza profilo, km e updatedAt) da un input esterno già validato.
  * Con `autore` una venue fuori catalogo nasce (venueOCrea); senza, è un errore.
+ * Un'apertura (`aperturaDi`) prende data, venue e partenza dal suo headliner.
  */
 export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInput, autore?: AutoreLotto) {
-  const venueId = autore ? await venueOCrea(ctx, autore, input.venue, input.city) : await venueDa(ctx, refs.profileId, input.venue, input.city);
+  const h = input.kind === "concert" && input.aperturaDi
+    ? await headlinerDa(ctx, refs.profileId, input.aperturaDi, { date: input.date, venue: input.venue, city: input.city })
+    : undefined;
+  if (h) await controllaSerata(ctx, refs, h, { venue: input.venue, city: input.city, ...(input.from !== undefined ? { from: input.from } : {}) });
+  const venueId = h ? h.venueId : autore ? await venueOCrea(ctx, autore, input.venue, input.city) : await venueDa(ctx, refs.profileId, input.venue, input.city);
   const base = {
     date: input.date,
     ...tempoDi(input.date),
@@ -126,6 +214,7 @@ export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInp
     accredito: input.accredito,
     departureId: input.from ? partenzaDa(refs, input.from) : undefined,
     comments: input.comments,
+    ...(h ? serataDi(h) : {}),
   };
   if (input.kind === "concert") {
     return {
@@ -137,6 +226,7 @@ export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInp
       voto: input.voto,
       vicinanza: input.vicinanza,
       canzoniNote: input.canzoniNote,
+      aperturaDiId: h?._id,
     };
   }
   return {
@@ -159,7 +249,7 @@ export async function campiDaInput(ctx: MutationCtx, refs: Refs, input: EntryInp
 /** Forma esterna (nomi) di un concerto, per agenti ed elenchi. */
 export function esterno(
   e: Doc<"entries">,
-  n: { people: Map<string, string>; venues: Map<string, Doc<"venues">>; departures: Map<string, string>; gifters: Map<string, string> },
+  n: { people: Map<string, string>; venues: Map<string, Doc<"venues">>; departures: Map<string, string>; gifters: Map<string, string>; headliner?: Map<string, string> },
 ) {
   const v = n.venues.get(e.venueId);
   const nomi = (ids?: Id<"people">[]) => (ids ?? []).map(id => n.people.get(id) ?? "?");
@@ -180,7 +270,17 @@ export function esterno(
   };
   return e.kind === "festival"
     ? { ...base, name: e.name, concerts: (e.concerts ?? []).map(c => ({ artist: c.artist, tour: c.tour, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote, date: c.date })) }
-    : { ...base, artist: e.artist, tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote };
+    : {
+        ...base,
+        artist: e.artist,
+        tour: e.tour,
+        with: nomi(e.with),
+        voto: e.voto,
+        vicinanza: e.vicinanza,
+        canzoniNote: e.canzoniNote,
+        // un'apertura: l'artista dell'headliner (come negli input) e il suo id
+        ...(e.aperturaDiId ? { aperturaDi: n.headliner?.get(e.aperturaDiId) ?? "?", aperturaDiId: e.aperturaDiId as string } : {}),
+      };
 }
 
 export async function nomiPerEsterno(ctx: Ctx, profileId: Id<"profiles">, entries: Doc<"entries">[]) {
@@ -190,10 +290,18 @@ export async function nomiPerEsterno(ctx: Ctx, profileId: Id<"profiles">, entrie
     const v = await ctx.db.get(id);
     if (v) venues.set(id, v);
   }
+  // l'artista dell'headliner di ogni apertura (di solito già tra le righe)
+  const headliner = new Map<string, string>();
+  const righe = new Map(entries.map(e => [e._id as string, e]));
+  for (const id of new Set(entries.flatMap(e => (e.aperturaDiId ? [e.aperturaDiId] : [])))) {
+    const h = righe.get(id) ?? (await ctx.db.get(id));
+    if (h?.artist) headliner.set(id, h.artist);
+  }
   return {
     people: new Map(people.map(p => [p._id as string, p.name])),
     departures: new Map(deps.map(d => [d._id as string, d.name])),
     gifters: new Map(gifts.map(g => [g._id as string, g.label])),
     venues,
+    headliner,
   };
 }

@@ -1055,6 +1055,9 @@
      cue that this row was one set of a festival. Consistent muted amber tag. */
   .cfest{display:block;font-size:.66rem;letter-spacing:.04em;color:var(--lamp);font-weight:500;margin-top:3px;opacity:.85}
   .cfest mark{background:none;color:inherit;padding:0}
+  .capertura{display:block;font-size:.66rem;letter-spacing:.04em;color:var(--muted);font-weight:500;margin-top:3px}
+  .capertura mark{background:none;color:inherit;padding:0}
+  .caperturamark{color:var(--dim)}
   .ctour{display:block;font-size:.72rem;color:var(--muted);font-weight:400;margin-top:2px}
   .ctour mark{background:none;color:inherit;padding:0}
   /* cost/viaggio on a festival set: no per-concert value — it's on the event.

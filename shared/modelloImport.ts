@@ -28,6 +28,10 @@ export const RIGHE_ESEMPIO: RigaCsv[] = [
     con: "Marco R.;Giuli", voto: "4", vicinanza: "5", canzoni_note: "3", costo: "35", partenza: "Casa", commento: "Bis lunghissimo", tour: "Nome del tour 2025",
   },
   {
+    tipo: "concerto", data: "2025-11-14", artista: "Artista di apertura", venue: "Fabrique", citta: "Milano",
+    con: "Giuli", voto: "3", vicinanza: "5", canzoni_note: "1", costo: "0", partenza: "Casa", apertura_di: "Nome dell'artista",
+  },
+  {
     tipo: "festival", data: "2026-07-03", data_concerto: "2026-07-03", artista: "Primo artista", festival: "Nome del festival 2026",
     venue: "Ippodromo SNAI San Siro", citta: "Milano", con: "Marco R.", costo: "70", regalo: "si", regalato_da: "Anna B.",
   },
@@ -51,6 +55,10 @@ export const ESEMPIO_JSON: z.input<typeof importJson> = [
   {
     kind: "concert", date: "2025-11-14", artist: "Nome dell'artista", tour: "Nome del tour 2025", venue: "Fabrique", city: "Milano",
     with: ["Marco R.", "Giuli"], voto: 4, vicinanza: 5, canzoniNote: 3, cost: 35, from: "Casa", comments: "Bis lunghissimo",
+  },
+  {
+    kind: "concert", date: "2025-11-14", artist: "Artista di apertura", venue: "Fabrique", city: "Milano",
+    with: ["Giuli"], voto: 3, vicinanza: 5, canzoniNote: 1, cost: 0, from: "Casa", aperturaDi: "Nome dell'artista",
   },
   {
     kind: "festival", name: "Nome del festival 2026", date: "2026-07-03", venue: "Ippodromo SNAI San Siro", city: "Milano",

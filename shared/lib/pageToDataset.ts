@@ -2,7 +2,8 @@
    Da `pages.byHandle` (proiezione pubblica di Convex) all'input di
    buildDataset(): gli id di persone, venue, partenze e "regalato da"
    tornano nomi, così le statistiche e l'Oracolo ragionano come sui dati
-   statici. Puro e isomorfo (niente convex/* sotto shared/): i tipi qui
+   statici; un'apertura (`aperturaDiId`) diventa `aperturaDi`, l'artista del
+   suo headliner, come nel seed. Puro e isomorfo (niente convex/* sotto shared/): i tipi qui
    sotto sono strutturali e combaciano con il `returns` di convex/pages.ts.
    ────────────────────────────────────────────────────────────── */
 
@@ -40,6 +41,7 @@ export interface PaginaEntry {
   voto?: Voto;
   vicinanza?: Vicinanza;
   canzoniNote?: CanzoniNote;
+  aperturaDiId?: string;
   name?: string;
   concerts?: (Fatti & { cid: string; date?: string })[];
 }
@@ -63,6 +65,7 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
   const persone = new Map(page.people.map(p => [p._id, p.name]));
   const venues = new Map(page.venues.map(v => [v._id, v]));
   const nomi = (ids: string[] = []) => ids.map(id => persone.get(id) ?? "?");
+  const artisti = new Map(page.entries.map(e => [e._id, e.artist]));
   // le foto: URL dei file di Convex, https (o il Convex locale in sviluppo)
   const foto = new Map<string, FotoEvento[]>();
   for (const { entryId, url, miniatura, larghezza, altezza } of page.foto ?? []) {
@@ -92,7 +95,8 @@ export function pageToDataset(page: PaginaPubblica): DatasetInput {
       const concerts = (e.concerts ?? []).map(c => def({ artist: c.artist, tour: c.tour, date: c.date, with: nomi(c.with), voto: c.voto, vicinanza: c.vicinanza, canzoniNote: c.canzoniNote })) as FestivalConcert[];
       return { ...evento, name: e.name ?? "", concerts: concerts as [FestivalConcert, FestivalConcert, ...FestivalConcert[]] };
     }
-    return { ...evento, ...def({ artist: e.artist ?? "", tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote }) } as Entry;
+    const aperturaDi = e.aperturaDiId ? artisti.get(e.aperturaDiId) : undefined;
+    return { ...evento, ...def({ artist: e.artist ?? "", tour: e.tour, with: nomi(e.with), voto: e.voto, vicinanza: e.vicinanza, canzoniNote: e.canzoniNote, aperturaDi }) } as Entry;
   });
 
   return {

@@ -11,6 +11,11 @@
    modifica il concerto con i km subito (scelta di Gabri, DECISIONI «Sonde
    sui km»); un solo Annulla toglie tutto. add/update restano quelle del
    catalogo (MCP, API), con input e output invariati.
+
+   Aperture (DECISIONI «Aperture»): un concerto con `aperturaDi` prende data,
+   venue e partenza dal suo headliner e non ha km suoi; quando l'headliner
+   cambia serata le aperture lo seguono nello stesso lotto, e quando se ne va
+   restano scollegate (lib/aperture.ts).
    ────────────────────────────────────────────────────────────── */
 
 import type { Doc } from "./_generated/dataModel";
@@ -27,11 +32,12 @@ import { limitaAgente, ownerMutation, ownerQuery } from "./lib/builders.ts";
 import { ConvexError } from "convex/values";
 import { errore } from "./lib/errors.ts";
 import { orfanaFoto } from "./lib/foto.ts";
+import { allineaAperture, apertureDi, conSerata, scollegaAperture, serataCambiata } from "./lib/aperture.ts";
 import { campiKm } from "./lib/km.ts";
 import { creaMancanti } from "./lib/mancanti.ts";
 import { getOwned, type Owner } from "./lib/owner.ts";
 import {
-  caricaRefs, campiDaInput, esterno, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, venuesOf, type Refs,
+  caricaRefs, campiDaInput, controllaSerata, esterno, headlinerDa, nomiPerEsterno, nuovoCid, partenzaDa, personeDa, regaloDa, tempoDi, venuesOf, type Refs,
 } from "./lib/refs.ts";
 import { venueOCrea } from "./lib/venueUtente.ts";
 
@@ -47,7 +53,8 @@ function mancanoDa(e: EventoPerMancano, today: number): string[] {
 }
 
 async function inserisci(ctx: MutationCtx, owner: Owner, campi: Awaited<ReturnType<typeof campiDaInput>>, batchId?: string) {
-  const km = await campiKm(ctx, { profileId: owner.profile._id, departureId: campi.departureId, venueId: campi.venueId });
+  // un'apertura non ha km suoi: il viaggio è della serata (dell'headliner)
+  const km = "aperturaDiId" in campi && campi.aperturaDiId ? {} : await campiKm(ctx, { profileId: owner.profile._id, departureId: campi.departureId, venueId: campi.venueId });
   const doc = Object.fromEntries(
     Object.entries({ ...campi, ...km, profileId: owner.profile._id, updatedAt: Date.now() }).filter(([, x]) => x !== undefined),
   ) as Omit<Doc<"entries">, "_id" | "_creationTime">;
@@ -57,6 +64,25 @@ async function inserisci(ctx: MutationCtx, owner: Owner, campi: Awaited<ReturnTy
   return { id, kmPending: !!nuovo?.kmPending, activityId };
 }
 
+/**
+ * L'headliner dopo la patch, se il concerto è (o diventa) un'apertura:
+ * `aperturaDi` nuovo si risolve per nome e data, null scollega, assente
+ * lascia il collegamento com'è. Un headliner con aperture non può diventare
+ * a sua volta un'apertura.
+ */
+async function headlinerDopo(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, patch: EntryPatch): Promise<Doc<"entries"> | undefined> {
+  const nome = (patch as { aperturaDi?: string | null }).aperturaDi;
+  if (nome === null) return undefined;
+  if (nome === undefined) return e.aperturaDiId ? ((await ctx.db.get(e.aperturaDiId)) ?? undefined) : undefined;
+  if (e.kind !== "concert") throw errore("input_non_valido", "aperturaDi: un festival non ha aperture e non apre altri concerti", { campo: "aperturaDi" });
+  const v = await ctx.db.get(e.venueId);
+  const h = await headlinerDa(ctx, owner.profile._id, nome, { date: patch.date ?? e.date, venue: patch.venue ?? v?.name, city: patch.city ?? v?.city }, { self: e._id });
+  if (h._id !== e.aperturaDiId && (await apertureDi(ctx, e._id)).length) {
+    throw errore("input_non_valido", "aperturaDi: questo concerto ha già delle aperture, quindi non può essere a sua volta un'apertura; scollegale prima", { campo: "aperturaDi" });
+  }
+  return h;
+}
+
 /** La modifica di un concerto o festival (update_concert e la scheda): restituisce la voce del registro. */
 async function modificaEntry(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, patch: EntryPatch, refs: Refs, batchId?: string) {
   const next: Record<string, unknown> = { ...e };
@@ -64,10 +90,19 @@ async function modificaEntry(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, 
     if (val === null) delete next[k];
     else if (val !== undefined) next[k] = val;
   };
-  if (patch.date !== undefined) Object.assign(next, { date: patch.date, ...tempoDi(patch.date) });
-  if (patch.venue !== undefined || patch.city !== undefined) {
-    const v = await ctx.db.get(e.venueId);
-    next.venueId = await venueOCrea(ctx, owner, patch.venue ?? v?.name ?? "", patch.city ?? v?.city ?? "");
+  // un'apertura: data, venue e partenza sono dell'headliner (scritte uguali o assenti)
+  const h = await headlinerDopo(ctx, owner, e, patch);
+  if (h) {
+    await controllaSerata(ctx, refs, h, { date: patch.date, venue: patch.venue, city: patch.city, from: patch.from });
+    Object.assign(next, conSerata({}, h), { aperturaDiId: h._id });
+    if (!h.departureId) delete next.departureId;
+  } else {
+    delete next.aperturaDiId;
+    if (patch.date !== undefined) Object.assign(next, { date: patch.date, ...tempoDi(patch.date) });
+    if (patch.venue !== undefined || patch.city !== undefined) {
+      const v = await ctx.db.get(e.venueId);
+      next.venueId = await venueOCrea(ctx, owner, patch.venue ?? v?.name ?? "", patch.city ?? v?.city ?? "");
+    }
   }
   if (e.kind === "concert") {
     if (patch.name !== undefined || patch.concerts !== undefined) throw errore("input_non_valido", "name e concerts valgono solo per i festival", { campo: "patch" });
@@ -100,9 +135,14 @@ async function modificaEntry(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, 
   togli("accredito", patch.accredito);
   togli("comments", patch.comments);
   if (patch.giftFrom !== undefined) togli("giftFromId", patch.giftFrom === null ? null : regaloDa(refs, patch.giftFrom));
-  if (patch.from !== undefined) togli("departureId", patch.from === null ? null : partenzaDa(refs, patch.from));
-  // km: solo se cambiano partenza o venue (la coppia decide, sempre la stessa)
-  if (next.departureId !== e.departureId || next.venueId !== e.venueId) {
+  if (!h && patch.from !== undefined) togli("departureId", patch.from === null ? null : partenzaDa(refs, patch.from));
+  if (h) {
+    // un'apertura non ha km suoi: il viaggio è della serata
+    delete next.km;
+    delete next.kmSource;
+    delete next.kmPending;
+  } else if (next.departureId !== e.departureId || next.venueId !== e.venueId || e.aperturaDiId) {
+    // km: solo se cambiano partenza o venue (la coppia decide, sempre la stessa), o se un'apertura si scollega
     delete next.km;
     delete next.kmSource;
     delete next.kmPending;
@@ -113,7 +153,15 @@ async function modificaEntry(ctx: MutationCtx, owner: Owner, e: Doc<"entries">, 
   const { _id, _creationTime, ...doc } = next as Doc<"entries">;
   void _creationTime;
   await ctx.db.replace(_id, doc);
-  return await logActivity(ctx, owner, { op: "update", table: "entries", docId: e._id, batchId, summary: `modificato: ${etichetta(e)}`, before: istantanea(e), after: istantanea(await ctx.db.get(e._id)) });
+  const dopo = (await ctx.db.get(e._id))!;
+  // un headliner che cambia serata se la porta dietro le aperture, nello stesso
+  // lotto; le loro voci vengono prima, così Annulla ripristina prima lui
+  let lotto = batchId;
+  if (e.kind === "concert" && !dopo.aperturaDiId && serataCambiata(e, dopo) && (await apertureDi(ctx, e._id)).length) {
+    lotto ??= nuovoBatch();
+    await allineaAperture(ctx, owner, dopo, lotto);
+  }
+  return await logActivity(ctx, owner, { op: "update", table: "entries", docId: e._id, batchId: lotto, summary: `modificato: ${etichetta(e)}`, before: istantanea(e), after: istantanea(dopo) });
 }
 
 /** La forma esterna (nomi) di un concerto. */
@@ -222,12 +270,15 @@ export const remove = ownerMutation({
   input: cancellaConcertoInput,
   handler: async (ctx, owner, { id }) => {
     const e = await getOwned(ctx, owner, "entries", id);
+    // le aperture restano, scollegate, nello stesso lotto: Annulla le ricollega
+    const batchId = e.kind === "concert" && (await apertureDi(ctx, e._id)).length ? nuovoBatch() : undefined;
+    const scollegate = batchId ? await scollegaAperture(ctx, owner, e, batchId) : 0;
     // le foto aspettano un Annulla per 30 giorni (lib/foto.ts)
     await orfanaFoto(ctx, e._id);
     await ctx.db.delete(e._id);
     // le coppie km restano: riaggiungere il concerto darà lo stesso km
-    await logActivity(ctx, owner, { op: "delete", table: "entries", docId: e._id, summary: `cancellato: ${etichetta(e)}`, before: istantanea(e) });
-    return { ok: true as const };
+    await logActivity(ctx, owner, { op: "delete", table: "entries", docId: e._id, batchId, summary: `cancellato: ${etichetta(e)}`, before: istantanea(e) });
+    return { ok: true as const, ...(scollegate ? { aperture_scollegate: scollegate } : {}) };
   },
 });
 

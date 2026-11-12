@@ -151,6 +151,7 @@ export const fields = {
     voto: v.optional(voto),
     vicinanza: v.optional(vicinanza),
     canzoniNote: v.optional(canzoniNote),
+    aperturaDiId: v.optional(v.id("entries")),
     name: v.optional(v.string()),
     concerts: v.optional(
       v.array(
@@ -242,7 +243,8 @@ export default defineSchema({
     .index("by_profile_sortKey", ["profileId", "sortKey"])
     .index("by_profile_departure", ["profileId", "departureId"])
     .index("by_profile_venue", ["profileId", "venueId"])
-    .index("by_venue", ["venueId"]),
+    .index("by_venue", ["venueId"])
+    .index("by_apertura", ["aperturaDiId"]),
   foto: defineTable(fields.foto)
     .index("by_profile_entry", ["profileId", "entryId", "ordine"])
     .index("by_entry", ["entryId"])

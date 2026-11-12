@@ -18,7 +18,8 @@ export function queryConcertsDef(vocab: ChatVocab) {
     name: "query_concerts",
     description:
       "The ONLY source of the concert data. A CONCERT is one act's set; a festival is one EVENT/ticket containing several concerts, " +
-      "so counts are per concert while costs are per ticket/event. Only this page's data, never addresses. Returns, for the concerts matching the filters (combined with AND): " +
+      "so counts are per concert while costs are per ticket/event. An OPENING ACT (apertura) is a concert with its own ticket that opened for a headliner the same evening: " +
+      "it counts as a concert and an artist seen, but venue visits and trips are per evening (eveningCount). Only this page's data, never addresses. Returns, for the concerts matching the filters (combined with AND): " +
       "exact count, attended/planned split, distinct event/ticket count, total and average ticket cost, average rating, average canzoni note, optional breakdown by " +
       "person/artist/tour/year/city/venue/vicinanza/canzoniNote, and the full matching list in chronological order. " +
       "Call it (possibly more than once) before answering ANY question about the data.",
@@ -27,7 +28,8 @@ export function queryConcertsDef(vocab: ChatVocab) {
       count: z.number().meta({ description: "Concerts (sets) matching all filters — a festival contributes one per set watched" }),
       attendedCount: z.number(),
       plannedCount: z.number(),
-      eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once)" }),
+      eventCount: z.number().meta({ description: "Distinct events/tickets behind the matching concerts (a festival counts once; an opening act has its own ticket)" }),
+      eveningCount: z.number().meta({ description: "Distinct evenings behind the matching concerts: a festival once, an opening act together with its headliner (use it for venue visits and trips)" }),
       totalCost: z.number().meta({ description: "Sum of the known ticket costs over the matching events, euros (a festival ticket counts once)" }),
       costKnownCount: z.number().meta({ description: "How many of those events/tickets have a known cost (a ticket paid for but whose price the page owner no longer recalls counts as unknown here, and shows as 'prezzo non ricordato' in the list)" }),
       avgCost: z.number().nullable().meta({ description: "Average cost per ticket/event, not per concert" }),
@@ -41,7 +43,7 @@ export function queryConcertsDef(vocab: ChatVocab) {
         avgVoto: z.number().nullable(),
         avgCanzoniNote: z.number().nullable(),
       })).optional().meta({ description: "Already sorted by sortGroupsBy (desc): a ready-made ranking. count = concerts; costs = distinct tickets in the group" }),
-      concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)] · venue (city) · con companions|da solo[ · N€][ · regalo[ di CHI]][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is the page owner's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
+      concerts: z.array(z.string()).meta({ description: "Chronological; each line is 'date · artist[ (festival name)][ (apertura di HEADLINER)] · venue (city) · con companions|da solo[ · N€][ · regalo[ di CHI]][ · accredito][ · voto N][ · canzoni note LABEL][ · in programma][ · commento: \"…\"]'. Festival sets show the festival in parentheses and no per-set cost: the ticket belongs to the whole event. The commento is the page owner's own free-text remark on the EVENING (a festival's comment covers the whole festival, so its sets repeat it): quote it, never paraphrase it into new facts." }),
       concertsTruncated: z.boolean(),
     }),
   });

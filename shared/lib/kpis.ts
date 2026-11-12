@@ -2,6 +2,8 @@
    Le 12 card KPI di "I dati" (sezione sec-kpis), calcolate da righe già
    filtrate e da `now`. Ogni KPI sceglie la sua unità: concerti (un festival
    ne conta uno per set) o eventi/biglietti (un festival conta una volta).
+   Venue, città e viaggi contano le SERATE (`serateOf`): un'apertura è un
+   concerto e un biglietto suoi, ma non una visita né un viaggio in più.
 
    `src` sono le righe da cui esce il numero: da lì i due pallini in basso a
    destra della card (ambra = dentro ci sono concerti già visti, teal = ce ne
@@ -9,7 +11,7 @@
    vuoto quel lato.
    ────────────────────────────────────────────────────────────── */
 
-import { concertsOf, type Entry } from "../model/concert.ts";
+import { collegaAperture, concertsOf, serateOf, type Entry } from "../model/concert.ts";
 import { isPlanned, romeMidnight, sortKey, todayKey } from "./dates.ts";
 import { counter, ranked, sum } from "./aggregate.ts";
 import { etichetta, type Forma } from "../labels.ts";
@@ -76,17 +78,20 @@ export function computeKpis(entries: Entry[], now: number, profilo: KpiProfilo =
   const forma = profilo.forma ?? "m";
   const planned = (d: { date: string }) => isPlanned(d, today);
   // eventi (biglietti/viaggi) contro concerti (set visti): ogni KPI sceglie la sua unità
+  collegaAperture(entries);
   const ATTENDED = entries.filter(d => !planned(d));
   const PLANNED = entries.filter(planned);
+  // serate (venue, città, viaggi): un'apertura sta nella serata del suo headliner
+  const SERATE = serateOf(ATTENDED);
   const CONC = entries.flatMap(concertsOf);
   const ATT_C = CONC.filter(c => !planned(c));
   const PL_C = CONC.filter(planned);
   const total = ATT_C.length; // concerti visti (un festival ne conta uno per set)
   const artists = new Set(ATT_C.map(c => c.artist)).size;
-  const cities = new Set(ATTENDED.map(d => d.city)).size;
+  const cities = new Set(SERATE.map(d => d.city)).size;
   const companions = new Set(ATT_C.flatMap(c => c.with || [])).size;
-  const evTotal = ATTENDED.length;
-  const home = evTotal ? Math.round(ATTENDED.filter(d => d.city === homeCity).length / evTotal * 100) : 0;
+  const evTotal = SERATE.length;
+  const home = evTotal ? Math.round(SERATE.filter(d => d.city === homeCity).length / evTotal * 100) : 0;
   const dataSince = since === null ? [] : ATT_C.filter(c => c.y >= since);
   const avgSince = perYearSince(ATT_C, now, since).toFixed(1);
   // compagno più frequente sui concerti visti (per set: chi c'era davvero accanto)
@@ -103,11 +108,11 @@ export function computeKpis(entries: Entry[], now: number, profilo: KpiProfilo =
   const priced = entries.filter(hasCost);
   const totalSpent = sum(priced.map(d => d.cost));
   const avgSpent = priced.length ? totalSpent / priced.length : 0;
-  // km: andata e ritorno, per evento, solo visti con partenza nota
-  const tripRows = ATTENDED.filter(d => distKm(d) !== null);
+  // km: andata e ritorno, per serata (un'apertura viaggia con l'headliner), solo visti con partenza nota
+  const tripRows = SERATE.filter(d => distKm(d) !== null);
   const totalKm = sum(tripRows.map(d => distKm(d) as number)) * 2;
   // viaggi con la partenza ma senza km: aspettano l'indirizzo (PIANO §1.37)
-  const kmPending = ATTENDED.filter(d => hasFrom(d) && d.kmPending && distKm(d) === null).length;
+  const kmPending = SERATE.filter(d => hasFrom(d) && d.kmPending && distKm(d) === null).length;
   const nextPlanned = [...PLANNED].sort((a, b) => sortKey(a) - sortKey(b))[0];
   // alla cieca: concerti visti conoscendo nessuna o poche canzoni; la percentuale
   // è sui concerti visti con un valore vero di canzoni note
@@ -121,7 +126,7 @@ export function computeKpis(entries: Entry[], now: number, profilo: KpiProfilo =
     { id: "voto", value: voted.length ? voto1(avgVoto) : "—", star: voted.length > 0, lbl: "Voto medio", hint: voted.length + " concerti votati", ic: "star", src: voted },
     { id: "speso", value: eur0(totalSpent), lbl: "Speso in totale", hint: priced.length + " biglietti", ic: "coins", src: priced },
     { id: "spesaMedia", value: eur0(avgSpent), lbl: "Spesa media", hint: priced.length + " biglietti", ic: "wallet", src: priced },
-    { id: "citta", value: cities, lbl: "Città", hint: homeCity === null ? undefined : home + "% a " + homeCity, ic: "pin", src: ATTENDED },
+    { id: "citta", value: cities, lbl: "Città", hint: homeCity === null ? undefined : home + "% a " + homeCity, ic: "pin", src: SERATE },
     { id: "artisti", value: artists, lbl: "Artisti diversi", hint: topArtist[1] ? topArtist[0] + " " + topArtist[1] + "x" : undefined, ic: "mic", src: ATT_C },
     { id: "compagni", value: companions, lbl: "Compagni", ic: "users", hint: "#1 " + topMate[0], src: ATT_C },
     { id: "solo", value: solo, lbl: etichetta("kpiSolo", forma), ic: "user", hint: (total ? Math.round(solo / total * 100) : 0) + "% del totale", src: soloC },

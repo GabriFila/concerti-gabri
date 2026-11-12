@@ -8,7 +8,7 @@
    non può mai mostrare estremi o nomi di un altro profilo.
    ────────────────────────────────────────────────────────────── */
 
-import { flatConcerts, type Entry, type FlatConcert, type GifterInfo, type LngLat } from "../model/concert.ts";
+import { collegaAperture, flatConcerts, serateOf, type Entry, type FlatConcert, type GifterInfo, type LngLat } from "../model/concert.ts";
 import { CN_ORDER, VIC_ORDER } from "../model/scale.ts";
 import { keyToISO, sortKey } from "./dates.ts";
 import { distKm, hasCost } from "./predicates.ts";
@@ -60,10 +60,12 @@ const ceil10 = (n: number) => Math.ceil(n / 10) * 10;
 
 export function buildDataset(input: DatasetInput): Dataset {
   const entries = input.entries;
+  // ogni apertura trova qui il suo headliner, una volta per tutti i sottoinsiemi filtrati
+  collegaAperture(entries);
   const flat = flatConcerts(entries);
   const keys = entries.map(sortKey);
   const prices = entries.filter(hasCost).map(d => d.cost);
-  const trips = entries.map(d => distKm(d)).filter((k): k is number => k !== null);
+  const trips = serateOf(entries).map(d => distKm(d)).filter((k): k is number => k !== null);
   const costMax = prices.length ? ceil10(Math.max(...prices)) : 0;
   const kmMax = trips.length ? ceil10(Math.max(...trips)) : 0;
   const bounds: FilterBounds = { costMin: 0, costMax, kmMin: 0, kmMax };

@@ -18,6 +18,8 @@
    Rules NOT enforced by types: a new venue needs an entry in
    VENUE_COORDS and a new city in CITY_COORDS, or the map skips it;
    `km` goes with `from` (precomputed offline, recipe in CLAUDE.md).
+   An opening act (`aperturaDi`: the headliner's artist, same date and
+   venue) has the headliner's `from` and no `km`: the trip is the evening's.
    Keep ALLDATA sorted by date.
    ────────────────────────────────────────────────────────────── */
 
@@ -102,7 +104,7 @@ export const ALLDATA: StaticEntry[] = [
   {y:2024,date:"04/04/2024",artist:"Fulminacci",venue:"Fabrique",city:"Milano",with:["Camilla C"],cost:30.95,vicinanza:4,voto:4,canzoniNote:4,from:"m",km:9},
   {y:2024,date:"04/05/2024",artist:"Pinguini Tattici Nucleari",venue:"Nelson Mandela Forum",city:"Firenze",with:["Camilla C","Marco D","Ludo"],cost:60,vicinanza:4,voto:3,canzoniNote:4,from:"g",km:229},
   {y:2024,date:"08/06/2024",artist:"Ed Sheeran",venue:"Lucca Summer Festival",city:"Lucca",with:["Marco D","Ludo"],cost:129.72,vicinanza:4,voto:5,canzoniNote:4,from:"g",km:163},
-  {y:2024,date:"22/06/2024",artist:"Michael Kiwanuka",venue:"La Prima Estate",city:"Lido di Camaiore",with:["Camilla C"],cost:0,vicinanza:5,voto:4,canzoniNote:2,from:"g",km:133},
+  {y:2024,date:"22/06/2024",artist:"Michael Kiwanuka",venue:"La Prima Estate",city:"Lido di Camaiore",with:["Camilla C"],cost:0,vicinanza:5,voto:4,canzoniNote:2,from:"g",aperturaDi:"Paolo Nutini"},
   {y:2024,date:"22/06/2024",artist:"Paolo Nutini",venue:"La Prima Estate",city:"Lido di Camaiore",with:["Camilla C"],cost:100,vicinanza:5,voto:2,canzoniNote:2,from:"g",km:133},
   {y:2024,date:"04/07/2024",artist:"Giovanni Ti Amo",venue:"CLER",city:"Milano",with:["Espi","Cate"],cost:0,vicinanza:6,voto:2,canzoniNote:4,from:"m",km:8},
   {y:2024,date:"25/07/2024",artist:"Edoardo Bennato",venue:"Parchi di Nervi · Nervi Music Ballet Festival",city:"Genova",with:["Mamma"],cost:61.35,vicinanza:4,voto:4,canzoniNote:2,from:"g",km:11},
@@ -139,8 +141,8 @@ export const ALLDATA: StaticEntry[] = [
     {artist:"Angelica Bove",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:5,canzoniNote:2},
     {artist:"Labadessa",date:"23/05/2026",with:["Cami <3"],voto:3,vicinanza:3,canzoniNote:2},
   ]},
-  {y:2026,date:"17/06/2026",artist:"Angelica Bove",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3"],cost:0,vicinanza:5,voto:3,canzoniNote:2,from:"m",km:13},
-  {y:2026,date:"17/06/2026",artist:"Temper City",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3"],cost:0,vicinanza:5,voto:3,canzoniNote:1,from:"m",km:13},
+  {y:2026,date:"17/06/2026",artist:"Angelica Bove",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3"],cost:0,vicinanza:5,voto:3,canzoniNote:2,from:"m",aperturaDi:"Lewis Capaldi"},
+  {y:2026,date:"17/06/2026",artist:"Temper City",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3"],cost:0,vicinanza:5,voto:3,canzoniNote:1,from:"m",aperturaDi:"Lewis Capaldi"},
   {y:2026,date:"17/06/2026",artist:"Lewis Capaldi",venue:"Fiera Milano Live",city:"Rho",with:["Cami <3","Ludo","Marco D"],cost:105.84,vicinanza:4,voto:3,canzoniNote:3,from:"m",km:13},
   {y:2026,date:"18/06/2026",artist:"Olly",venue:"Stadio Luigi Ferraris",city:"Genova",with:["Fra M","Ludo","Marco D","Dicce","Fede"],cost:63.13,vicinanza:3,voto:4,canzoniNote:4,from:"g",km:3},
   {y:2026,date:"01/07/2026",artist:"Bresh",venue:"Arena del Mare",city:"Genova",with:["Cami <3","Giulia","Bianca"],cost:47.99,vicinanza:3,voto:2,canzoniNote:3,from:"g",km:4},

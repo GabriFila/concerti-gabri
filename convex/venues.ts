@@ -71,7 +71,7 @@ async function scriviPosizione(ctx: MutationCtx, venueId: Id<"venues">, p: Posiz
   if (p.tipo === "citta") await cittaNelCatalogo(ctx, ven.city, p.lng, p.lat);
   const batchId = nuovoBatch();
   for (const e of await ctx.db.query("entries").withIndex("by_venue", q => q.eq("venueId", venueId)).take(MAX_IN_ATTESA)) {
-    if (!e.kmPending || !e.departureId) continue;
+    if (!e.kmPending || !e.departureId || e.aperturaDiId) continue;
     const km = await campiKm(ctx, { profileId: e.profileId, departureId: e.departureId, venueId });
     if (km.kmPending) continue;
     await ctx.db.patch(e._id, { km: km.km, kmSource: km.kmSource, kmPending: undefined });

@@ -32,6 +32,10 @@ const nessunKm=(ev:Entry)=>ev.kmPending
   ? <span className="kmpending" style={{color:"var(--dim)"}} title="distanza non ancora calcolata">—</span>
   : <span style={{color:"var(--dim)"}}>—</span>;
 
+/* L'headliner di un'apertura (il nome, anche se i filtri lo lasciano fuori): la
+   chip «apertura di …» sotto l'artista, come quella del festival. */
+const aperturaDi=(ev:Entry)=>isFestival(ev)?"":(ev.aperturaDi??"");
+
 export function ArchiveTable(){
   const DATA=useData();
   const {gifters,departures}=useDataset();
@@ -44,10 +48,11 @@ export function ArchiveTable(){
   // The archive is an archive of CONCERTS: every row is one concert, festival
   // sets included as first-class rows. Fuse also indexes the festival name
   // (ev.name), the tour and the event's comment, so searching "mi ami" surfaces
-  // its concerts and a word written in a comment surfaces the evening it belongs to.
+  // its concerts and a word written in a comment surfaces the evening it belongs to;
+  // an opening act is found by its headliner too ("nutini" → who opened for him).
   const CONC=useMemo(()=>flatConcerts(DATA),[DATA]);
   const fuse=useMemo(()=>new Fuse(CONC,{
-    keys:["artist","tour","venue","city","with","ev.name","ev.comments"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
+    keys:["artist","tour","venue","city","with","ev.name","ev.aperturaDi","ev.comments"],threshold:0.2,ignoreLocation:true,minMatchCharLength:2,
   }),[CONC]);
 
   const searching=!!q.trim();
@@ -117,9 +122,9 @@ export function ArchiveTable(){
             <th key={c} className={sort.col===c?"act":""} onClick={()=>setCol(c)}>{l}<SortIcon col={c}/></th>
           ))}</tr></thead>
           <tbody>
-            {rows.map((c,i)=>{const pl=isPlanned(c);const fest=isFestival(c.ev);return (
+            {rows.map((c,i)=>{const pl=isPlanned(c);const fest=isFestival(c.ev);const ap=aperturaDi(c.ev);return (
               <tr key={i}>
-                <td className="artist">{hl(c.artist,q)}{c.tour&&<span className="ctour" title={"Tour: "+c.tour}>{hl(c.tour,q)}</span>}{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}</td>
+                <td className="artist">{hl(c.artist,q)}{c.tour&&<span className="ctour" title={"Tour: "+c.tour}>{hl(c.tour,q)}</span>}{fest&&<span className="cfest" title={"Concerto al festival "+festName(c.ev)}>{hl(festName(c.ev),q)}</span>}{ap&&<span className="capertura" title={"Ha aperto il concerto di "+ap}>apertura di {hl(ap,q)}</span>}</td>
                 <td className="date">{pl?<span className="d-planned">{c.date}</span>:<span className="d-past">{c.date}</span>}</td>
                 <td>{hl(c.venue,q)}</td>
                 <td className="with">{(c.with&&c.with.length)?c.with.join(", "):<span style={{color:"var(--dim)"}}>—</span>}</td>
@@ -127,7 +132,7 @@ export function ArchiveTable(){
                 <td className="voto">{hasVoto(c)?<span style={{color:"var(--lamp)",fontWeight:600,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{c.voto}<span className="star">★</span></span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="cn">{hasCN(c)?<span className="viccell">{CN_LABELS[c.canzoniNote]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="city"><b>{hl(c.city,q)}</b></td>
-                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {departures[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:nessunKm(c.ev)}</td>
+                <td className="km">{distKm(c)!==null?<span style={{whiteSpace:"nowrap",fontVariantNumeric:"tabular-nums"}}>~{km0(distKm(c)!)} <span style={{color:"var(--muted)"}}>da {departures[c.from!]}</span></span>:fest?<span className="cfestmark" title={"Incluso nel viaggio di "+festName(c.ev)}>festival</span>:ap?<span className="caperturamark" title={"Incluso nel viaggio della serata di "+ap}>—</span>:nessunKm(c.ev)}</td>
                 <td className="vic">{hasVic(c)?<span className="viccell">{VIC_LABELS[c.vicinanza]}</span>:<span style={{color:"var(--dim)"}}>—</span>}</td>
                 <td className="comment"><CommentCell ev={c.ev} onOpen={setCommentEv}/></td>
               </tr>

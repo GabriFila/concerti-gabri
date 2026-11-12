@@ -102,6 +102,8 @@ export function FilterButton(){
   const btnRef=useRef<HTMLButtonElement|null>(null);
   const active=countActive(filters,B);
   const has=!isEmptyFilters(filters,B);
+  // «Includi aperture» compare solo se il profilo ha concerti di apertura
+  const conAperture=ds.flat.some(c=>!!c.headliner);
 
   React.useEffect(()=>{
     if(!open) return;
@@ -146,6 +148,11 @@ export function FilterButton(){
               <FilterChip active={filters.status==="attended"} onClick={()=>setVal("status","attended")}>Già visti</FilterChip>
               <FilterChip active={filters.status==="planned"} onClick={()=>setVal("status","planned")}>In programma</FilterChip>
             </FilterSection>
+            {conAperture&&(
+              <FilterSection label="Aperture">
+                <FilterChip active={filters.aperture!==false} onClick={()=>setFilters(f=>({...f,aperture:f.aperture===false}))}>Includi aperture</FilterChip>
+              </FilterSection>
+            )}
             <FilterSection label="Periodo" wide>
               <div className="datefields">
                 <label className="datefield">

@@ -48,6 +48,35 @@ describe("colonna tour", () => {
   });
 });
 
+describe("colonna apertura_di", () => {
+  it("un CSV di prima (senza tour né apertura_di) si importa ancora, senza aperture", () => {
+    const vecchie = COLONNE_CSV.filter(c => c !== "tour" && c !== "apertura_di");
+    const testo = [vecchie.join(","), vecchie.map(c => ({ tipo: "concerto", data: "2026-06-17", artista: "Temper City", venue: "Fiera Milano Live", citta: "Rho" })[c as "tipo"] ?? "").join(",")].join("\n");
+    const a = analizzaCsv(testo);
+    expect(a.errori).toEqual([]);
+    expect(a.voci[0].entry).not.toHaveProperty("aperturaDi");
+  });
+
+  it("su un concerto è l'headliner; su un festival o verso sé stesso è un errore di riga", () => {
+    const ok = analizzaCsv(csv(riga({ tipo: "concerto", data: "2026-06-17", artista: "Temper City", venue: "Fiera Milano Live", citta: "Rho", costo: "0", apertura_di: " Lewis Capaldi " })));
+    expect(ok.errori).toEqual([]);
+    expect(ok.voci[0].entry).toMatchObject({ kind: "concert", aperturaDi: "Lewis Capaldi", cost: 0 });
+    const ko = analizzaCsv(csv(
+      riga({ tipo: "festival", festival: "F", data: "2025-06-01", artista: "A", venue: "V", citta: "C", apertura_di: "B" }),
+      riga({ tipo: "festival", festival: "F", data: "2025-06-01", artista: "B", venue: "V", citta: "C" }),
+      riga({ tipo: "concerto", data: "2026-06-17", artista: "Lewis Capaldi", venue: "Fiera Milano Live", citta: "Rho", apertura_di: "lewis capaldi" }),
+    ));
+    expect(ko.errori.map(e => [e.riga, e.campo])).toEqual([[2, "apertura_di"], [4, "apertura_di"]]);
+  });
+
+  it("l'export la scrive in fondo e il reimport la ritrova", () => {
+    const apre = entryInput.parse({ kind: "concert", date: "17/06/2026", artist: "Temper City", venue: "Fiera Milano Live", city: "Rho", cost: 0, aperturaDi: "Lewis Capaldi" });
+    const testo = versoCsv([apre]);
+    expect(testo.split("\n")[1].endsWith(",Lewis Capaldi")).toBe(true);
+    expect(analizzaCsv(testo).voci.map(v => v.entry)).toEqual([apre]);
+  });
+});
+
 describe("export reimportato", () => {
   it("CSV: stesso risultato", () => {
     const testo = versoCsv(ENTRIES);

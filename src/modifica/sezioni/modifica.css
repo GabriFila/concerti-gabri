@@ -733,6 +733,10 @@ dialog.mf-pannello[data-subito]{animation:none}
 .mf-dopo{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;padding:10px 12px 10px 14px;border:1px dashed var(--line-2);
   border-radius:var(--r-campo,10px);font-size:.86rem;color:var(--muted)}
 .mf-km{color:var(--text)}
+/* un'apertura: data, venue e partenza della serata dell'headliner, in sola lettura */
+.mf-dallheadliner{margin:0;padding:9px 12px;border:1px dashed var(--line-2);border-radius:var(--r-campo,10px);color:var(--text);font-size:.92rem}
+.mf-aperture{margin:0}
+.mf-modulo input[readonly]{color:var(--muted);background:var(--bg-2);cursor:default}
 /* i concerti di un festival: schede che si aprono */
 .mf-set-apri{display:flex;align-items:center;gap:10px;flex:1 1 auto;min-width:0;min-height:40px;padding:0 8px;border:none;border-radius:8px;background:none;color:var(--text);
   font:inherit;font-size:.9rem;font-weight:600;text-align:left;cursor:pointer}

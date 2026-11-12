@@ -371,6 +371,8 @@ export function CampoTesto({ f, etichetta, aiuto, tipo = "text", segno, azione, 
   autoFocus?: boolean;
   maxLength?: number;
   autoComplete?: string;
+  /** In sola lettura (es. la data di un'apertura, che è quella dell'headliner). */
+  readOnly?: boolean;
   /** Valori proposti sotto il campo (un <datalist>): si può sempre scrivere altro. */
   suggerimenti?: readonly string[];
 }) {

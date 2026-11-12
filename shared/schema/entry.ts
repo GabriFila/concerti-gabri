@@ -7,6 +7,9 @@
    - esterna (`entryInput`): gli agenti, l'import e i form usano i NOMI,
      tradotti in id da un unico `resolveRefs` lato server. La data si
      accetta anche in ISO; un festival richiede almeno 2 concerti.
+   Un concerto può essere l'APERTURA di un altro (`aperturaDiId` nel DB,
+   `aperturaDi` = l'artista dell'headliner negli input): data, venue e
+   partenza le prende dall'headliner, e niente km suoi (DECISIONI «Aperture»).
    ────────────────────────────────────────────────────────────── */
 
 import { z } from "zod";
@@ -53,6 +56,7 @@ export const entryDbFields = {
   voto: voto.optional(),
   vicinanza: vicinanza.optional(),
   canzoniNote: canzoniNote.optional(),
+  aperturaDiId: idDi("entries").optional().describe("Solo concerto: l'headliner di cui è l'apertura (stessa data, venue e partenza; niente km suoi)"),
   // solo festival
   name: nomeFestival.optional(),
   concerts: z.array(concertoFestivalDb).optional().describe("Concerti del festival, in ordine di lineup"),
@@ -75,6 +79,10 @@ const luogo = {
   venue: nomeVenue,
   city: nomeCitta,
 };
+const DESCRIZIONE_APERTURA =
+  "Solo concerti singoli: se questo concerto è l'apertura (opening act) di un altro concerto della stessa serata, l'artista dell'headliner, già salvato con la stessa data (e venue). " +
+  "Usalo per chi apre, invece di un concerto indipendente: data, venue e partenza diventano quelle dell'headliner e la serata e il viaggio contano una volta; prezzo, voto e compagni restano dell'apertura";
+const aperturaDi = artista.describe(DESCRIZIONE_APERTURA);
 const fatti = {
   artist: artista,
   tour: nomeTour.optional(),
@@ -93,6 +101,7 @@ export const concertoInput = z
     ...biglietto,
     ...viaggio,
     comments: commento.optional(),
+    aperturaDi: aperturaDi.optional(),
   })
   .describe("Un concerto singolo");
 
@@ -138,6 +147,7 @@ export const entryPatch = z
     accredito: z.boolean().nullable().optional().describe("Accredito; null toglie"),
     from: nomePartenza.nullable().optional(),
     comments: commento.nullable().optional(),
+    aperturaDi: aperturaDi.nullable().optional().describe(`${DESCRIZIONE_APERTURA}. null scollega (il concerto resta, con la stessa data, venue e partenza)`),
     concerts: z.array(concertoDiFestivalInput).min(2).max(60).optional().describe("Solo per i festival: sostituisce l'intera lineup"),
   })
   .describe("Campi da cambiare");

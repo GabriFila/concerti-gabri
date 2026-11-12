@@ -13,7 +13,7 @@ import {
   daConcertoAFestival, daFestivalAConcerto, daIso, descrizione, elencoPersone, erroriSchema, etichettaCampo, eventiConPersona, eventiDiPersona,
   filtraEventi, giornoDaChiave, inIso, inputConcerto, inputFestival, layoutDa, nomeGiaUsato, ordinaCampi, ordinaEventi, ordinaEventiPer,
   patchConcerto, patchFestival, prossimoDaCompletare, righeLayout, spostata, ultimaPartenza, ultimoConcertoPerPersona, valoriConcerto,
-  valoriDuplicati, valoriFestival, venueRecenti, viaggioDi,
+  valoriDuplicati, valoriFestival, venueRecenti, viaggioDi, headlinerDelGiorno, apertureDelConcerto,
   type EventoUi, type ValoriConcerto, type ValoriFestival,
 } from "./forme.ts";
 import { PRESET, accentoChiaro, contrastoMinimo, problemaAccento, risolviTema, SUPERFICI } from "./stileToken.ts";
@@ -189,6 +189,35 @@ describe("elenco e da completare", () => {
     // aperto da un link diretto, non più nell'elenco: il primo degli altri
     expect(prossimoDaCompletare(lista, "x")).toBe("b");
     expect(prossimoDaCompletare([{ id: "b" }], "b")).toBeNull();
+  });
+});
+
+describe("aperture nel modulo", () => {
+  const oggi = todayKey(Date.parse("2026-10-21T12:00:00+02:00"));
+  const capaldi = concerto({ id: "h", date: "17/06/2026", artist: "Lewis Capaldi", venue: "Fiera Milano Live", city: "Rho", from: "Casa" });
+  const temper = concerto({ id: "o", date: "17/06/2026", artist: "Temper City", venue: "Fiera Milano Live", city: "Rho", from: "Casa", aperturaDi: "Lewis Capaldi", aperturaDiId: "h" } as never);
+  const eventi = [capaldi, temper, festival({ id: "f", date: "17/06/2026" }), concerto({ id: "x", date: "18/06/2026", artist: "Altro" })];
+
+  it("«Apertura di…» propone i concerti singoli della stessa data, non festival né aperture né sé stesso", () => {
+    expect(headlinerDelGiorno(eventi, "2026-06-17").map(e => e.id)).toEqual(["h"]);
+    expect(headlinerDelGiorno(eventi, "2026-06-17", "h")).toEqual([]);
+    expect(headlinerDelGiorno(eventi, "")).toEqual([]);
+    expect(apertureDelConcerto(eventi, "h").map(e => e.id)).toEqual(["o"]);
+  });
+
+  it("input, patch e valori: il collegamento per nome; null scollega; mai «da completare», la partenza è dell'headliner", () => {
+    const v = valoriConcerto(temper as never);
+    expect(v.aperturaDi).toBe("Lewis Capaldi");
+    expect(inputConcerto(v)).toMatchObject({ aperturaDi: "Lewis Capaldi" });
+    expect(patchConcerto(v).aperturaDi).toBe("Lewis Capaldi");
+    expect(patchConcerto({ ...v, aperturaDi: "" }).aperturaDi).toBeNull();
+    expect(inputConcerto({ ...v, aperturaDi: "" })).not.toHaveProperty("aperturaDi");
+    const passato = { ...v, date: "2026-06-17", from: "", voto: 3 as const, vicinanza: 5 as const, canzoniNote: 1 as const };
+    expect(campiMancanti(passato, oggi)).toEqual([]);
+    expect(campiMancanti({ ...passato, aperturaDi: "" }, oggi)).toEqual(["from"]);
+    expect(valoriDuplicati(temper)).toMatchObject({ aperturaDi: "" });
+    expect(daConcertoAFestival(v)).not.toHaveProperty("aperturaDi");
+    expect(viaggioDi({ from: "Casa", aperturaDi: "Lewis Capaldi" })).toBe("da Casa · serata di Lewis Capaldi");
   });
 });
 
