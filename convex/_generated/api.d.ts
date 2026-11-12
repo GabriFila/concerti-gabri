@@ -28,6 +28,7 @@ import type * as gifters from "../gifters.js";
 import type * as http from "../http.js";
 import type * as importer from "../importer.js";
 import type * as lib_activity from "../lib/activity.js";
+import type * as lib_admin from "../lib/admin.js";
 import type * as lib_agentToken from "../lib/agentToken.js";
 import type * as lib_builders from "../lib/builders.js";
 import type * as lib_errors from "../lib/errors.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   importer: typeof importer;
   "lib/activity": typeof lib_activity;
+  "lib/admin": typeof lib_admin;
   "lib/agentToken": typeof lib_agentToken;
   "lib/builders": typeof lib_builders;
   "lib/errors": typeof lib_errors;

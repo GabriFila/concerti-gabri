@@ -40,6 +40,10 @@ function Privacy() {
         server e servono solo a calcolare i chilometri, che hanno sempre uno scarto casuale. Il tuo account è legato alla
         pagina con un identificativo opaco.
       </p>
+      <p>
+        Per assistenza, il gestore del sito può vedere l'elenco delle pagine con le loro statistiche e il registro delle
+        modifiche; mai gli indirizzi delle partenze né le conversazioni private con il Tour manager.
+      </p>
 
       <h2>Chi tratta i dati per noi</h2>
       <ul>

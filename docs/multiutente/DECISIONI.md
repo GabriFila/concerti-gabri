@@ -138,6 +138,7 @@ Stato al 2026-10-21: 25 conversazioni nell'indice di produzione
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN_RW` | ✓ | – | – |
 | `CHAT_SERVER_SECRET` | come `CHAT_SERVER_SECRET` (dev) / `…_PREVIEW`; `…_PROD` nel profilo `prod`, allo switch | Preview (sensitive); Production allo switch | dev, default preview, `preview/multiutente`; prod allo switch |
 | `AUTH_DEV_OTP=1` | – | – | dev, default preview, `preview/multiutente`; **mai** prod |
+| `ADMIN_USER_IDS` (non segreta) | – | – | dev (`agile-leopard-908`); preview a mano se serve; prod solo da Gabri (vedi «Vista admin») |
 | altre variabili della Fase 3 | vedi "Decisioni della Fase 3" → "Variabili d'ambiente nuove" | | |
 
 ## Da fare allo switch
@@ -813,6 +814,65 @@ Convex, e i file pesano 50 MB al minuto.
   fuoco su «Aggiungi foto» (la scelta dei file la apre solo un suo tocco).
   Non è un link segreto: serve il login. Gli agenti lo propongono dopo aver
   aggiunto o completato un concerto passato (`ISTRUZIONI_MCP`).
+
+## Vista admin (Gabri, 2026-11-12)
+
+Una vista **in sola lettura** per Gabri, per assistenza: `/admin` (tutti i
+profili) e `/admin/<handle>` (il dettaglio di uno).
+
+- **Chi.** La variabile Convex `ADMIN_USER_IDS`: `authUserId` di Better Auth
+  separati da virgole; vuota o assente = nessun admin. Il controllo
+  (`requireAdmin`, `convex/lib/admin.ts`) guarda solo l'utente della
+  sessione (lo stesso di `requireOwner`): mai l'email, mai un token agente
+  (API key o OAuth, anche di Gabri), mai `as: "oracolo"`. Per tutti gli altri,
+  sessione assente compresa, `not_found` come `getOwned`: la funzione non
+  si distingue da una che non c'è. Non è un segreto, ma non sta in nessun
+  file del repo: si imposta con `npx convex env set` sul deployment.
+- **Ambienti.** Accesa su dev (`agile-leopard-908`) e, se serve, sulla
+  preview. In produzione resta spenta finché Gabri non imposta lui
+  `ADMIN_USER_IDS` lì.
+- **Builder.** `adminQuery`/`adminMutation` in `convex/lib/builders.ts`
+  (`kind: "admin"`, etichetta obbligatoria `adminOnly: "<motivo>"`, `returns`
+  obbligatorio, argomenti larghi come le funzioni del proprietario, così un
+  `agentToken` o un `as` arrivano a `requireAdmin` e ricevono `not_found`
+  invece di un errore di validazione). `registry.test.ts` e
+  `isolation.test.ts` le conoscono: tre funzioni, nessuna nel catalogo, una
+  sola scrittura.
+- **Cosa si vede.** `admin:profili`: tutti i profili, anche in onboarding
+  senza handle: id, handle, nome, stato, creazione, ultima voce del
+  registro, conteggi (eventi, concerti come `flatConcerts`, persone, foto,
+  wishlist, chat pubbliche e private vive, contate fino a 200 per tipo),
+  partenze come nome e "indirizzo impostato/mancante" (`hasAddress`) e le
+  sezioni nascoste. `admin:profilo({handle})`: gli stessi campi, le ultime 50
+  righe del registro (autore, op, data, riassunto: quello di `#attivita`) e
+  i metadati dei thread (visibilità, messaggi, date; titolo e autore solo dei
+  pubblici, già pubblici su `chat.listThreads`).
+- **Cosa non esce mai.** Email, indirizzi e coordinate delle partenze e le
+  tabelle private delle partenze (`convex/privacy.test.ts` resta senza
+  eccezioni), `authUserId`, chiavi API, token, hash e chiavi di scrittura
+  delle chat, il testo e il titolo dei thread del Tour manager. I `returns`
+  sono l'elenco chiuso dei campi. Niente «impersona utente»: le funzioni
+  `owner*` non cambiano e non prendono mai un `profileId`.
+- **Registro degli accessi.** Le query non scrivono: la pagina chiama una
+  volta per vista `admin:registraAccesso`, l'unica scrittura admin, che
+  aggiunge una riga a `adminAccessi` (`authUserId`, `vista`, `profileId?`,
+  `at`). Non va in `activity`, che è dell'utente e alimenta l'«Annulla».
+  Le righe restano anche se il profilo guardato si cancella (c'è solo un id
+  opaco).
+- **Pagine.** SSR con `noindex`; per chi non è admin il loader lancia
+  `notFound()` (lo stesso 404 delle rotte sconosciute, senza titolo né CSS
+  propri) e toglie la query fallita dalla cache della richiesta. CSS `ad-*`
+  in `src/admin/admin.css`, colori dai token. Nessun link dal resto del
+  sito; `admin` era già tra gli handle riservati. Il dettaglio è
+  `src/routes/admin_.$handle.tsx` (non annidato sotto l'elenco).
+- **Privacy.** `/privacy` («Cosa è pubblico») dice che il gestore vede, per
+  assistenza, l'elenco delle pagine con le statistiche e il registro, mai gli
+  indirizzi né le conversazioni private con il Tour manager.
+- **Test.** `convex/admin.test.ts` (sentinelle di indirizzo, email, chiave e
+  chat privata), `e2e/admin.spec.ts` (`@sessione`: l'admin vede l'elenco,
+  un utente e un visitatore hanno 404) e `e2e/fughe/admin.spec.ts` (il
+  canarino non è nell'HTML delle due pagine). In locale gli e2e rendono admin
+  un utente di prova con `node scripts/convex-locale.mjs admin <id>`.
 
 ## UX di /modifica (corsia ux-modifica, 2026-10-24)
 

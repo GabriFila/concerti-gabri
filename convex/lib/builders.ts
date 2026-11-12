@@ -11,6 +11,10 @@
      del proprietario può mandare `as: "oracolo"`, e può già fare una per una
      le scritture che quella funzione compone;
    - onboardingMutation   l'unica che accetta un profilo in onboarding;
+   - adminQuery/Mutation  la vista admin in sola lettura (DECISIONI «Vista
+     admin»): etichetta `adminOnly: "<motivo>"`, `returns` obbligatorio,
+     solo la sessione di un utente in ADMIN_USER_IDS (lib/admin.ts);
+     l'unica adminMutation è il registro degli accessi;
    - internalQuery/Mutation/Action  interne.
    convex/registry.test.ts scorre gli export e rifiuta tutto il resto.
 
@@ -20,7 +24,7 @@
    l'handler, dopo aver risolto l'attore (PIANO §1.25).
    ────────────────────────────────────────────────────────────── */
 
-import { v, type GenericValidator, type PropertyValidators, type VAny } from "convex/values";
+import { v, type GenericValidator, type Infer, type PropertyValidators, type VAny } from "convex/values";
 import type { z } from "zod";
 import type { Doc } from "../_generated/dataModel";
 import {
@@ -29,16 +33,19 @@ import {
   type ActionCtx, type MutationCtx, type QueryCtx,
 } from "../_generated/server";
 import { rateLimiter } from "../rateLimits.ts";
+import { requireAdmin, type Admin } from "./admin.ts";
 import { errore, parseInput } from "./errors.ts";
 import { requireOwner, requireOwnerAction, type Owner, type OwnerOptions } from "./owner.ts";
 
-export type FnKind = "public" | "owner" | "onboarding" | "internal";
+export type FnKind = "public" | "owner" | "onboarding" | "admin" | "internal";
 export interface FnMeta {
   kind: FnKind;
   type: "query" | "mutation" | "action";
   catalogOp?: string;
   dashboardOnly?: string;
   oracoloOnly?: string;
+  /** Solo per `kind: "admin"`: perché la funzione esiste (vista admin). */
+  adminOnly?: string;
   /** Lo schema Zod dell'input: per una `catalogOp` è lo STESSO oggetto del catalogo (registry.test). */
   input?: z.ZodType;
 }
@@ -142,6 +149,47 @@ export function onboardingMutation<I extends z.ZodType, R>(spec: { input: I; han
     },
   });
   return tag(fn, { kind: "onboarding", type: "mutation", dashboardOnly: "onboarding", input: spec.input });
+}
+
+/* ── admin (sola lettura, più il registro degli accessi) ──────── */
+
+/**
+ * Stessi argomenti larghi delle funzioni del proprietario: un `agentToken` o
+ * un `as` arrivano fino a requireAdmin, che risponde `not_found` (non un
+ * errore di validazione che direbbe che la funzione esiste e com'è fatta).
+ */
+export function adminQuery<I extends z.ZodType, Returns extends GenericValidator>(spec: {
+  adminOnly: string;
+  input: I;
+  returns: Returns;
+  handler: (ctx: QueryCtx, admin: Admin, input: z.output<I>) => Promise<Infer<Returns>>;
+}) {
+  const fn = query({
+    args: ownerArgs<I>(),
+    returns: spec.returns,
+    handler: async (ctx, a): Promise<Infer<Returns>> => {
+      const admin = await requireAdmin(ctx, a);
+      return await spec.handler(ctx, admin, parseInput(spec.input, a.input));
+    },
+  });
+  return tag(fn, { kind: "admin", type: "query", adminOnly: spec.adminOnly, input: spec.input });
+}
+
+export function adminMutation<I extends z.ZodType, Returns extends GenericValidator>(spec: {
+  adminOnly: string;
+  input: I;
+  returns: Returns;
+  handler: (ctx: MutationCtx, admin: Admin, input: z.output<I>) => Promise<Infer<Returns>>;
+}) {
+  const fn = mutation({
+    args: ownerArgs<I>(),
+    returns: spec.returns,
+    handler: async (ctx, a): Promise<Infer<Returns>> => {
+      const admin = await requireAdmin(ctx, a);
+      return await spec.handler(ctx, admin, parseInput(spec.input, a.input));
+    },
+  });
+  return tag(fn, { kind: "admin", type: "mutation", adminOnly: spec.adminOnly, input: spec.input });
 }
 
 /* ── interne ───────────────────────────────────────────────────── */

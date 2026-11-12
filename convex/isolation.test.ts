@@ -5,13 +5,20 @@
    chiama come Oracolo (`as: "oracolo"`); un agente riceve `solo_oracolo`.
    Alla fine i dati di A sono identici. */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { codiceDi } from "./lib/errors.ts";
 import { trovaTutti } from "./lib/agentToken.ts";
 import { registro } from "./test.registry.ts";
 import { nuovaRichiestaConsenso, nuovoClientOAuth, nuovoTokenOAuth } from "./test.authFinto.ts";
 import { conProfilo, setup, venue, type T } from "./test.setup";
 import { api } from "./_generated/api";
+
+/** Input delle funzioni admin (vista admin): tutte vanno chiamate, con dati di A. */
+const INPUT_ADMIN: Record<string, unknown> = {
+  "admin:profili": {},
+  "admin:profilo": { handle: "utente-a" },
+  "admin:registraAccesso": { vista: "profilo", handle: "utente-a" },
+};
 
 /** Input con gli id di A, per funzione. `null` = la funzione non prende id. */
 function inputCon(ids: Record<string, string>): Record<string, unknown | null> {
@@ -165,5 +172,55 @@ describe("isolamento tra profili", () => {
     }
     expect(await datiDi(t, a.profileId)).toEqual(prima);
     expect(await authDi(t)).toEqual(authPrima);
+  });
+});
+
+describe("isolamento delle funzioni admin", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("chi non è in ADMIN_USER_IDS (sessione, sessione come Oracolo, API key, token OAuth, anonimo) riceve solo not_found, anche un token dell'admin", async () => {
+    const t = setup();
+    vi.stubEnv("ADMIN_USER_IDS", "u-admin");
+    const admin = await conProfilo(t, "u-admin", "utente-admin");
+    const a = await conProfilo(t, "u-a", "utente-a");
+    await a.as.mutation(api.people.add, { input: { name: "Lu" } });
+    const prima = await datiDi(t, a.profileId);
+    const chiaveA = (await a.as.mutation(api.agents.createApiKey, { input: { nome: "A" } })).chiave;
+    const chiaveAdmin = (await admin.as.mutation(api.agents.createApiKey, { input: { nome: "Admin" } })).chiave;
+    await nuovoClientOAuth(t, "client-admin");
+    const tokenAdmin = await nuovoTokenOAuth(t, "u-admin", "client-admin");
+
+    const fns = registro().filter(f => f.meta?.kind === "admin");
+    expect(fns.map(f => f.path).filter(p => !(p in INPUT_ADMIN))).toEqual([]);
+    const attori = [
+      { nome: "sessione", chi: a.as, extra: {} },
+      { nome: "sessione come Oracolo", chi: a.as, extra: { as: "oracolo" } },
+      { nome: "API key", chi: t, extra: { agentToken: chiaveA } },
+      { nome: "anonimo", chi: t, extra: {} },
+      { nome: "admin come Oracolo", chi: admin.as, extra: { as: "oracolo" } },
+      { nome: "API key dell'admin", chi: t, extra: { agentToken: chiaveAdmin } },
+      { nome: "token OAuth dell'admin", chi: t, extra: { agentToken: tokenAdmin } },
+      { nome: "sessione dell'admin con un token", chi: admin.as, extra: { agentToken: chiaveAdmin } },
+    ];
+    for (const { nome, chi, extra } of attori) {
+      for (const f of fns) {
+        const args = { ...extra, input: INPUT_ADMIN[f.path] };
+        let codice = "ok";
+        try {
+          if (f.fn.isQuery) await chi.query(f.fn as never, args);
+          else await chi.mutation(f.fn as never, args);
+        } catch (e) {
+          codice = codiceDi(e) ?? "altro";
+        }
+        expect(codice, `${nome}: ${f.path}`).toBe("not_found");
+      }
+    }
+    // la sessione dell'admin, da sola, passa
+    for (const f of fns) {
+      const args = { input: INPUT_ADMIN[f.path] };
+      if (f.fn.isQuery) await admin.as.query(f.fn as never, args);
+      else await admin.as.mutation(f.fn as never, args);
+    }
+    expect(await datiDi(t, a.profileId)).toEqual(prima);
   });
 });

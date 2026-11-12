@@ -1,0 +1,56 @@
+/* ──────────────────────────────────────────────────────────────
+   La vista admin in sola lettura (/admin, /admin/<handle>). Classi `ad-*`,
+   colori solo dai token di styles.css (chiaro e scuro), testo sempre su
+   --text o --muted (contrasto ≥ 4.5:1 in entrambi i temi: --dim e --lamp
+   non reggono come colore di testo in chiaro). Ogni link e bottone è un
+   bersaglio da 44 px (e2e/helpers/accessibilita.ts).
+   ────────────────────────────────────────────────────────────── */
+
+/* styles.css dà regole globali a main, header, h1 e table (la pagina pubblica): qui si azzerano */
+.ad{display:block;max-width:1240px;margin:0 auto;padding:32px 16px 64px;color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.45}
+.ad .ad-testa{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin:0 0 16px;padding:0;position:static}
+.ad .ad-h1{font-family:'Fraunces',serif;font-weight:500;font-size:clamp(1.6rem,4vw,2.2rem);line-height:1.15;letter-spacing:0;margin:0}
+.ad .ad-h2{font-family:'Fraunces',serif;font-weight:500;font-size:1.25rem;line-height:1.3;margin:32px 0 12px;letter-spacing:0}
+.ad-nota{color:var(--muted);margin:0}
+.ad-muto{color:var(--muted)}
+
+/* link e bottoni: bersagli da 44 px, fuoco visibile */
+.ad-link,.ad-ordina{display:inline-flex;align-items:center;min-height:44px;min-width:44px;padding:0 8px;color:var(--text);border-radius:8px}
+.ad-link{text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line-2)}
+.ad-link:hover{text-decoration-color:var(--text)}
+.ad-ordina{gap:6px;background:none;border:0;font:inherit;font-weight:600;cursor:pointer;text-align:left;white-space:nowrap}
+.ad-ordina:hover{background:var(--panel-2)}
+.ad-link:focus-visible,.ad-ordina:focus-visible,.ad-scorri:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+.ad-freccia{font-size:.8em;color:var(--muted);min-width:1em}
+.ad-indietro{margin:0 0 8px -8px}
+
+/* tabelle: scorrono in orizzontale sul telefono (niente scroll della pagina); la prima colonna resta ferma */
+.ad-scorri{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.ad-didascalia{caption-side:top;text-align:left;padding:8px 12px;color:var(--muted);font-size:.85rem}
+.ad .ad-tabella{width:100%;min-width:0;border-collapse:collapse;font-size:.9rem;font-variant-numeric:tabular-nums}
+.ad .ad-tabella :is(th,td){padding:0 10px;height:48px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap;
+  width:auto;min-width:0;max-width:none;overflow:visible;text-overflow:clip;position:static;font-size:inherit;letter-spacing:0;text-transform:none;user-select:auto;cursor:auto}
+.ad .ad-tabella th{font-weight:600;color:var(--text);background:var(--panel-2)}
+.ad .ad-tabella td{color:var(--text);background:var(--panel)}
+.ad .ad-tabella tbody tr:hover td{background:var(--panel-2)}
+.ad .ad-tabella tbody tr:last-child td{border-bottom:0}
+.ad .ad-tabella .ad-num{text-align:right}
+.ad .ad-tabella th.ad-num .ad-ordina{justify-content:flex-end;width:100%}
+.ad .ad-tabella td.ad-testo{white-space:normal;min-width:28ch;padding-top:8px;padding-bottom:8px}
+.ad .ad-tabella .ad-ordina{margin:0 -8px}
+/* elenco: il profilo resta visibile scorrendo */
+.ad .ad-fissa :is(th,td):first-child{position:sticky;left:0;z-index:1;box-shadow:1px 0 0 var(--line)}
+.ad .ad-tabella td > .ad-link:first-child{margin-left:-8px}
+.ad-link-riga{display:flex;flex-wrap:wrap;gap:0 8px;margin-left:-8px}
+.ad-tabella .ad-link-riga{flex-wrap:nowrap}
+
+/* stato */
+.ad-stato{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--line-2);font-size:.85em}
+
+/* il riquadro dei conteggi del dettaglio */
+.ad-conteggi{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:0;padding:0}
+.ad-conteggio{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.ad-conteggio dt{color:var(--muted);font-size:.85em;margin:0}
+.ad-conteggio dd{margin:4px 0 0;font-size:1.4rem;font-weight:600;font-variant-numeric:tabular-nums}
+.ad-elenco{margin:0;padding-left:20px}
+.ad-elenco li{margin:4px 0}

@@ -213,6 +213,13 @@ export const fields = {
     type: v.string(),
     createdAt: v.number(),
   },
+  // il registro degli accessi alla vista admin (convex/admin.ts): di Gabri, non dell'utente (niente `activity`)
+  adminAccessi: {
+    authUserId: v.string(),
+    vista: v.union(v.literal("elenco"), v.literal("profilo")),
+    profileId: v.optional(v.id("profiles")),
+    at: v.number(),
+  },
 };
 
 export default defineSchema({
@@ -248,4 +255,5 @@ export default defineSchema({
     .index("by_profile_visibility_updatedAt", ["profileId", "visibility", "updatedAt"])
     .index("by_expires", ["expiresAt"]),
   devOtpOutbox: defineTable(fields.devOtpOutbox).index("by_email", ["email"]),
+  adminAccessi: defineTable(fields.adminAccessi).index("by_at", ["at"]),
 });

@@ -82,6 +82,22 @@ describe("registro delle funzioni", () => {
     }
   });
 
+  it("ogni funzione admin ha adminOnly con motivo e nessun'altra etichetta; adminOnly solo sulle admin", () => {
+    const admin = tutte.filter(f => f.meta?.kind === "admin");
+    expect(admin.map(f => f.path).sort()).toEqual(["admin:profili", "admin:profilo", "admin:registraAccesso"]);
+    for (const f of admin) {
+      const m = f.meta!;
+      expect(m.adminOnly?.length ?? 0, `${f.path}: motivo`).toBeGreaterThan(3);
+      expect([m.catalogOp, m.dashboardOnly, m.oracoloOnly].filter(Boolean), f.path).toEqual([]);
+      expect(f.fn.exportReturns(), `${f.path}: returns esplicito`).not.toBeNull();
+    }
+    expect(tutte.filter(f => f.meta?.adminOnly && f.meta.kind !== "admin").map(f => f.path)).toEqual([]);
+    // sola lettura: l'unica scrittura admin è il registro degli accessi
+    expect(admin.filter(f => !f.fn.isQuery).map(f => f.path)).toEqual(["admin:registraAccesso"]);
+    // nessuna funzione admin è un'operazione del catalogo (MCP, Tour manager)
+    expect(CATALOGO.filter(o => admin.some(f => f.path === o.funzione)).map(o => o.name)).toEqual([]);
+  });
+
   it("le funzioni oracoloOnly (la scheda dell'Oracolo) non sono mai del catalogo né di MCP", () => {
     const solo = tutte.filter(f => f.meta?.oracoloOnly).map(f => f.path);
     expect(solo).toEqual(["entries:salvaScheda"]);
@@ -126,8 +142,8 @@ describe("registro delle funzioni", () => {
     }
   });
 
-  it("le funzioni del proprietario hanno argomenti larghi: solo agentToken, as, input (any)", () => {
-    for (const f of tutte.filter(x => x.meta?.kind === "owner" || x.meta?.kind === "onboarding")) {
+  it("le funzioni del proprietario e admin hanno argomenti larghi: solo agentToken, as, input (any)", () => {
+    for (const f of tutte.filter(x => x.meta?.kind === "owner" || x.meta?.kind === "onboarding" || x.meta?.kind === "admin")) {
       const args = JSON.parse(f.fn.exportArgs());
       expect(Object.keys(args.value).sort(), f.path).toEqual(["agentToken", "as", "input"]);
       for (const k of ["agentToken", "as", "input"]) expect(args.value[k].fieldType.type, `${f.path}.${k}`).toBe("any");

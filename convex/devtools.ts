@@ -5,6 +5,7 @@
    ────────────────────────────────────────────────────────────── */
 
 import { v } from "convex/values";
+import { components } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { entryInput } from "../shared/schema/entry.ts";
@@ -106,6 +107,18 @@ export const creaProfiloDiProva = internalMutation({
   },
 });
 
+/** e2e/admin.spec.ts: l'id Better Auth dell'utente di prova con questa email (per ADMIN_USER_IDS del backend locale), o null. */
+export const idUtenteDiProva = internalQuery({
+  args: { email: v.string() },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { email }) => {
+    guardiaSviluppo();
+    if (!email.startsWith("e2e-")) throw new Error("solo per gli utenti di prova e2e-*");
+    const u = (await ctx.runQuery(components.betterAuth.adapter.findOne, { model: "user", where: [{ field: "email", value: email }] })) as { _id: string } | null;
+    return u?._id ?? null;
+  },
+});
+
 /** Salva un indirizzo di prova (il canarino) su una partenza, senza Nominatim. */
 export const setDepartureForTest = internalMutation({
   args: { handle: v.string(), departure: v.string(), address: v.string(), lng: v.number(), lat: v.number() },
@@ -123,7 +136,7 @@ export const setDepartureForTest = internalMutation({
 });
 
 const TABELLE_APP = [
-  "entries", "foto", "people", "gifters", "wishlist", "activity", "chatThreads", "handleAliases", "devOtpOutbox", "venueSearchCache",
+  "entries", "foto", "people", "gifters", "wishlist", "activity", "chatThreads", "handleAliases", "devOtpOutbox", "venueSearchCache", "adminAccessi",
 ] as const;
 
 async function svuotaProfilo(ctx: MutationCtx, profileId: Id<"profiles">) {

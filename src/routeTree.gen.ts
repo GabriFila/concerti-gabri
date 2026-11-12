@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HandleRouteImport } from './routes/$handle'
 import { Route as AccediRouteImport } from './routes/accedi'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AutorizzaRouteImport } from './routes/autorizza'
 import { Route as BenvenutoRouteImport } from './routes/benvenuto'
 import { Route as DatiRouteImport } from './routes/dati'
@@ -22,6 +23,7 @@ import { Route as HandleDatiRouteImport } from './routes/$handle.dati'
 import { Route as HandleManifestDotwebmanifestRouteImport } from './routes/$handle.manifest[.]webmanifest'
 import { Route as HandleModificaRouteImport } from './routes/$handle.modifica'
 import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known/oauth-authorization-server'
+import { Route as AdminHandleRouteImport } from './routes/admin_.$handle'
 import { Route as OgHandleRouteImport } from './routes/og/$handle'
 import { Route as DotwellKnownOauthProtectedResourceIndexRouteImport } from './routes/[.]well-known/oauth-protected-resource/index'
 import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known/oauth-protected-resource/mcp'
@@ -43,6 +45,11 @@ const HandleRoute = HandleRouteImport.update({
 const AccediRoute = AccediRouteImport.update({
   id: '/accedi',
   path: '/accedi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutorizzaRoute = AutorizzaRouteImport.update({
@@ -97,6 +104,11 @@ const DotwellKnownOauthAuthorizationServerRoute =
     path: '/.well-known/oauth-authorization-server',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminHandleRoute = AdminHandleRouteImport.update({
+  id: '/admin_/$handle',
+  path: '/admin/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OgHandleRoute = OgHandleRouteImport.update({
   id: '/og/$handle',
   path: '/og/$handle',
@@ -139,6 +151,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRouteWithChildren
   '/accedi': typeof AccediRoute
+  '/admin': typeof AdminRoute
   '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
   '/dati': typeof DatiRoute
@@ -148,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/$handle/manifest.webmanifest': typeof HandleManifestDotwebmanifestRoute
   '/$handle/modifica': typeof HandleModificaRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/admin/$handle': typeof AdminHandleRoute
   '/og/$handle': typeof OgHandleRoute
   '/$handle/': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
@@ -160,6 +174,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accedi': typeof AccediRoute
+  '/admin': typeof AdminRoute
   '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
   '/dati': typeof DatiRoute
@@ -169,6 +184,7 @@ export interface FileRoutesByTo {
   '/$handle/manifest.webmanifest': typeof HandleManifestDotwebmanifestRoute
   '/$handle/modifica': typeof HandleModificaRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/admin/$handle': typeof AdminHandleRoute
   '/og/$handle': typeof OgHandleRoute
   '/$handle': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
@@ -183,6 +199,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/$handle': typeof HandleRouteWithChildren
   '/accedi': typeof AccediRoute
+  '/admin': typeof AdminRoute
   '/autorizza': typeof AutorizzaRoute
   '/benvenuto': typeof BenvenutoRoute
   '/dati': typeof DatiRoute
@@ -192,6 +209,7 @@ export interface FileRoutesById {
   '/$handle/manifest.webmanifest': typeof HandleManifestDotwebmanifestRoute
   '/$handle/modifica': typeof HandleModificaRoute
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
+  '/admin_/$handle': typeof AdminHandleRoute
   '/og/$handle': typeof OgHandleRoute
   '/$handle/': typeof HandleIndexRoute
   '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
@@ -207,6 +225,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$handle'
     | '/accedi'
+    | '/admin'
     | '/autorizza'
     | '/benvenuto'
     | '/dati'
@@ -216,6 +235,7 @@ export interface FileRouteTypes {
     | '/$handle/manifest.webmanifest'
     | '/$handle/modifica'
     | '/.well-known/oauth-authorization-server'
+    | '/admin/$handle'
     | '/og/$handle'
     | '/$handle/'
     | '/.well-known/oauth-protected-resource/mcp'
@@ -228,6 +248,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accedi'
+    | '/admin'
     | '/autorizza'
     | '/benvenuto'
     | '/dati'
@@ -237,6 +258,7 @@ export interface FileRouteTypes {
     | '/$handle/manifest.webmanifest'
     | '/$handle/modifica'
     | '/.well-known/oauth-authorization-server'
+    | '/admin/$handle'
     | '/og/$handle'
     | '/$handle'
     | '/.well-known/oauth-protected-resource/mcp'
@@ -250,6 +272,7 @@ export interface FileRouteTypes {
     | '/'
     | '/$handle'
     | '/accedi'
+    | '/admin'
     | '/autorizza'
     | '/benvenuto'
     | '/dati'
@@ -259,6 +282,7 @@ export interface FileRouteTypes {
     | '/$handle/manifest.webmanifest'
     | '/$handle/modifica'
     | '/.well-known/oauth-authorization-server'
+    | '/admin_/$handle'
     | '/og/$handle'
     | '/$handle/'
     | '/.well-known/oauth-protected-resource/mcp'
@@ -273,12 +297,14 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HandleRoute: typeof HandleRouteWithChildren
   AccediRoute: typeof AccediRoute
+  AdminRoute: typeof AdminRoute
   AutorizzaRoute: typeof AutorizzaRoute
   BenvenutoRoute: typeof BenvenutoRoute
   DatiRoute: typeof DatiRoute
   McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
   DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
+  AdminHandleRoute: typeof AdminHandleRoute
   OgHandleRoute: typeof OgHandleRoute
   DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -309,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/accedi'
       fullPath: '/accedi'
       preLoaderRoute: typeof AccediRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/autorizza': {
@@ -379,6 +412,13 @@ declare module '@tanstack/react-router' {
       path: '/.well-known/oauth-authorization-server'
       fullPath: '/.well-known/oauth-authorization-server'
       preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/$handle': {
+      id: '/admin_/$handle'
+      path: '/admin/$handle'
+      fullPath: '/admin/$handle'
+      preLoaderRoute: typeof AdminHandleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/og/$handle': {
@@ -454,6 +494,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HandleRoute: HandleRouteWithChildren,
   AccediRoute: AccediRoute,
+  AdminRoute: AdminRoute,
   AutorizzaRoute: AutorizzaRoute,
   BenvenutoRoute: BenvenutoRoute,
   DatiRoute: DatiRoute,
@@ -461,6 +502,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   DotwellKnownOauthAuthorizationServerRoute:
     DotwellKnownOauthAuthorizationServerRoute,
+  AdminHandleRoute: AdminHandleRoute,
   OgHandleRoute: OgHandleRoute,
   DotwellKnownOauthProtectedResourceMcpRoute:
     DotwellKnownOauthProtectedResourceMcpRoute,

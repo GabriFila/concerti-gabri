@@ -13,6 +13,8 @@ import { extra, layout, PASSI_ONBOARDING, STATI_PROFILO, tema } from "./profile.
 const ms = (d: string) => z.number().describe(d);
 
 export const ATTORI = ["dashboard", "oracolo", "mcp", "apikey", "sistema"] as const;
+/** Le due pagine della vista admin (registro degli accessi, convex/admin.ts). */
+export const VISTE_ADMIN = ["elenco", "profilo"] as const;
 
 export const tables = {
   profiles: {
@@ -168,6 +170,12 @@ export const tables = {
     otp: z.string().describe("Codice"),
     type: z.string().describe("Tipo"),
     createdAt: ms("Creazione (ms)"),
+  },
+  adminAccessi: {
+    authUserId: z.string().describe("Admin che ha aperto la vista (mai pubblico)"),
+    vista: z.enum(VISTE_ADMIN).describe("Elenco dei profili o dettaglio di uno"),
+    profileId: idDi("profiles").optional().describe("Profilo guardato (solo nel dettaglio)"),
+    at: ms("Quando (ms)"),
   },
 } as const;
 

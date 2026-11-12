@@ -11,6 +11,8 @@
      node scripts/convex-locale.mjs seed            `convex run seed:ensure`
      node scripts/convex-locale.mjs run <fn> ['{json}']  `convex run` sul deployment locale
                                                     (solo modulo:funzione e un oggetto JSON)
+     node scripts/convex-locale.mjs admin <id,…|->  ADMIN_USER_IDS del deployment locale
+                                                    (gli e2e della vista admin; `-` la toglie)
 
    Scelta dello spike del traguardo 2: backend LOCALE ANONIMO (agent mode,
    https://docs.convex.dev/cli/agent-mode). Non serve lo slug del team, non
@@ -267,7 +269,7 @@ async function freePort() {
 function siteUrl() {
   const r = spawnSync("portless", ["get", "concerti-gabri"], { cwd: ROOT, encoding: "utf8", env: buildEnv({ parent: process.env }) });
   const url = (r.stdout || "").trim();
-  if (r.status !== 0 || !/^https?:\/\/[a-z0-9.-]+\.localhost:\d+$/.test(url)) fail("portless get non ha dato un URL *.localhost");
+  if (r.status !== 0 || !/^https?:\/\/[a-z0-9.-]+\.localhost(?::\d+)?$/.test(url)) fail("portless get non ha dato un URL *.localhost");
   return url;
 }
 
@@ -349,6 +351,17 @@ async function runFn(fn, json, extra) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+/** ADMIN_USER_IDS del deployment locale (non è un segreto: ids opachi di Better Auth). `-` la toglie. */
+async function setAdmin(valore) {
+  if (valore !== "-" && !/^[A-Za-z0-9_-]+(?:,[A-Za-z0-9_-]+)*$/.test(valore ?? "")) fail("uso: admin <id>[,<id>…] oppure admin -");
+  await assertLocal({ needRunning: true });
+  const r = valore === "-"
+    ? run([...CONVEX, "env", "remove", ...ENV_FILE, "ADMIN_USER_IDS"], { quiet: true })
+    : run([...CONVEX, "env", "set", ...ENV_FILE, "ADMIN_USER_IDS", valore], { quiet: true });
+  if (r.status !== 0) fail("convex env non riuscito per ADMIN_USER_IDS");
+  log(valore === "-" ? "ADMIN_USER_IDS tolta" : "ADMIN_USER_IDS impostata");
+}
+
 async function status() {
   const wt = readEnvFile(WT_FILE);
   if (!wt) return log("nessun deployment locale (init)");
@@ -375,7 +388,8 @@ switch (cmd) {
   case "env": await setEnv(); break;
   case "seed": await seed(); break;
   case "run": await runFn(rest[0], rest[1], rest.slice(2)); break;
+  case "admin": await setAdmin(rest[0]); break;
   default:
-    console.error("uso: node scripts/convex-locale.mjs init [--keep] | up | down | status | push | env | seed");
+    console.error("uso: node scripts/convex-locale.mjs init [--keep] | up | down | status | push | env | seed | run | admin");
     process.exit(2);
 }
