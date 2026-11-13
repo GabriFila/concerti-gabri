@@ -15,6 +15,8 @@
    - Ogni vista ricorda il suo scroll; cambiando vista il focus va al suo
      titolo (non al primo caricamento). Il titolo (h1 `#<id>-titolo`) lo
      rende la vista stessa, nella sua testata (IntestazioneVista).
+   - Sul telefono uno scorrimento di lato passa alla vista prima o dopo
+     (ui/scorrimento.ts), se nessun pannello o foglio è aperto.
    - `/` porta alla ricerca della vista (Concerti, Persone, Attività), se
      non si sta scrivendo e nessuna finestra modale è aperta.
    - Le notifiche (ui/Toast.tsx) stanno in fondo, fuori dalle sezioni; i
@@ -41,7 +43,8 @@ import { useDistintivi } from "./shell/useDistintivi.ts";
 import { RegioneToast, ToastProvider } from "./ui/Toast.tsx";
 import { useMisura } from "./useMisura.ts";
 import { conStato, useVista, useVoceStoria, type StatoModifica } from "./useVista.ts";
-import { leggiHash, type IdVista } from "./vista.ts";
+import { useScorrimentoSezioni } from "../ui/scorrimento.ts";
+import { haPannello, leggiHash, VISTE, type IdVista } from "./vista.ts";
 
 /** Le viste di impostazioni: una colonna stretta (760 px); Stile un po' più larga, per l'anteprima accanto al tema. */
 const LARGHEZZA: Partial<Record<IdVista, string>> = { stile: " mf-vista-media", agenti: " mf-vista-stretta", account: " mf-vista-stretta" };
@@ -68,7 +71,7 @@ function ProviderModifica({ w, children }: { w: number | null; children: ReactNo
 }
 
 function App({ handle, w }: { handle: string; w: number | null }) {
-  const { pronta, vista, parametri } = useVista();
+  const { pronta, vista, parametri, vai } = useVista();
   const router = useRouter();
   const hash = useLocation({ select: l => l.hash });
   const oracolo = useOracoloInterno();
@@ -107,6 +110,13 @@ function App({ handle, w }: { handle: string; w: number | null }) {
       hashScrollIntoView: false,
     });
   }, [pronta, router, handle]);
+
+  // sul telefono, col dito di lato, la vista prima o dopo (nell'ordine di VISTE), se niente è aperto sopra
+  useScorrimentoSezioni(nav === "schede" && !!vista && !haPannello(parametri) && !oracolo.aperto && !altro.aperto, d => {
+    if (!vista) return;
+    const prossima = VISTE[VISTE.indexOf(vista) + (d === "successivo" ? 1 : -1)];
+    if (prossima) void vai(prossima);
+  });
 
   useScrollPerVista(vista);
   useScorciatoiaCerca();

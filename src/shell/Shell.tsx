@@ -8,10 +8,12 @@
    dati · Modifica, SPEC §3) e due per tutti gli altri. Chi è il
    proprietario lo dice useIsOwner() (solo UX: i controlli veri sono nelle
    funzioni Convex), già nell'SSR quando la richiesta ha una sessione.
+   Sul telefono uno scorrimento di lato passa da Sul palco a I dati e
+   ritorno (ui/scorrimento.ts).
    ────────────────────────────────────────────────────────────── */
 
 import React from "react";
-import { Link, Outlet, getRouteApi, useRouterState } from "@tanstack/react-router";
+import { Link, Outlet, getRouteApi, useRouter, useRouterState } from "@tanstack/react-router";
 import { flatConcerts } from "../../shared/model/concert.ts";
 import { applyFilters, describeFilters, mergeToolFilters, rebaseFilters, sameBounds } from "../../shared/lib/filters.ts";
 import { formaDi } from "../../shared/labels.ts";
@@ -23,6 +25,7 @@ import { useIsOwner } from "../lib/viewer.ts";
 import { useProfile } from "../profile/ProfileContext.tsx";
 import { migrateLegacyTheme, resolveTema, writeTemaCookie, type Tema } from "../theme/tema.ts";
 import { TocButton } from "../toc/TocButton.tsx";
+import { useScorrimentoSezioni } from "../ui/scorrimento.ts";
 
 /* Shared page context: the chat opener, provided by the Shell and consumed by
    the routed pages. */
@@ -61,6 +64,12 @@ export function Shell(){
   const isModifica=/\/modifica\/?$/.test(pathname);
   const view=isDati?"dati":isModifica?"modifica":"ritratto";
   const isOwner=useIsOwner(profile.handle);
+  // col dito di lato: da «Sul palco» a «I dati» e ritorno (mai verso /modifica, che è un'altra app)
+  const router=useRouter();
+  useScorrimentoSezioni(!isModifica,d=>{
+    if(d==="successivo"&&view==="ritratto") void router.navigate({to:"/$handle/dati",params:{handle:profile.handle}});
+    else if(d==="precedente"&&view==="dati") void router.navigate({to:"/$handle",params:{handle:profile.handle}});
+  });
   const chatApi=React.useRef<ChatApi|null>(null);
   // Callbacks eseguiti dai tool della chat AI. Identità stabile (la chat li tiene
   // nel suo contesto); i filtri correnti si leggono via ref, non via closure.

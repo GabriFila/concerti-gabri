@@ -264,7 +264,7 @@ export default function TrendPlot({ points, trend, from, yMin, yMax, yInterval, 
   }, [points, yMax]);
 
   return (
-    <div ref={outer} className="trendbox" role="img" aria-label={"Andamento di " + label + " nel tempo"}>
+    <div ref={outer} className="trendbox" data-gesto="" role="img" aria-label={"Andamento di " + label + " nel tempo"}>
       <div ref={box} className="trendcanvas"/>
     </div>
   );

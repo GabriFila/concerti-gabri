@@ -4,7 +4,8 @@ import type React from "react";
 // Swipe support for cards with a view toggle: on touch devices a horizontal
 // swipe on the card switches view (left = next tab, right = previous tab).
 // Swipes that start inside horizontally-scrollable areas (e.g. the timeline
-// track) are ignored so they keep scrolling normally.
+// track) are ignored so they keep scrolling normally. `data-gesto` tells the
+// page-level swipe (ui/scorrimento.ts) to leave this card's swipes alone.
 export function useSwipeToggle(onPrev:()=>void,onNext:()=>void){
   const start=useRef<{x:number;y:number}|null>(null);
   const onTouchStart=(e:React.TouchEvent<HTMLElement>)=>{
@@ -20,5 +21,5 @@ export function useSwipeToggle(onPrev:()=>void,onNext:()=>void){
     start.current=null;
     if(Math.abs(dx)>48&&Math.abs(dx)>Math.abs(dy)*1.5){ if(dx<0) onNext(); else onPrev(); }
   };
-  return {onTouchStart,onTouchEnd};
+  return {onTouchStart,onTouchEnd,"data-gesto":""};
 }

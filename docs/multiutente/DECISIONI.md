@@ -1060,6 +1060,16 @@ Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):
   dopo i comandi dello Shell: per metterlo primo va toccato
   `src/shell/Shell.tsx`. Restano a mano VoiceOver, TalkBack, NVDA e un
   telefono vero.
+- **Scorrimento di lato** (Gabri, 2026-11-12; `src/ui/scorrimento.ts`): col
+  dito verso sinistra la sezione dopo, verso destra quella prima, senza giro.
+  Sulla pagina pubblica tra Sul palco e I dati (mai fino a /modifica); in
+  /modifica solo con la barra in basso (sotto 768 px), nell'ordine di `VISTE`,
+  e mai con un pannello, l'Oracolo o «Altro» aperti. Il gesto non vale se parte
+  in un campo, una finestra, la mappa, un'area che scorre di lato o un elemento
+  con un gesto suo (`data-gesto`: le schede con le viste da sfogliare, il
+  grafico dell'andamento), a 24 px dal bordo (il gesto «indietro» del sistema),
+  con due dita o testo selezionato; vuole almeno 64 px, due volte più in
+  orizzontale che in verticale, entro 800 ms. `e2e/scorrimento.spec.ts`.
 
 ## Scheda dell'Oracolo (corsia ux-agente, 2026-10-24)
 
