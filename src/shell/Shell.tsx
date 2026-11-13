@@ -9,7 +9,7 @@
    proprietario lo dice useIsOwner() (solo UX: i controlli veri sono nelle
    funzioni Convex), già nell'SSR quando la richiesta ha una sessione.
    Sul telefono uno scorrimento di lato passa da Sul palco a I dati e
-   ritorno (ui/scorrimento.ts).
+   ritorno, e per il proprietario da I dati a Modifica (ui/scorrimento.ts).
    ────────────────────────────────────────────────────────────── */
 
 import React from "react";
@@ -64,10 +64,12 @@ export function Shell(){
   const isModifica=/\/modifica\/?$/.test(pathname);
   const view=isDati?"dati":isModifica?"modifica":"ritratto";
   const isOwner=useIsOwner(profile.handle);
-  // col dito di lato: da «Sul palco» a «I dati» e ritorno (mai verso /modifica, che è un'altra app)
+  // col dito di lato: Sul palco ↔ I dati, e per il proprietario I dati → Modifica (un caricamento vero,
+  // come il link della scheda: /modifica ha il suo guard sul server); da Modifica si torna in Scheletro.tsx
   const router=useRouter();
   useScorrimentoSezioni(!isModifica,d=>{
     if(d==="successivo"&&view==="ritratto") void router.navigate({to:"/$handle/dati",params:{handle:profile.handle}});
+    else if(d==="successivo"&&view==="dati"&&isOwner) window.location.assign("/"+profile.handle+"/modifica");
     else if(d==="precedente"&&view==="dati") void router.navigate({to:"/$handle",params:{handle:profile.handle}});
   });
   const chatApi=React.useRef<ChatApi|null>(null);

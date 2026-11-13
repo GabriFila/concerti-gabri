@@ -1065,9 +1065,11 @@ Supera SPEC §3 («una pagina sola a sezioni con ancore… finestre modali»):
   telefono vero.
 - **Scorrimento di lato** (Gabri, 2026-11-12; `src/ui/scorrimento.ts`): col
   dito verso sinistra la sezione dopo, verso destra quella prima, senza giro.
-  Sulla pagina pubblica tra Sul palco e I dati (mai fino a /modifica); in
-  /modifica solo con la barra in basso (sotto 768 px), nell'ordine di `VISTE`,
-  e mai con un pannello, l'Oracolo o «Altro» aperti. Il gesto non vale se parte
+  Sulla pagina pubblica tra Sul palco e I dati e, per il proprietario, da I
+  dati a /modifica (Gabri, 2026-11-13: l'ordine delle schede in alto; un
+  caricamento vero come il link); in /modifica solo con la barra in basso
+  (sotto 768 px), nell'ordine di `VISTE`, con I dati prima di Concerti, e mai
+  con un pannello, l'Oracolo o «Altro» aperti. Il gesto non vale se parte
   in un campo, una finestra, la mappa, un'area che scorre di lato o un elemento
   con un gesto suo (`data-gesto`: le schede con le viste da sfogliare, il
   grafico dell'andamento), a 24 px dal bordo (il gesto «indietro» del sistema),

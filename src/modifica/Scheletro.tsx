@@ -16,7 +16,8 @@
      titolo (non al primo caricamento). Il titolo (h1 `#<id>-titolo`) lo
      rende la vista stessa, nella sua testata (IntestazioneVista).
    - Sul telefono uno scorrimento di lato passa alla vista prima o dopo
-     (ui/scorrimento.ts), se nessun pannello o foglio è aperto.
+     (ui/scorrimento.ts), se nessun pannello o foglio è aperto; prima di
+     Concerti c'è «I dati» della pagina pubblica.
    - `/` porta alla ricerca della vista (Concerti, Persone, Attività), se
      non si sta scrivendo e nessuna finestra modale è aperta.
    - Le notifiche (ui/Toast.tsx) stanno in fondo, fuori dalle sezioni; i
@@ -111,11 +112,13 @@ function App({ handle, w }: { handle: string; w: number | null }) {
     });
   }, [pronta, router, handle]);
 
-  // sul telefono, col dito di lato, la vista prima o dopo (nell'ordine di VISTE), se niente è aperto sopra
+  // sul telefono, col dito di lato, la vista prima o dopo (nell'ordine di VISTE), se niente è aperto sopra;
+  // prima della prima vista c'è «I dati», come nelle schede in alto (Sul palco · I dati · Modifica)
   useScorrimentoSezioni(nav === "schede" && !!vista && !haPannello(parametri) && !oracolo.aperto && !altro.aperto, d => {
     if (!vista) return;
-    const prossima = VISTE[VISTE.indexOf(vista) + (d === "successivo" ? 1 : -1)];
-    if (prossima) void vai(prossima);
+    const i = VISTE.indexOf(vista) + (d === "successivo" ? 1 : -1);
+    if (i < 0) void router.navigate({ to: "/$handle/dati", params: { handle } });
+    else if (VISTE[i]) void vai(VISTE[i]);
   });
 
   useScrollPerVista(vista);

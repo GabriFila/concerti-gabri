@@ -4,8 +4,10 @@
    - pagina pubblica: da «Sul palco» a «I dati» col dito verso sinistra,
      e ritorno verso destra; dal bordo dello schermo non succede niente
      (è il gesto «indietro» del sistema);
-   - /modifica: Concerti → Wishlist → Persone e ritorno; dalla prima vista
-     verso destra niente; con un pannello aperto niente.
+   - per il proprietario: da «I dati» verso sinistra a /modifica, e dalla
+     prima vista verso destra di nuovo a «I dati»;
+   - /modifica: Concerti → Wishlist → Persone e ritorno; con un pannello
+     aperto niente.
 
    Tocchi veri (Input.dispatchTouchEvent di CDP), non eventi sintetici:
    passano dagli stessi ascoltatori del dito.
@@ -50,7 +52,7 @@ test.describe("scorrimento di lato", () => {
     await expect(page).toHaveURL(/\/gabrifila\/dati$/);
     await expect(page.getByRole("tab", { name: "I dati" })).toHaveAttribute("aria-selected", "true");
 
-    // ancora verso sinistra: I dati è l'ultima (Modifica non si raggiunge così)
+    // ancora verso sinistra: per un visitatore I dati è l'ultima (Modifica è solo del proprietario)
     await scorri(page, cdp, -1);
     await expect(page).toHaveURL(/\/gabrifila\/dati$/);
 
@@ -74,7 +76,7 @@ test.describe("scorrimento di lato in /modifica", { tag: "@sessione" }, () => {
     if (!onPreview(info.project.name)) convexRun("devtools:cleanupE2E");
   });
 
-  test("le viste nell'ordine, ma non con un pannello aperto", async ({ page }) => {
+  test("I dati ↔ Modifica, le viste nell'ordine, ma non con un pannello aperto", async ({ page }) => {
     test.setTimeout(120_000);
     const { handle } = await nuovoProprietario(page, { forma: "f", nome: "Scorrimento" });
     const cdp = await page.context().newCDPSession(page);
@@ -82,8 +84,13 @@ test.describe("scorrimento di lato in /modifica", { tag: "@sessione" }, () => {
     await idratata(page);
     await expect(page.locator("section#concerti")).toBeVisible();
 
-    // la prima vista: verso destra non c'è niente
+    // la prima vista: verso destra c'è «I dati», e da lì verso sinistra si torna a Modifica
     await scorri(page, cdp, 1);
+    await expect(page).toHaveURL(new RegExp(`/${handle}/dati$`));
+    await idratata(page);
+    await scorri(page, cdp, -1);
+    await expect(page).toHaveURL(new RegExp(`/${handle}/modifica`));
+    await idratata(page);
     await expect(page.locator("section#concerti")).toBeVisible();
 
     // all'altezza del titolo della vista: un campo di testo tiene il dito per sé (il cursore)
