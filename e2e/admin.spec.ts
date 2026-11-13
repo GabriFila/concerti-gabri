@@ -8,7 +8,8 @@
      scuro; nell'HTML c'è `noindex`.
    - Un utente normale e un visitatore anonimo ricevono il 404 delle
      pagine inesistenti, per l'elenco e per il dettaglio, e l'HTML non
-     nomina le funzioni admin.
+     nomina le funzioni admin. Il visitatore ha l'«Entra» di ogni 404
+     (con `next` = la pagina), l'utente no.
    Alla fine ADMIN_USER_IDS si toglie. @sessione, solo in locale.
    ────────────────────────────────────────────────────────────── */
 
@@ -86,6 +87,7 @@ test.describe("vista admin", { tag: "@sessione" }, () => {
       const r = await page.goto(percorso);
       expect(r?.status(), `utente: ${percorso}`).toBe(404);
       await expect(page.getByRole("heading", { name: "Qui non suona nessuno" })).toBeVisible();
+      await expect(page.getByRole("link", { name: "Entra", exact: true })).toHaveCount(0);
       const { status, html } = await htmlConSessione(page, percorso);
       expect(status).toBe(404);
       expect(html).not.toMatch(/admin:|Profili · Admin|noindex, nofollow/);
@@ -94,7 +96,11 @@ test.describe("vista admin", { tag: "@sessione" }, () => {
     for (const percorso of ["/admin", "/admin/gabrifila"]) {
       const r = await http(new URL(percorso, baseURL).href);
       expect(r.status(), `visitatore: ${percorso}`).toBe(404);
-      expect(await r.text()).not.toMatch(/admin:|Profili · Admin/);
+      const html = await r.text();
+      expect(html).not.toMatch(/admin:|Profili · Admin/);
+      // lo stesso «Entra» di ogni 404, che torna qui dopo il login
+      expect(html).toContain(`href="/accedi?next=${encodeURIComponent(percorso)}"`);
     }
+    expect(await (await http(new URL("/nessuna-pagina-qui", baseURL).href)).text()).toContain('href="/accedi?next=%2Fnessuna-pagina-qui"');
   });
 });

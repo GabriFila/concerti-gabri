@@ -861,7 +861,10 @@ profili) e `/admin/<handle>` (il dettaglio di uno).
   opaco).
 - **Pagine.** SSR con `noindex`; per chi non è admin il loader lancia
   `notFound()` (lo stesso 404 delle rotte sconosciute, senza titolo né CSS
-  propri) e toglie la query fallita dalla cache della richiesta. CSS `ad-*`
+  propri) e toglie la query fallita dalla cache della richiesta. Per entrare,
+  il 404 offre a ogni visitatore anonimo «Entra» (`/accedi?next=<la pagina>`,
+  `src/shell/NotFound.tsx`): è lo stesso su tutti i 404, così non dice che
+  /admin esiste (Gabri, 2026-11-13). CSS `ad-*`
   in `src/admin/admin.css`, colori dai token. Nessun link dal resto del
   sito; `admin` era già tra gli handle riservati. Il dettaglio è
   `src/routes/admin_.$handle.tsx` (non annidato sotto l'elenco).
