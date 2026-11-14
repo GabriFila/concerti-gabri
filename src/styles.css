@@ -1014,7 +1014,7 @@
   .star{position:relative;top:-1px;display:inline-block}
   /* bounded scroll region so the sticky thead has something to pin against; search bar sits above and stays visible */
   .tablewrap{overflow:auto;max-height:clamp(360px,70vh,760px);border-top:1px solid var(--line-2)}
-  table{border-collapse:collapse;width:100%;min-width:560px;font-size:.9rem;--col1-w:118px}
+  table{border-collapse:collapse;width:100%;min-width:560px;font-size:.9rem;--col1-w:132px}
   thead th{position:sticky;top:0;z-index:3;background:var(--panel);color:var(--muted);text-align:left;padding:14px 16px 14px 0;font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;white-space:nowrap;user-select:none;border-bottom:1px solid var(--line-2);font-weight:500}
   thead th:first-child{padding-left:0}
   thead th .ar{margin-left:6px;display:inline-flex;vertical-align:middle;position:relative;top:-1px}
@@ -1029,7 +1029,7 @@
   td.date{color:var(--dim);font-size:.82rem;font-variant-numeric:tabular-nums;white-space:nowrap}
   /* col1 is now Artista (pinned); col2 is Data. Keep Data narrow with tabular nums, clip a long artist name. */
   thead th:nth-child(1),tbody td:nth-child(1){max-width:190px;overflow:hidden;text-overflow:ellipsis}
-  thead th:nth-child(2),tbody td:nth-child(2){width:var(--col1-w,118px);min-width:var(--col1-w,118px);max-width:var(--col1-w,118px);overflow:hidden;text-overflow:ellipsis}
+  thead th:nth-child(2),tbody td:nth-child(2){width:var(--col1-w,132px);min-width:var(--col1-w,132px);max-width:var(--col1-w,132px);overflow:hidden;text-overflow:ellipsis;padding-left:14px}
   td.cost{white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
   td.cost .cval{color:var(--text);font-weight:500}
   td.cost .cgift{color:var(--text);display:flex;align-items:center;justify-content:center;gap:5px}
